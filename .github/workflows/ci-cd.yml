@@ -1,0 +1,366 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  NODE_VERSION: '18.x'
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  # Quality Assurance
+  quality:
+    name: Code Quality & Testing
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: transcript-analytics-platform/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: transcript-analytics-platform
+      run: npm ci
+      
+    - name: Type checking
+      working-directory: transcript-analytics-platform
+      run: npm run type-check
+      
+    - name: Lint code
+      working-directory: transcript-analytics-platform
+      run: npm run lint
+      
+    - name: Format check
+      working-directory: transcript-analytics-platform
+      run: npm run format:check
+      
+    - name: Run unit tests
+      working-directory: transcript-analytics-platform
+      run: npm run test:coverage
+      
+    - name: Run integration tests
+      working-directory: transcript-analytics-platform
+      run: npm run test:integration
+      
+    - name: Run accessibility tests
+      working-directory: transcript-analytics-platform
+      run: npm run test:accessibility
+      
+    - name: Run performance tests
+      working-directory: transcript-analytics-platform
+      run: npm run test:performance
+      
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        directory: transcript-analytics-platform/coverage
+        fail_ci_if_error: true
+
+  # Security Audit
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: transcript-analytics-platform/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: transcript-analytics-platform
+      run: npm ci
+      
+    - name: Run security audit
+      working-directory: transcript-analytics-platform
+      run: npm run security:audit
+      
+    - name: Run Snyk security scan
+      uses: snyk/actions/node@master
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      with:
+        args: --severity-threshold=high --file=transcript-analytics-platform/package.json
+
+  # Build & Bundle Analysis
+  build:
+    name: Build & Bundle Analysis
+    runs-on: ubuntu-latest
+    needs: [quality, security]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: transcript-analytics-platform/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: transcript-analytics-platform
+      run: npm ci
+      
+    - name: Build application
+      working-directory: transcript-analytics-platform
+      run: npm run build
+      env:
+        NODE_ENV: production
+        
+    - name: Generate bundle analysis
+      working-directory: transcript-analytics-platform
+      run: ANALYZE=true npm run build
+      
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: |
+          transcript-analytics-platform/.next/
+          transcript-analytics-platform/bundle-analyzer-report.html
+        retention-days: 7
+
+  # End-to-End Testing
+  e2e:
+    name: End-to-End Tests
+    runs-on: ubuntu-latest
+    needs: [build]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: transcript-analytics-platform/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: transcript-analytics-platform
+      run: npm ci
+      
+    - name: Install Playwright browsers
+      working-directory: transcript-analytics-platform
+      run: npx playwright install --with-deps
+      
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifacts
+        path: transcript-analytics-platform/
+        
+    - name: Start application
+      working-directory: transcript-analytics-platform
+      run: |
+        npm start &
+        sleep 10
+      env:
+        NODE_ENV: production
+        
+    - name: Run E2E tests
+      working-directory: transcript-analytics-platform
+      run: npm run test:e2e
+      
+    - name: Upload E2E test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: e2e-results
+        path: |
+          transcript-analytics-platform/test-results/
+          transcript-analytics-platform/playwright-report/
+        retention-days: 7
+
+  # Performance Testing
+  performance:
+    name: Performance Testing
+    runs-on: ubuntu-latest
+    needs: [build]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: transcript-analytics-platform/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: transcript-analytics-platform
+      run: npm ci
+      
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifacts
+        path: transcript-analytics-platform/
+        
+    - name: Start application
+      working-directory: transcript-analytics-platform
+      run: |
+        npm start &
+        sleep 10
+      env:
+        NODE_ENV: production
+        
+    - name: Run Lighthouse CI
+      working-directory: transcript-analytics-platform
+      run: npm run lighthouse
+      env:
+        LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+        
+    - name: Upload Lighthouse results
+      uses: actions/upload-artifact@v4
+      with:
+        name: lighthouse-results
+        path: transcript-analytics-platform/.lighthouseci/
+        retention-days: 7
+
+  # Deploy to Staging
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [e2e, performance]
+    if: github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: transcript-analytics-platform/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: transcript-analytics-platform
+      run: npm ci
+      
+    - name: Install Vercel CLI
+      run: npm install --global vercel@latest
+      
+    - name: Pull Vercel Environment Information
+      working-directory: transcript-analytics-platform
+      run: vercel pull --yes --environment=preview --token=${{ secrets.VERCEL_TOKEN }}
+      
+    - name: Build Project Artifacts
+      working-directory: transcript-analytics-platform
+      run: vercel build --token=${{ secrets.VERCEL_TOKEN }}
+      
+    - name: Deploy to Staging
+      working-directory: transcript-analytics-platform
+      run: |
+        DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})
+        echo "STAGING_URL=$DEPLOYMENT_URL" >> $GITHUB_ENV
+        
+    - name: Post-deployment validation
+      working-directory: transcript-analytics-platform
+      run: node scripts/post-deployment-validation.js --url ${{ env.STAGING_URL }}
+
+  # Deploy to Production
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [e2e, performance]
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: transcript-analytics-platform/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: transcript-analytics-platform
+      run: npm ci
+      
+    - name: Install Vercel CLI
+      run: npm install --global vercel@latest
+      
+    - name: Pull Vercel Environment Information
+      working-directory: transcript-analytics-platform
+      run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+      
+    - name: Build Project Artifacts
+      working-directory: transcript-analytics-platform
+      run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+      
+    - name: Deploy to Production
+      working-directory: transcript-analytics-platform
+      run: |
+        DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+        echo "PRODUCTION_URL=$DEPLOYMENT_URL" >> $GITHUB_ENV
+        
+    - name: Post-deployment validation
+      working-directory: transcript-analytics-platform
+      run: node scripts/post-deployment-validation.js --url ${{ env.PRODUCTION_URL }}
+      
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release v${{ github.run_number }}
+        body: |
+          Automated release from CI/CD pipeline
+          
+          **Deployment URL:** ${{ env.PRODUCTION_URL }}
+          **Commit:** ${{ github.sha }}
+          **Branch:** ${{ github.ref }}
+        draft: false
+        prerelease: false
+
+  # Monitoring Setup
+  monitoring:
+    name: Setup Monitoring
+    runs-on: ubuntu-latest
+    needs: [deploy-production]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Setup monitoring alerts
+      run: |
+        echo "Setting up monitoring alerts for production deployment"
+        # This would integrate with monitoring services like DataDog, New Relic, etc.
+        
+    - name: Configure health checks
+      run: |
+        echo "Configuring health check endpoints"
+        # This would set up external health check monitoring
+        
+    - name: Setup error tracking
+      run: |
+        echo "Configuring error tracking and alerting"
+        # This would configure Sentry or similar error tracking
