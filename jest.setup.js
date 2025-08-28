@@ -95,3 +95,14 @@ jest.mock('recharts', () => ({
   Legend: 'div',
   ResponsiveContainer: ({ children }) => children,
 }))
+
+// Mock sonner
+jest.mock('sonner', () => ({
+  toast: {
+    success: jest.fn(),
+    error: jest.fn(),
+    info: jest.fn(),
+    warning: jest.fn(),
+  },
+  Toaster: () => null,
+}))
