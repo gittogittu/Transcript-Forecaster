@@ -1,79 +1,89 @@
+"use client"
+
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertCircle } from "lucide-react"
 import Link from "next/link"
 
-interface ErrorPageProps {
-  searchParams: {
-    error?: string
-    error_description?: string
-  }
-}
+export default function AuthErrorPage() {
+  const searchParams = useSearchParams()
+  const error = searchParams.get("error")
 
-export default function AuthErrorPage({ searchParams }: ErrorPageProps) {
-  const error = searchParams.error
-  const errorDescription = searchParams.error_description
-
-  const getErrorMessage = (error: string) => {
+  const getErrorDetails = (error: string | null) => {
     switch (error) {
       case "Configuration":
-        return "There is a problem with the server configuration."
+        return {
+          title: "Server Configuration Error",
+          description: "There is a problem with the server configuration.",
+          suggestion: "Please contact the administrator."
+        }
       case "AccessDenied":
-        return "Access denied. You do not have permission to sign in."
+        return {
+          title: "Access Denied",
+          description: "You do not have permission to sign in.",
+          suggestion: "Please contact an administrator to request access."
+        }
       case "Verification":
-        return "The verification token has expired or has already been used."
-      case "OAuthCallback":
-        return "OAuth callback error. There might be an issue with the OAuth configuration."
+        return {
+          title: "Verification Error",
+          description: "The verification token has expired or has already been used.",
+          suggestion: "Please try signing in again."
+        }
       case "Default":
       default:
-        return "An error occurred during authentication."
+        return {
+          title: "Authentication Error",
+          description: "An error occurred during authentication.",
+          suggestion: "Please try signing in again."
+        }
     }
   }
 
+  const errorDetails = getErrorDetails(error)
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div className="text-center">
-          <AlertCircle className="mx-auto h-12 w-12 text-red-500" />
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Authentication Error
-          </h2>
-        </div>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-red-600">Sign In Failed</CardTitle>
-            <CardDescription>
-              {getErrorMessage(error || "Default")}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-gray-600">
-              Please try signing in again. If the problem persists, contact support.
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+            <AlertCircle className="h-6 w-6 text-red-600" />
+          </div>
+          <CardTitle className="text-2xl font-bold text-red-900">
+            {errorDetails.title}
+          </CardTitle>
+          <CardDescription className="text-red-700">
+            {errorDetails.description}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground mb-4">
+              {errorDetails.suggestion}
             </p>
-            {error && (
-              <div className="bg-red-50 border border-red-200 rounded p-3">
-                <p className="text-sm font-medium text-red-800">Error Code: {error}</p>
-                {errorDescription && (
-                  <p className="text-sm text-red-600 mt-1">{errorDescription}</p>
-                )}
-              </div>
-            )}
-            <div className="flex space-x-4">
-              <Button asChild className="flex-1">
+            
+            <div className="space-y-2">
+              <Button asChild className="w-full">
                 <Link href="/auth/signin">
                   Try Again
                 </Link>
               </Button>
-              <Button variant="outline" asChild className="flex-1">
+              
+              <Button asChild variant="outline" className="w-full">
                 <Link href="/">
                   Go Home
                 </Link>
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+
+          {error && (
+            <div className="mt-6 p-3 bg-gray-100 rounded text-xs text-gray-600">
+              <strong>Error Code:</strong> {error}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

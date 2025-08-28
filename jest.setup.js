@@ -2,6 +2,11 @@ import '@testing-library/jest-dom'
 import 'jest-axe/extend-expect'
 import { server } from './src/lib/testing/mocks/server'
 
+// Polyfills for Node.js environment
+const { TextEncoder, TextDecoder } = require('util')
+global.TextEncoder = TextEncoder
+global.TextDecoder = TextDecoder
+
 // Establish API mocking before all tests
 beforeAll(() => server.listen())
 
@@ -27,6 +32,35 @@ jest.mock('next/navigation', () => ({
   useSearchParams: jest.fn(),
 }))
 
+// Mock Next.js server components
+jest.mock('next/server', () => ({
+  NextRequest: jest.fn().mockImplementation((url) => ({
+    url,
+    nextUrl: new URL(url),
+    method: 'GET',
+    headers: new Map(),
+  })),
+  NextResponse: {
+    json: jest.fn().mockImplementation((data, init) => ({
+      json: () => Promise.resolve(data),
+      status: init?.status || 200,
+      ...init,
+    })),
+    redirect: jest.fn().mockImplementation((url) => ({
+      url,
+      status: 302,
+    })),
+    next: jest.fn().mockReturnValue({
+      status: 200,
+    }),
+  },
+}))
+
+// Mock next-auth/jwt
+jest.mock('next-auth/jwt', () => ({
+  getToken: jest.fn(),
+}))
+
 // Mock next/image
 jest.mock('next/image', () => ({
   __esModule: true,
@@ -36,41 +70,8 @@ jest.mock('next/image', () => ({
   },
 }))
 
-// Mock TensorFlow.js (now dynamically imported)
-jest.mock('@tensorflow/tfjs', () => ({
-  setBackend: jest.fn().mockResolvedValue(undefined),
-  ready: jest.fn().mockResolvedValue(undefined),
-  getBackend: jest.fn().mockReturnValue('cpu'),
-  sequential: jest.fn().mockReturnValue({
-    add: jest.fn(),
-    compile: jest.fn(),
-    fit: jest.fn().mockResolvedValue({ history: {} }),
-    predict: jest.fn().mockReturnValue({
-      data: jest.fn().mockResolvedValue([0.5]),
-      dispose: jest.fn(),
-    }),
-    dispose: jest.fn(),
-  }),
-  layers: {
-    dense: jest.fn().mockReturnValue({}),
-    dropout: jest.fn().mockReturnValue({}),
-  },
-  train: {
-    adam: jest.fn().mockReturnValue({}),
-  },
-  regularizers: {
-    l2: jest.fn().mockReturnValue({}),
-  },
-  tensor2d: jest.fn().mockReturnValue({
-    data: jest.fn().mockResolvedValue([]),
-    dispose: jest.fn(),
-    shape: [0, 0],
-  }),
-  tensor1d: jest.fn().mockReturnValue({
-    data: jest.fn().mockResolvedValue([]),
-    dispose: jest.fn(),
-  }),
-}))
+// Mock TensorFlow.js (will be added in task 8)
+// jest.mock('@tensorflow/tfjs', () => ({ ... }))
 
 // Mock Framer Motion
 jest.mock('framer-motion', () => ({

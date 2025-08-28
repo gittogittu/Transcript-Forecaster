@@ -2,6 +2,14 @@
 
 This guide explains how to set up and configure the database for the Transcript Analytics Platform, including migration from Google Sheets.
 
+## Recent Improvements
+
+The database connection system has been enhanced with:
+- **Neon DB Connection String Support**: Preferred method using `DATABASE_URL` for simplified setup
+- **Flexible Configuration**: Automatic fallback to individual parameters if connection string not provided
+- **Optimized Connection Pooling**: Improved timeout settings (20s connection, 10s idle) for better performance
+- **Enhanced SSL Support**: Proper SSL configuration for cloud databases with certificate handling
+
 ## Prerequisites
 
 - PostgreSQL 12 or higher
@@ -23,25 +31,55 @@ GOOGLE_SHEETS_SPREADSHEET_ID=your_spreadsheet_id
 GOOGLE_SHEETS_SHEET_NAME=Transcript Data
 GOOGLE_SHEETS_CREDENTIALS_PATH=path/to/credentials.json
 
-# Database Configuration (if using database)
+# Neon Database Configuration (Recommended - using connection string)
+DATABASE_URL=postgresql://username:password@ep-example-123456.us-east-1.aws.neon.tech/neondb?sslmode=require
+DATABASE_SSL=true
+
+# Alternative Database Configuration (individual parameters)
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_NAME=transcript_analytics
 DATABASE_USER=your_username
 DATABASE_PASSWORD=your_password
 DATABASE_SSL=false
+
+# Optional Database Pool Configuration
 DATABASE_MAX_CONNECTIONS=20
+DATABASE_POOL_TIMEOUT=20000
+DATABASE_IDLE_TIMEOUT=10000
 ```
 
 ## Database Setup
 
-### 1. Create Database
+### Option 1: Neon Database (Recommended)
 
-```sql
-CREATE DATABASE transcript_analytics;
-CREATE USER your_username WITH PASSWORD 'your_password';
-GRANT ALL PRIVILEGES ON DATABASE transcript_analytics TO your_username;
-```
+1. **Create a Neon account** at [neon.tech](https://neon.tech)
+2. **Create a new project** and database
+3. **Copy the connection string** from the Neon console
+4. **Add to your `.env.local`**:
+   ```env
+   DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
+   DATABASE_SSL=true
+   ```
+
+### Option 2: Local PostgreSQL
+
+1. **Create Database**:
+   ```sql
+   CREATE DATABASE transcript_analytics;
+   CREATE USER your_username WITH PASSWORD 'your_password';
+   GRANT ALL PRIVILEGES ON DATABASE transcript_analytics TO your_username;
+   ```
+
+2. **Configure individual parameters**:
+   ```env
+   DATABASE_HOST=localhost
+   DATABASE_PORT=5432
+   DATABASE_NAME=transcript_analytics
+   DATABASE_USER=your_username
+   DATABASE_PASSWORD=your_password
+   DATABASE_SSL=false
+   ```
 
 ### 2. Run Migrations
 
@@ -233,10 +271,12 @@ All database operations return consistent error structures with:
 ### Environment Configuration
 
 ```env
-# Production database settings
-DATABASE_HOST=your-production-host
+# Production database settings (Neon recommended)
+DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
 DATABASE_SSL=true
 DATABASE_MAX_CONNECTIONS=50
+DATABASE_POOL_TIMEOUT=30000
+DATABASE_IDLE_TIMEOUT=15000
 ```
 
 ### Migration Process

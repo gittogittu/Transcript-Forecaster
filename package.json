@@ -36,9 +36,11 @@
     "validate:deployment": "node scripts/post-deployment-validation.js",
     "lighthouse": "lhci autorun",
     "security:audit": "npm audit --audit-level=high",
-    "workflow:complete": "npm run integration:test && npm run build && npm run test:e2e"
+    "workflow:complete": "npm run integration:test && npm run build && npm run test:e2e",
+    "setup": "node scripts/setup-database.js"
   },
   "dependencies": {
+    "@auth0/nextjs-auth0": "^4.9.0",
     "@hookform/resolvers": "^5.2.1",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dropdown-menu": "^2.1.16",

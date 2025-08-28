@@ -1,5 +1,6 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
+import { UserRole } from "./lib/auth"
 
 export default withAuth(
   function middleware(req) {
@@ -7,10 +8,10 @@ export default withAuth(
     const isAuth = !!token
     const isAuthPage = req.nextUrl.pathname.startsWith("/auth")
     const isApiAuthRoute = req.nextUrl.pathname.startsWith("/api/auth")
-    const isPublicRoute = req.nextUrl.pathname === "/"
+    const isPublicRoute = req.nextUrl.pathname === "/" || req.nextUrl.pathname.startsWith("/api/health")
 
-    // Allow API auth routes
-    if (isApiAuthRoute) {
+    // Allow API auth routes and health checks
+    if (isApiAuthRoute || req.nextUrl.pathname.startsWith("/api/health")) {
       return NextResponse.next()
     }
 
@@ -36,10 +37,50 @@ export default withAuth(
       )
     }
 
-    // Check for admin routes
-    if (req.nextUrl.pathname.startsWith("/admin")) {
-      if (token?.role !== "admin") {
+    // Role-based route protection
+    if (token && isAuth) {
+      const userRole = token.role as UserRole
+      const pathname = req.nextUrl.pathname
+
+      // Admin-only routes
+      if (pathname.startsWith("/admin") && userRole !== "admin") {
         return NextResponse.redirect(new URL("/unauthorized", req.url))
+      }
+
+      // Performance monitoring (admin only)
+      if (pathname.startsWith("/performance") && userRole !== "admin") {
+        return NextResponse.redirect(new URL("/unauthorized", req.url))
+      }
+
+      // Analytics routes (analyst and admin)
+      if (pathname.startsWith("/analytics") && !["analyst", "admin"].includes(userRole)) {
+        return NextResponse.redirect(new URL("/unauthorized", req.url))
+      }
+
+      // API route protection
+      if (pathname.startsWith("/api/")) {
+        // Admin-only API routes
+        if (pathname.startsWith("/api/admin") && userRole !== "admin") {
+          return NextResponse.json({ error: "Access denied" }, { status: 403 })
+        }
+
+        // User management API (admin only)
+        if (pathname.startsWith("/api/users") && userRole !== "admin") {
+          return NextResponse.json({ error: "Access denied" }, { status: 403 })
+        }
+
+        // Analytics API (analyst and admin)
+        if (pathname.startsWith("/api/analytics") && !["analyst", "admin"].includes(userRole)) {
+          return NextResponse.json({ error: "Access denied" }, { status: 403 })
+        }
+
+        // Transcripts API - different permissions based on method
+        if (pathname.startsWith("/api/transcripts")) {
+          // Viewers can only read
+          if (userRole === "viewer" && req.method !== "GET") {
+            return NextResponse.json({ error: "Read-only access" }, { status: 403 })
+          }
+        }
       }
     }
 
@@ -52,6 +93,7 @@ export default withAuth(
         if (
           req.nextUrl.pathname === "/" ||
           req.nextUrl.pathname.startsWith("/api/auth") ||
+          req.nextUrl.pathname.startsWith("/api/health") ||
           req.nextUrl.pathname.startsWith("/auth")
         ) {
           return true

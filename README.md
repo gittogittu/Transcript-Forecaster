@@ -71,17 +71,69 @@ src/
 
 ## Getting Started
 
-1. Install dependencies:
+### Prerequisites
+
+- Node.js 18+ and npm
+- A Neon PostgreSQL database (get one free at [neon.tech](https://neon.tech))
+
+### Quick Setup
+
+1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. Run the development server:
+2. **Configure your database:**
+   ```bash
+   # Copy environment template
+   cp .env.example .env.local
+   
+   # Edit .env.local with your Neon DB connection string
+   # Get your connection string from: https://console.neon.tech/
+   # Example: DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
+   ```
+
+3. **Set up the database:**
+   ```bash
+   npm run setup
+   ```
+
+4. **Start the development server:**
    ```bash
    npm run dev
    ```
 
-3. Open [http://localhost:3000](http://localhost:3000) in your browser.
+5. **Open [http://localhost:3000](http://localhost:3000) in your browser.**
+
+### Manual Database Setup
+
+If you prefer to set up the database manually:
+
+1. **Configure environment variables** in `.env.local`:
+   ```env
+   # Preferred method: Use Neon connection string
+   DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
+   DATABASE_SSL=true
+   DATA_SOURCE_TYPE=database
+   
+   # Optional: Configure connection pool settings
+   DATABASE_MAX_CONNECTIONS=20
+   DATABASE_POOL_TIMEOUT=20000
+   DATABASE_IDLE_TIMEOUT=10000
+   ```
+
+2. **Run database migrations:**
+   ```bash
+   npm run db:migrate
+   ```
+
+3. **Check database status:**
+   ```bash
+   npm run db:status
+   ```
+
+4. **Test database connection:**
+   Visit `http://localhost:3000/api/health/database` after starting the dev server.
 
 ## Available Scripts
 
@@ -545,6 +597,14 @@ To enable the full analytics page:
    ```
 
 ## Recent Updates
+
+### Database Connection Enhancement
+- **Neon DB Optimization**: Enhanced database connection handling with preferred connection string support for Neon databases
+- **Flexible Configuration**: Support for both connection strings and individual database parameters with automatic fallback
+- **Improved Connection Pooling**: Optimized timeout values (20s connection, 10s idle) and connection pool settings for better performance
+- **SSL Configuration**: Enhanced SSL support with proper certificate handling for cloud databases (`rejectUnauthorized: false` for Neon compatibility)
+- **Environment Flexibility**: All database configuration parameters are now optional with sensible defaults
+- **Connection String Priority**: `DATABASE_URL` takes precedence over individual parameters for simplified Neon DB setup
 
 ### AHT Analytics Integration
 - **Comprehensive AHT Dashboard**: New analytics system for Average Handling Time data with client performance insights
