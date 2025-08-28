@@ -1,5 +1,8 @@
+'use client'
+
+import React from 'react'
 import { useQuery, useMutation, UseQueryResult, UseMutationResult } from '@tanstack/react-query'
-import { useState, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 
 // Enhanced loading states
 export interface LoadingState {
@@ -11,10 +14,10 @@ export interface LoadingState {
   isStale: boolean
 }
 
-// Enhanced error state
+// Enhanced error states
 export interface ErrorState {
-  error: Error | null
   isError: boolean
+  error: Error | null
   errorMessage: string | null
   errorCode: string | null
   canRetry: boolean
@@ -25,233 +28,269 @@ export interface ErrorState {
 export interface QueryState<T> extends LoadingState, ErrorState {
   data: T | undefined
   isSuccess: boolean
-  dataUpdatedAt: number
-  lastSuccessAt: number
+  refetch: () => void
+  retry: () => void
 }
 
-// Hook to extract enhanced loading states from query result
-export function useQueryLoadingState<T>(queryResult: UseQueryResult<T>): LoadingState {
-  const {
-    isLoading,
-    isFetching,
-    isRefetching,
-    isError,
-    isStale,
-    dataUpdatedAt,
-  } = queryResult
+// Hook to enhance query results with better loading and error states
+export function useEnhancedQuery<T>(
+  queryResult: UseQueryResult<T, Error>
+): QueryState<T> {
+  const [retryCount, setRetryCount] = useState(0)
 
-  return {
-    isLoading,
-    isInitialLoading: isLoading && !dataUpdatedAt,
-    isFetching,
-    isRefetching,
-    isLoadingError: isError && isLoading,
-    isStale,
+  const loadingState: LoadingState = {
+    isLoading: queryResult.isLoading,
+    isInitialLoading: queryResult.isLoading && !queryResult.data,
+    isFetching: queryResult.isFetching,
+    isRefetching: queryResult.isFetching && !!queryResult.data,
+    isLoadingError: queryResult.isError && queryResult.isLoading,
+    isStale: queryResult.isStale,
   }
-}
 
-// Hook to extract enhanced error states from query result
-export function useQueryErrorState<T>(queryResult: UseQueryResult<T>): ErrorState {
-  const { error, isError, failureCount, failureReason } = queryResult
-
-  const errorMessage = error?.message || null
-  const errorCode = error instanceof Error && 'code' in error 
-    ? (error as any).code 
-    : null
-
-  return {
-    error,
-    isError,
-    errorMessage,
-    errorCode,
-    canRetry: failureCount < 3, // Allow retry up to 3 times
-    retryCount: failureCount,
+  const errorState: ErrorState = {
+    isError: queryResult.isError,
+    error: queryResult.error,
+    errorMessage: queryResult.error?.message || null,
+    errorCode: getErrorCode(queryResult.error),
+    canRetry: queryResult.isError && queryResult.failureCount < 3,
+    retryCount,
   }
-}
 
-// Combined hook for complete query state
-export function useQueryState<T>(queryResult: UseQueryResult<T>): QueryState<T> {
-  const loadingState = useQueryLoadingState(queryResult)
-  const errorState = useQueryErrorState(queryResult)
+  const retry = () => {
+    setRetryCount(prev => prev + 1)
+    queryResult.refetch()
+  }
 
   return {
     ...loadingState,
     ...errorState,
     data: queryResult.data,
     isSuccess: queryResult.isSuccess,
-    dataUpdatedAt: queryResult.dataUpdatedAt,
-    lastSuccessAt: queryResult.dataUpdatedAt,
+    refetch: queryResult.refetch,
+    retry,
   }
 }
 
-// Hook for mutation loading states
+// Enhanced mutation states
 export interface MutationState {
-  isLoading: boolean
+  isPending: boolean
   isSuccess: boolean
   isError: boolean
   error: Error | null
   errorMessage: string | null
+  errorCode: string | null
   canRetry: boolean
   reset: () => void
+  retry: () => void
 }
 
-export function useMutationState<T, V>(mutationResult: UseMutationResult<T, Error, V>): MutationState {
-  const { isPending, isSuccess, isError, error, reset } = mutationResult
+// Hook to enhance mutation results
+export function useEnhancedMutation<TData, TError extends Error, TVariables>(
+  mutationResult: UseMutationResult<TData, TError, TVariables>
+): MutationState {
+  const [lastVariables, setLastVariables] = useState<TVariables | null>(null)
 
-  return {
-    isLoading: isPending,
-    isSuccess,
-    isError,
-    error,
-    errorMessage: error?.message || null,
-    canRetry: !isPending && isError,
-    reset,
+  // Store variables for retry
+  useEffect(() => {
+    if (mutationResult.isPending && mutationResult.variables) {
+      setLastVariables(mutationResult.variables)
+    }
+  }, [mutationResult.isPending, mutationResult.variables])
+
+  const retry = () => {
+    if (lastVariables) {
+      mutationResult.mutate(lastVariables)
+    }
   }
-}
-
-// Hook for managing retry logic
-export function useRetryLogic() {
-  const [retryCount, setRetryCount] = useState(0)
-  const [isRetrying, setIsRetrying] = useState(false)
-
-  const retry = useCallback(async (retryFn: () => Promise<void>, maxRetries: number = 3) => {
-    if (retryCount >= maxRetries) {
-      return false
-    }
-
-    setIsRetrying(true)
-    try {
-      await retryFn()
-      setRetryCount(0)
-      return true
-    } catch (error) {
-      setRetryCount(prev => prev + 1)
-      return false
-    } finally {
-      setIsRetrying(false)
-    }
-  }, [retryCount])
-
-  const resetRetry = useCallback(() => {
-    setRetryCount(0)
-    setIsRetrying(false)
-  }, [])
 
   return {
-    retryCount,
-    isRetrying,
-    canRetry: retryCount < 3,
+    isPending: mutationResult.isPending,
+    isSuccess: mutationResult.isSuccess,
+    isError: mutationResult.isError,
+    error: mutationResult.error,
+    errorMessage: mutationResult.error?.message || null,
+    errorCode: getErrorCode(mutationResult.error),
+    canRetry: mutationResult.isError && !!lastVariables,
+    reset: mutationResult.reset,
     retry,
-    resetRetry,
   }
 }
 
-// Hook for managing global loading state across multiple queries
-export function useGlobalLoadingState(queries: UseQueryResult<any>[]) {
-  const hasAnyLoading = queries.some(query => query.isLoading)
-  const hasAnyFetching = queries.some(query => query.isFetching)
-  const hasAnyError = queries.some(query => query.isError)
-  const allSuccess = queries.every(query => query.isSuccess)
-
-  const errors = queries
-    .filter(query => query.isError)
-    .map(query => query.error)
-    .filter(Boolean) as Error[]
-
-  return {
-    isLoading: hasAnyLoading,
-    isFetching: hasAnyFetching,
-    isError: hasAnyError,
-    isSuccess: allSuccess && !hasAnyLoading,
-    errors,
-    errorMessages: errors.map(error => error.message),
-  }
+// Loading state components
+export interface LoadingStateProps {
+  isLoading: boolean
+  isInitialLoading: boolean
+  isFetching: boolean
+  children: React.ReactNode
+  fallback?: React.ReactNode
+  skeleton?: React.ReactNode
 }
 
-// Hook for debounced loading states (prevents flickering)
-export function useDebouncedLoadingState(isLoading: boolean, delay: number = 200) {
-  const [debouncedLoading, setDebouncedLoading] = useState(false)
+export function LoadingStateWrapper({
+  isLoading,
+  isInitialLoading,
+  isFetching,
+  children,
+  fallback,
+  skeleton,
+}: LoadingStateProps) {
+  if (isInitialLoading) {
+    return skeleton || fallback || React.createElement(DefaultSkeleton)
+  }
 
-  useState(() => {
-    let timeoutId: NodeJS.Timeout
+  return React.createElement(
+    'div',
+    { className: 'relative' },
+    children,
+    isFetching && !isInitialLoading && React.createElement(
+      'div',
+      { className: 'absolute top-2 right-2' },
+      React.createElement(RefreshIndicator)
+    )
+  )
+}
 
-    if (isLoading) {
-      timeoutId = setTimeout(() => setDebouncedLoading(true), delay)
-    } else {
-      setDebouncedLoading(false)
-    }
+// Error state components
+export interface ErrorStateProps {
+  isError: boolean
+  error: Error | null
+  canRetry: boolean
+  onRetry: () => void
+  children: React.ReactNode
+  fallback?: React.ReactNode
+}
 
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId)
-    }
+export function ErrorStateWrapper({
+  isError,
+  error,
+  canRetry,
+  onRetry,
+  children,
+  fallback,
+}: ErrorStateProps) {
+  if (isError) {
+    return fallback || React.createElement(DefaultErrorDisplay, {
+      error,
+      canRetry,
+      onRetry
+    })
+  }
+
+  return React.createElement(React.Fragment, null, children)
+}
+
+// Combined query state wrapper
+export interface QueryStateWrapperProps<T> {
+  queryState: QueryState<T>
+  children: (data: T) => React.ReactNode
+  loadingSkeleton?: React.ReactNode
+  errorFallback?: React.ReactNode
+}
+
+export function QueryStateWrapper<T>({
+  queryState,
+  children,
+  loadingSkeleton,
+  errorFallback,
+}: QueryStateWrapperProps<T>) {
+  return React.createElement(
+    LoadingStateWrapper,
+    {
+      isLoading: queryState.isLoading,
+      isInitialLoading: queryState.isInitialLoading,
+      isFetching: queryState.isFetching,
+      skeleton: loadingSkeleton,
+    },
+    React.createElement(
+      ErrorStateWrapper,
+      {
+        isError: queryState.isError,
+        error: queryState.error,
+        canRetry: queryState.canRetry,
+        onRetry: queryState.retry,
+        fallback: errorFallback,
+      },
+      queryState.data && children(queryState.data)
+    )
+  )
+}
+
+// Utility functions
+function getErrorCode(error: Error | null): string | null {
+  if (!error) return null
+
+  // Extract error code from different error types
+  if ('code' in error) return (error as any).code
+  if ('status' in error) return String((error as any).status)
+  if (error.message.includes('404')) return '404'
+  if (error.message.includes('401')) return '401'
+  if (error.message.includes('403')) return '403'
+  if (error.message.includes('500')) return '500'
+
+  return 'UNKNOWN'
+}
+
+// Default components
+function DefaultSkeleton() {
+  return React.createElement(
+    'div',
+    { className: 'animate-pulse space-y-4' },
+    React.createElement('div', { className: 'h-4 bg-gray-200 rounded w-3/4' }),
+    React.createElement('div', { className: 'h-4 bg-gray-200 rounded w-1/2' }),
+    React.createElement('div', { className: 'h-4 bg-gray-200 rounded w-5/6' })
+  )
+}
+
+function RefreshIndicator() {
+  return React.createElement('div', {
+    className: 'w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin'
   })
-
-  return debouncedLoading
 }
 
-// Hook for error recovery strategies
-export function useErrorRecovery() {
-  const [recoveryAttempts, setRecoveryAttempts] = useState(0)
+interface DefaultErrorDisplayProps {
+  error: Error | null
+  canRetry: boolean
+  onRetry: () => void
+}
 
-  const attemptRecovery = useCallback(async (
-    recoveryFn: () => Promise<void>,
-    maxAttempts: number = 3
-  ) => {
-    if (recoveryAttempts >= maxAttempts) {
-      return { success: false, reason: 'Max recovery attempts reached' }
-    }
+function DefaultErrorDisplay({ error, canRetry, onRetry }: DefaultErrorDisplayProps) {
+  return React.createElement(
+    'div',
+    { className: 'p-4 border border-red-200 rounded-lg bg-red-50' },
+    React.createElement('h3', { className: 'text-red-800 font-medium' }, 'Something went wrong'),
+    React.createElement(
+      'p',
+      { className: 'text-red-600 text-sm mt-1' },
+      error?.message || 'An unexpected error occurred'
+    ),
+    canRetry && React.createElement(
+      'button',
+      {
+        onClick: onRetry,
+        className: 'mt-2 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700'
+      },
+      'Try Again'
+    )
+  )
+}
 
-    try {
-      await recoveryFn()
-      setRecoveryAttempts(0)
-      return { success: true }
-    } catch (error) {
-      setRecoveryAttempts(prev => prev + 1)
-      return { 
-        success: false, 
-        reason: error instanceof Error ? error.message : 'Unknown error',
-        canRetry: recoveryAttempts + 1 < maxAttempts
-      }
-    }
-  }, [recoveryAttempts])
+// Hook for global error handling
+export function useGlobalErrorHandler() {
+  const [globalError, setGlobalError] = useState<Error | null>(null)
 
-  const resetRecovery = useCallback(() => {
-    setRecoveryAttempts(0)
-  }, [])
+  const handleError = (error: Error, context?: string) => {
+    console.error(`Error in ${context || 'unknown context'}:`, error)
+    setGlobalError(error)
 
-  return {
-    recoveryAttempts,
-    attemptRecovery,
-    resetRecovery,
-    canAttemptRecovery: recoveryAttempts < 3,
+    // Could integrate with error reporting service here
+    // reportError(error, context)
   }
-}
 
-// Hook for optimistic update error handling
-export function useOptimisticErrorHandling<T>() {
-  const [optimisticData, setOptimisticData] = useState<T | null>(null)
-  const [hasOptimisticError, setHasOptimisticError] = useState(false)
-
-  const setOptimistic = useCallback((data: T) => {
-    setOptimisticData(data)
-    setHasOptimisticError(false)
-  }, [])
-
-  const handleOptimisticError = useCallback(() => {
-    setHasOptimisticError(true)
-    // Keep optimistic data for potential retry
-  }, [])
-
-  const clearOptimistic = useCallback(() => {
-    setOptimisticData(null)
-    setHasOptimisticError(false)
-  }, [])
+  const clearError = () => setGlobalError(null)
 
   return {
-    optimisticData,
-    hasOptimisticError,
-    setOptimistic,
-    handleOptimisticError,
-    clearOptimistic,
+    globalError,
+    handleError,
+    clearError,
   }
 }

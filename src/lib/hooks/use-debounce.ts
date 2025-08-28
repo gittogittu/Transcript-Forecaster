@@ -62,8 +62,8 @@ export function useAsyncDebounce<T extends (...args: any[]) => Promise<any>>(
   cancel: () => void
   isPending: boolean
 } {
-  const timeoutRef = useRef<NodeJS.Timeout>()
-  const abortControllerRef = useRef<AbortController>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
+  const abortControllerRef = useRef<AbortController | undefined>(undefined)
   const [isPending, setIsPending] = useState(false)
 
   const cancel = useCallback(() => {
@@ -115,7 +115,7 @@ export function useDebounceImmediate<T extends (...args: any[]) => any>(
   delay: number,
   immediate: boolean = false
 ): (...args: Parameters<T>) => void {
-  const timeoutRef = useRef<NodeJS.Timeout>()
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined)
   const immediateRef = useRef<boolean>(immediate)
 
   return useCallback(

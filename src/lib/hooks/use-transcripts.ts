@@ -1,236 +1,235 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { TranscriptData, TranscriptFormData, TranscriptFilters, TranscriptSummary } from '@/types/transcript'
+'use client'
 
-// Query keys for consistent cache management
-export const transcriptKeys = {
-  all: ['transcripts'] as const,
-  lists: () => [...transcriptKeys.all, 'list'] as const,
-  list: (filters: TranscriptFilters) => [...transcriptKeys.lists(), { filters }] as const,
-  details: () => [...transcriptKeys.all, 'detail'] as const,
-  detail: (id: string) => [...transcriptKeys.details(), id] as const,
-  summary: () => [...transcriptKeys.all, 'summary'] as const,
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { queryKeys } from '@/lib/query/query-client'
+import type { TranscriptData, CreateTranscriptData, UpdateTranscriptData } from '@/types/transcript'
+
+// API functions for transcript operations
+const transcriptApi = {
+  // Fetch all transcripts with optional filters
+  getTranscripts: async (filters?: Record<string, any>): Promise<TranscriptData[]> => {
+    const params = new URLSearchParams()
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value))
+        }
+      })
+    }
+    
+    const response = await fetch(`/api/transcripts?${params}`)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch transcripts: ${response.statusText}`)
+    }
+    return response.json()
+  },
+
+  // Fetch single transcript by ID
+  getTranscript: async (id: string): Promise<TranscriptData> => {
+    const response = await fetch(`/api/transcripts/${id}`)
+    if (!response.ok) {
+      throw new Error(`Failed to fetch transcript: ${response.statusText}`)
+    }
+    return response.json()
+  },
+
+  // Create new transcript
+  createTranscript: async (data: CreateTranscriptData): Promise<TranscriptData> => {
+    const response = await fetch('/api/transcripts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to create transcript: ${response.statusText}`)
+    }
+    return response.json()
+  },
+
+  // Update existing transcript
+  updateTranscript: async ({ id, data }: { id: string; data: UpdateTranscriptData }): Promise<TranscriptData> => {
+    const response = await fetch(`/api/transcripts/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to update transcript: ${response.statusText}`)
+    }
+    return response.json()
+  },
+
+  // Delete transcript
+  deleteTranscript: async (id: string): Promise<void> => {
+    const response = await fetch(`/api/transcripts/${id}`, {
+      method: 'DELETE',
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to delete transcript: ${response.statusText}`)
+    }
+  },
+
+  // Bulk operations
+  bulkCreateTranscripts: async (data: CreateTranscriptData[]): Promise<TranscriptData[]> => {
+    const response = await fetch('/api/transcripts/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) {
+      throw new Error(`Failed to bulk create transcripts: ${response.statusText}`)
+    }
+    return response.json()
+  },
 }
 
-// API functions
-async function fetchTranscripts(): Promise<TranscriptData[]> {
-  const response = await fetch('/api/transcripts')
-  if (!response.ok) {
-    throw new Error(`Failed to fetch transcripts: ${response.statusText}`)
-  }
-  return response.json()
-}
-
-async function fetchTranscriptById(id: string): Promise<TranscriptData> {
-  const response = await fetch(`/api/transcripts/${id}`)
-  if (!response.ok) {
-    throw new Error(`Failed to fetch transcript: ${response.statusText}`)
-  }
-  return response.json()
-}
-
-async function fetchTranscriptSummary(): Promise<TranscriptSummary> {
-  const response = await fetch('/api/transcripts/summary')
-  if (!response.ok) {
-    throw new Error(`Failed to fetch transcript summary: ${response.statusText}`)
-  }
-  return response.json()
-}
-
-async function createTranscript(data: TranscriptFormData): Promise<void> {
-  const response = await fetch('/api/transcripts', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  })
-  
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Failed to create transcript: ${error}`)
-  }
-}
-
-async function updateTranscript(id: string, data: Partial<TranscriptFormData>): Promise<void> {
-  const response = await fetch(`/api/transcripts/${id}`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(data),
-  })
-  
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Failed to update transcript: ${error}`)
-  }
-}
-
-async function deleteTranscript(id: string): Promise<void> {
-  const response = await fetch(`/api/transcripts/${id}`, {
-    method: 'DELETE',
-  })
-  
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Failed to delete transcript: ${error}`)
-  }
-}
-
-async function syncTranscripts(): Promise<TranscriptData[]> {
-  const response = await fetch('/api/transcripts/sync', {
-    method: 'POST',
-  })
-  
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Failed to sync transcripts: ${error}`)
-  }
-  
-  return response.json()
-}
-
-// Custom hooks
-export function useTranscripts(filters: TranscriptFilters = {}) {
+// Hook for fetching transcripts with filters
+export function useTranscripts(filters?: Record<string, any>) {
   return useQuery({
-    queryKey: transcriptKeys.list(filters),
-    queryFn: fetchTranscripts,
-    select: (data) => {
-      // Apply client-side filtering if needed
-      let filteredData = data
-
-      if (filters.clientName) {
-        filteredData = filteredData.filter(item =>
-          item.clientName.toLowerCase().includes(filters.clientName!.toLowerCase())
-        )
-      }
-
-      if (filters.startMonth) {
-        filteredData = filteredData.filter(item => item.month >= filters.startMonth!)
-      }
-
-      if (filters.endMonth) {
-        filteredData = filteredData.filter(item => item.month <= filters.endMonth!)
-      }
-
-      if (filters.minCount !== undefined) {
-        filteredData = filteredData.filter(item => item.transcriptCount >= filters.minCount!)
-      }
-
-      if (filters.maxCount !== undefined) {
-        filteredData = filteredData.filter(item => item.transcriptCount <= filters.maxCount!)
-      }
-
-      return filteredData
-    },
+    queryKey: queryKeys.transcripts.list(filters || {}),
+    queryFn: () => transcriptApi.getTranscripts(filters),
+    staleTime: 2 * 60 * 1000, // 2 minutes for list data
   })
 }
 
+// Hook for fetching a single transcript
 export function useTranscript(id: string) {
   return useQuery({
-    queryKey: transcriptKeys.detail(id),
-    queryFn: () => fetchTranscriptById(id),
+    queryKey: queryKeys.transcripts.detail(id),
+    queryFn: () => transcriptApi.getTranscript(id),
     enabled: !!id,
+    staleTime: 5 * 60 * 1000, // 5 minutes for detail data
   })
 }
 
-export function useTranscriptSummary() {
-  return useQuery({
-    queryKey: transcriptKeys.summary(),
-    queryFn: fetchTranscriptSummary,
-  })
-}
-
+// Hook for creating transcripts with optimistic updates
 export function useCreateTranscript() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: createTranscript,
-    onSuccess: () => {
-      // Invalidate and refetch transcript queries
-      queryClient.invalidateQueries({ queryKey: transcriptKeys.all })
+    mutationFn: transcriptApi.createTranscript,
+    onMutate: async (newTranscript) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.transcripts.all })
+
+      // Snapshot the previous value
+      const previousTranscripts = queryClient.getQueriesData({ queryKey: queryKeys.transcripts.lists() })
+
+      // Optimistically update to the new value
+      queryClient.setQueriesData({ queryKey: queryKeys.transcripts.lists() }, (old: TranscriptData[] | undefined) => {
+        if (!old) return [{ ...newTranscript, id: 'temp-id', createdAt: new Date(), updatedAt: new Date() }]
+        return [...old, { ...newTranscript, id: 'temp-id', createdAt: new Date(), updatedAt: new Date() }]
+      })
+
+      return { previousTranscripts }
     },
-    onError: (error) => {
-      console.error('Failed to create transcript:', error)
+    onError: (err, newTranscript, context) => {
+      // Rollback on error
+      if (context?.previousTranscripts) {
+        context.previousTranscripts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data)
+        })
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.transcripts.all })
     },
   })
 }
 
+// Hook for updating transcripts with optimistic updates
 export function useUpdateTranscript() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<TranscriptFormData> }) =>
-      updateTranscript(id, data),
-    onSuccess: (_, { id }) => {
-      // Invalidate specific transcript and list queries
-      queryClient.invalidateQueries({ queryKey: transcriptKeys.detail(id) })
-      queryClient.invalidateQueries({ queryKey: transcriptKeys.lists() })
-      queryClient.invalidateQueries({ queryKey: transcriptKeys.summary() })
+    mutationFn: transcriptApi.updateTranscript,
+    onMutate: async ({ id, data }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.transcripts.detail(id) })
+
+      // Snapshot the previous value
+      const previousTranscript = queryClient.getQueryData(queryKeys.transcripts.detail(id))
+
+      // Optimistically update to the new value
+      queryClient.setQueryData(queryKeys.transcripts.detail(id), (old: TranscriptData | undefined) => {
+        if (!old) return undefined
+        return { ...old, ...data, updatedAt: new Date() }
+      })
+
+      // Also update in lists
+      queryClient.setQueriesData({ queryKey: queryKeys.transcripts.lists() }, (old: TranscriptData[] | undefined) => {
+        if (!old) return old
+        return old.map(transcript => 
+          transcript.id === id 
+            ? { ...transcript, ...data, updatedAt: new Date() }
+            : transcript
+        )
+      })
+
+      return { previousTranscript }
     },
-    onError: (error) => {
-      console.error('Failed to update transcript:', error)
+    onError: (err, { id }, context) => {
+      // Rollback on error
+      if (context?.previousTranscript) {
+        queryClient.setQueryData(queryKeys.transcripts.detail(id), context.previousTranscript)
+      }
+    },
+    onSettled: (data, error, { id }) => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.transcripts.detail(id) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.transcripts.lists() })
     },
   })
 }
 
+// Hook for deleting transcripts
 export function useDeleteTranscript() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: deleteTranscript,
-    onSuccess: (_, id) => {
-      // Remove from cache and invalidate list queries
-      queryClient.removeQueries({ queryKey: transcriptKeys.detail(id) })
-      queryClient.invalidateQueries({ queryKey: transcriptKeys.lists() })
-      queryClient.invalidateQueries({ queryKey: transcriptKeys.summary() })
+    mutationFn: transcriptApi.deleteTranscript,
+    onMutate: async (id) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.transcripts.all })
+
+      // Snapshot the previous value
+      const previousTranscripts = queryClient.getQueriesData({ queryKey: queryKeys.transcripts.lists() })
+
+      // Optimistically remove from lists
+      queryClient.setQueriesData({ queryKey: queryKeys.transcripts.lists() }, (old: TranscriptData[] | undefined) => {
+        if (!old) return old
+        return old.filter(transcript => transcript.id !== id)
+      })
+
+      return { previousTranscripts }
     },
-    onError: (error) => {
-      console.error('Failed to delete transcript:', error)
+    onError: (err, id, context) => {
+      // Rollback on error
+      if (context?.previousTranscripts) {
+        context.previousTranscripts.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data)
+        })
+      }
+    },
+    onSettled: () => {
+      // Always refetch after error or success
+      queryClient.invalidateQueries({ queryKey: queryKeys.transcripts.all })
     },
   })
 }
 
-export function useSyncTranscripts() {
+// Hook for bulk operations
+export function useBulkCreateTranscripts() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: syncTranscripts,
-    onSuccess: (data) => {
-      // Update cache with fresh data
-      queryClient.setQueryData(transcriptKeys.lists(), data)
-      queryClient.invalidateQueries({ queryKey: transcriptKeys.summary() })
-    },
-    onError: (error) => {
-      console.error('Failed to sync transcripts:', error)
+    mutationFn: transcriptApi.bulkCreateTranscripts,
+    onSuccess: () => {
+      // Invalidate and refetch transcript queries
+      queryClient.invalidateQueries({ queryKey: queryKeys.transcripts.all })
+      // Also invalidate analytics as new data affects predictions
+      queryClient.invalidateQueries({ queryKey: queryKeys.analytics.all })
     },
   })
-}
-
-// Utility hook for optimistic updates
-export function useOptimisticTranscriptUpdate() {
-  const queryClient = useQueryClient()
-
-  const optimisticUpdate = (id: string, updatedData: Partial<TranscriptData>) => {
-    // Cancel any outgoing refetches
-    queryClient.cancelQueries({ queryKey: transcriptKeys.detail(id) })
-
-    // Snapshot the previous value
-    const previousData = queryClient.getQueryData(transcriptKeys.detail(id))
-
-    // Optimistically update to the new value
-    queryClient.setQueryData(transcriptKeys.detail(id), (old: TranscriptData | undefined) => {
-      if (!old) return old
-      return { ...old, ...updatedData, updatedAt: new Date() }
-    })
-
-    // Return a context object with the snapshotted value
-    return { previousData }
-  }
-
-  const rollback = (id: string, context: { previousData: any }) => {
-    queryClient.setQueryData(transcriptKeys.detail(id), context.previousData)
-  }
-
-  return { optimisticUpdate, rollback }
 }
