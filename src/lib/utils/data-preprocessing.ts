@@ -1,371 +1,501 @@
-/**
- * Data preprocessing utilities for time-series analysis
- * Handles data transformation, normalization, and preparation for ML models
- */
+import { TranscriptData } from '@/types/transcript';
 
-import { TranscriptData, MonthlyPrediction } from '@/types/transcript'
-
-export interface TimeSeriesPoint {
-  timestamp: number // Unix timestamp
-  value: number
-  month: string
-  year: number
+export interface DataQualityReport {
+  totalRecords: number;
+  missingValues: number;
+  duplicates: number;
+  outliers: number;
+  dataRange: {
+    startDate: Date;
+    endDate: Date;
+    daysCovered: number;
+  };
+  statistics: {
+    mean: number;
+    median: number;
+    std: number;
+    min: number;
+    max: number;
+  };
+  recommendations: string[];
 }
 
-export interface PreprocessedData {
-  timeSeries: TimeSeriesPoint[]
-  features: number[][]
-  targets: number[]
-  scaleParams: {
-    min: number
-    max: number
-    mean: number
-    std: number
-  }
+export interface PreprocessingOptions {
+  fillMissingValues: boolean;
+  removeDuplicates: boolean;
+  handleOutliers: 'remove' | 'cap' | 'keep';
+  smoothingWindow?: number;
+  aggregationPeriod?: 'daily' | 'weekly' | 'monthly';
 }
 
-export interface SeasonalComponents {
-  trend: number[]
-  seasonal: number[]
-  residual: number[]
-}
-
-/**
- * Convert transcript data to time series format
- */
-export function convertToTimeSeries(data: TranscriptData[]): TimeSeriesPoint[] {
-  return data
-    .map(item => ({
-      timestamp: new Date(`${item.month}-01`).getTime(),
-      value: item.transcriptCount,
-      month: item.month,
-      year: item.year
-    }))
-    .sort((a, b) => a.timestamp - b.timestamp)
-}
-
-/**
- * Group data by client for individual time series analysis
- */
-export function groupByClient(data: TranscriptData[]): Map<string, TimeSeriesPoint[]> {
-  const clientData = new Map<string, TimeSeriesPoint[]>()
-  
-  data.forEach(item => {
-    const clientName = item.clientName
-    if (!clientData.has(clientName)) {
-      clientData.set(clientName, [])
+export class DataPreprocessor {
+  /**
+   * Analyze data quality and generate report
+   */
+  public static analyzeDataQuality(data: TranscriptData[]): DataQualityReport {
+    if (data.length === 0) {
+      throw new Error('Cannot analyze empty dataset');
     }
-    
-    clientData.get(clientName)!.push({
-      timestamp: new Date(`${item.month}-01`).getTime(),
-      value: item.transcriptCount,
-      month: item.month,
-      year: item.year
-    })
-  })
-  
-  // Sort each client's data by timestamp
-  clientData.forEach(series => {
-    series.sort((a, b) => a.timestamp - b.timestamp)
-  })
-  
-  return clientData
-}
 
-/**
- * Fill missing months with interpolated values
- */
-export function fillMissingMonths(timeSeries: TimeSeriesPoint[]): TimeSeriesPoint[] {
-  if (timeSeries.length < 2) return timeSeries
-  
-  const filled: TimeSeriesPoint[] = []
-  const sortedSeries = [...timeSeries].sort((a, b) => a.timestamp - b.timestamp)
-  
-  for (let i = 0; i < sortedSeries.length - 1; i++) {
-    filled.push(sortedSeries[i])
+    // Sort data by date
+    const sortedData = [...data].sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    // Count missing values (assuming null/undefined transcript counts)
+    const missingValues = data.filter(d => 
+      d.transcriptCount === null || 
+      d.transcriptCount === undefined || 
+      isNaN(d.transcriptCount)
+    ).length;
+
+    // Find duplicates (same client and date)
+    const duplicates = this.findDuplicates(data);
+
+    // Detect outliers
+    const outliers = this.detectOutliers(data);
+
+    // Calculate date range
+    const startDate = new Date(sortedData[0].date);
+    const endDate = new Date(sortedData[sortedData.length - 1].date);
+    const daysCovered = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Calculate statistics
+    const values = data
+      .filter(d => d.transcriptCount !== null && d.transcriptCount !== undefined)
+      .map(d => d.transcriptCount);
     
-    const current = new Date(sortedSeries[i].timestamp)
-    const next = new Date(sortedSeries[i + 1].timestamp)
-    
-    // Calculate month difference
-    const monthDiff = (next.getFullYear() - current.getFullYear()) * 12 + 
-                     (next.getMonth() - current.getMonth())
-    
-    // Only fill if there's more than 1 month gap
-    if (monthDiff > 1) {
-      for (let j = 1; j < monthDiff; j++) {
-        const fillDate = new Date(current.getFullYear(), current.getMonth() + j, 1)
-        const interpolatedValue = linearInterpolate(
-          sortedSeries[i].value,
-          sortedSeries[i + 1].value,
-          j / monthDiff
-        )
+    const statistics = this.calculateStatistics(values);
+
+    // Generate recommendations
+    const recommendations = this.generateRecommendations({
+      totalRecords: data.length,
+      missingValues,
+      duplicates: duplicates.length,
+      outliers: outliers.length,
+      daysCovered,
+      statistics
+    });
+
+    return {
+      totalRecords: data.length,
+      missingValues,
+      duplicates: duplicates.length,
+      outliers: outliers.length,
+      dataRange: {
+        startDate,
+        endDate,
+        daysCovered
+      },
+      statistics,
+      recommendations
+    };
+  }
+
+  /**
+   * Preprocess data according to options
+   */
+  public static preprocessData(
+    data: TranscriptData[],
+    options: PreprocessingOptions
+  ): TranscriptData[] {
+    let processedData = [...data];
+
+    // Remove duplicates
+    if (options.removeDuplicates) {
+      processedData = this.removeDuplicates(processedData);
+    }
+
+    // Fill missing values
+    if (options.fillMissingValues) {
+      processedData = this.fillMissingValues(processedData);
+    }
+
+    // Handle outliers
+    if (options.handleOutliers !== 'keep') {
+      processedData = this.handleOutliers(processedData, options.handleOutliers);
+    }
+
+    // Apply smoothing
+    if (options.smoothingWindow && options.smoothingWindow > 1) {
+      processedData = this.applySmoothing(processedData, options.smoothingWindow);
+    }
+
+    // Aggregate by period
+    if (options.aggregationPeriod && options.aggregationPeriod !== 'daily') {
+      processedData = this.aggregateByPeriod(processedData, options.aggregationPeriod);
+    }
+
+    return processedData;
+  }
+
+  /**
+   * Find duplicate records
+   */
+  private static findDuplicates(data: TranscriptData[]): TranscriptData[] {
+    const seen = new Set<string>();
+    const duplicates: TranscriptData[] = [];
+
+    data.forEach(record => {
+      const key = `${record.clientName}-${new Date(record.date).toISOString().split('T')[0]}`;
+      if (seen.has(key)) {
+        duplicates.push(record);
+      } else {
+        seen.add(key);
+      }
+    });
+
+    return duplicates;
+  }
+
+  /**
+   * Remove duplicate records (keep the latest one)
+   */
+  private static removeDuplicates(data: TranscriptData[]): TranscriptData[] {
+    const uniqueRecords = new Map<string, TranscriptData>();
+
+    data.forEach(record => {
+      const key = `${record.clientName}-${new Date(record.date).toISOString().split('T')[0]}`;
+      const existing = uniqueRecords.get(key);
+      
+      if (!existing || new Date(record.updatedAt) > new Date(existing.updatedAt)) {
+        uniqueRecords.set(key, record);
+      }
+    });
+
+    return Array.from(uniqueRecords.values());
+  }
+
+  /**
+   * Fill missing values using interpolation
+   */
+  private static fillMissingValues(data: TranscriptData[]): TranscriptData[] {
+    const sortedData = [...data].sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    return sortedData.map((record, index) => {
+      if (record.transcriptCount === null || 
+          record.transcriptCount === undefined || 
+          isNaN(record.transcriptCount)) {
         
-        filled.push({
-          timestamp: fillDate.getTime(),
-          value: Math.round(interpolatedValue),
-          month: `${fillDate.getFullYear()}-${String(fillDate.getMonth() + 1).padStart(2, '0')}`,
-          year: fillDate.getFullYear()
-        })
+        // Find nearest valid values
+        const prevValid = this.findNearestValidValue(sortedData, index, -1);
+        const nextValid = this.findNearestValidValue(sortedData, index, 1);
+
+        let filledValue = 0;
+
+        if (prevValid !== null && nextValid !== null) {
+          // Linear interpolation
+          filledValue = (prevValid + nextValid) / 2;
+        } else if (prevValid !== null) {
+          filledValue = prevValid;
+        } else if (nextValid !== null) {
+          filledValue = nextValid;
+        } else {
+          // Use overall mean as fallback
+          const validValues = sortedData
+            .filter(d => d.transcriptCount !== null && !isNaN(d.transcriptCount))
+            .map(d => d.transcriptCount);
+          filledValue = validValues.length > 0 
+            ? validValues.reduce((sum, val) => sum + val, 0) / validValues.length
+            : 0;
+        }
+
+        return {
+          ...record,
+          transcriptCount: Math.round(filledValue)
+        };
+      }
+
+      return record;
+    });
+  }
+
+  /**
+   * Find nearest valid value in a direction
+   */
+  private static findNearestValidValue(
+    data: TranscriptData[],
+    startIndex: number,
+    direction: number
+  ): number | null {
+    for (let i = startIndex + direction; i >= 0 && i < data.length; i += direction) {
+      const value = data[i].transcriptCount;
+      if (value !== null && value !== undefined && !isNaN(value)) {
+        return value;
       }
     }
+    return null;
   }
-  
-  filled.push(sortedSeries[sortedSeries.length - 1])
-  return filled
-}
 
-/**
- * Linear interpolation between two values
- */
-function linearInterpolate(y1: number, y2: number, t: number): number {
-  return y1 + (y2 - y1) * t
-}
+  /**
+   * Detect outliers using IQR method
+   */
+  private static detectOutliers(data: TranscriptData[]): TranscriptData[] {
+    const values = data
+      .filter(d => d.transcriptCount !== null && !isNaN(d.transcriptCount))
+      .map(d => d.transcriptCount)
+      .sort((a, b) => a - b);
 
-/**
- * Normalize data using min-max scaling
- */
-export function normalizeData(values: number[]): { normalized: number[], scaleParams: PreprocessedData['scaleParams'] } {
-  const min = Math.min(...values)
-  const max = Math.max(...values)
-  const mean = values.reduce((sum, val) => sum + val, 0) / values.length
-  const std = Math.sqrt(values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length)
-  
-  // Handle case where all values are the same
-  const range = max - min
-  const normalized = range === 0 ? values.map(() => 0) : values.map(val => (val - min) / range)
-  
-  return {
-    normalized,
-    scaleParams: { min, max, mean, std }
-  }
-}
+    if (values.length < 4) return []; // Need at least 4 values for quartiles
 
-/**
- * Denormalize data back to original scale
- */
-export function denormalizeData(normalizedValues: number[], scaleParams: PreprocessedData['scaleParams']): number[] {
-  return normalizedValues.map(val => val * (scaleParams.max - scaleParams.min) + scaleParams.min)
-}
-
-/**
- * Create feature matrix for time series prediction
- * Uses sliding window approach with lag features
- */
-export function createFeatureMatrix(timeSeries: TimeSeriesPoint[], windowSize: number = 3): { features: number[][], targets: number[] } {
-  const features: number[][] = []
-  const targets: number[] = []
-  
-  for (let i = windowSize; i < timeSeries.length; i++) {
-    const feature = []
+    const q1Index = Math.floor(values.length * 0.25);
+    const q3Index = Math.floor(values.length * 0.75);
     
-    // Add lag features (previous values)
-    for (let j = 0; j < windowSize; j++) {
-      feature.push(timeSeries[i - windowSize + j].value)
+    const q1 = values[q1Index];
+    const q3 = values[q3Index];
+    const iqr = q3 - q1;
+    
+    const lowerBound = q1 - 1.5 * iqr;
+    const upperBound = q3 + 1.5 * iqr;
+    
+    return data.filter(d => 
+      d.transcriptCount < lowerBound || d.transcriptCount > upperBound
+    );
+  }
+
+  /**
+   * Handle outliers by removing or capping
+   */
+  private static handleOutliers(
+    data: TranscriptData[],
+    method: 'remove' | 'cap'
+  ): TranscriptData[] {
+    const outliers = this.detectOutliers(data);
+    const outlierIds = new Set(outliers.map(o => o.id));
+
+    if (method === 'remove') {
+      return data.filter(d => !outlierIds.has(d.id));
     }
-    
-    // Add time-based features
-    const currentDate = new Date(timeSeries[i].timestamp)
-    feature.push(currentDate.getMonth() + 1) // Month (1-12)
-    feature.push(currentDate.getFullYear()) // Year
-    
-    // Add trend feature (simple linear trend)
-    const trendSlope = (timeSeries[i - 1].value - timeSeries[i - windowSize].value) / windowSize
-    feature.push(trendSlope)
-    
-    features.push(feature)
-    targets.push(timeSeries[i].value)
-  }
-  
-  return { features, targets }
-}
 
-/**
- * Detect and remove outliers using IQR method
- */
-export function removeOutliers(timeSeries: TimeSeriesPoint[]): TimeSeriesPoint[] {
-  const values = timeSeries.map(point => point.value)
-  const sortedValues = [...values].sort((a, b) => a - b)
-  
-  const q1Index = Math.floor(sortedValues.length * 0.25)
-  const q3Index = Math.floor(sortedValues.length * 0.75)
-  const q1 = sortedValues[q1Index]
-  const q3 = sortedValues[q3Index]
-  const iqr = q3 - q1
-  
-  const lowerBound = q1 - 1.5 * iqr
-  const upperBound = q3 + 1.5 * iqr
-  
-  return timeSeries.filter(point => 
-    point.value >= lowerBound && point.value <= upperBound
-  )
-}
+    // Cap outliers
+    const values = data
+      .filter(d => !outlierIds.has(d.id))
+      .map(d => d.transcriptCount)
+      .sort((a, b) => a - b);
 
-/**
- * Calculate moving average for smoothing
- */
-export function calculateMovingAverage(timeSeries: TimeSeriesPoint[], windowSize: number): TimeSeriesPoint[] {
-  const smoothed: TimeSeriesPoint[] = []
-  
-  for (let i = 0; i < timeSeries.length; i++) {
-    const start = Math.max(0, i - Math.floor(windowSize / 2))
-    const end = Math.min(timeSeries.length, i + Math.ceil(windowSize / 2))
-    
-    const windowValues = timeSeries.slice(start, end).map(point => point.value)
-    const average = windowValues.reduce((sum, val) => sum + val, 0) / windowValues.length
-    
-    smoothed.push({
-      ...timeSeries[i],
-      value: average
-    })
-  }
-  
-  return smoothed
-}
+    if (values.length === 0) return data;
 
-/**
- * Simple seasonal decomposition
- */
-export function decomposeSeasonality(timeSeries: TimeSeriesPoint[], seasonLength: number = 12): SeasonalComponents {
-  const values = timeSeries.map(point => point.value)
-  
-  // Calculate trend using moving average
-  const trend = calculateMovingAverage(timeSeries, seasonLength).map(point => point.value)
-  
-  // Calculate seasonal component
-  const seasonal: number[] = new Array(values.length).fill(0)
-  const seasonalAverages: number[] = new Array(seasonLength).fill(0)
-  const seasonalCounts: number[] = new Array(seasonLength).fill(0)
-  
-  // Calculate average for each season
-  for (let i = 0; i < values.length; i++) {
-    const seasonIndex = i % seasonLength
-    const detrended = values[i] - trend[i]
-    seasonalAverages[seasonIndex] += detrended
-    seasonalCounts[seasonIndex]++
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+
+    return data.map(record => {
+      if (outlierIds.has(record.id)) {
+        return {
+          ...record,
+          transcriptCount: record.transcriptCount < min ? min : max
+        };
+      }
+      return record;
+    });
   }
-  
-  // Average the seasonal components
-  for (let i = 0; i < seasonLength; i++) {
-    if (seasonalCounts[i] > 0) {
-      seasonalAverages[i] /= seasonalCounts[i]
+
+  /**
+   * Apply moving average smoothing
+   */
+  private static applySmoothing(
+    data: TranscriptData[],
+    windowSize: number
+  ): TranscriptData[] {
+    const sortedData = [...data].sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    return sortedData.map((record, index) => {
+      const start = Math.max(0, index - Math.floor(windowSize / 2));
+      const end = Math.min(sortedData.length, start + windowSize);
+      
+      const windowData = sortedData.slice(start, end);
+      const average = windowData.reduce((sum, d) => sum + d.transcriptCount, 0) / windowData.length;
+
+      return {
+        ...record,
+        transcriptCount: Math.round(average)
+      };
+    });
+  }
+
+  /**
+   * Aggregate data by time period
+   */
+  private static aggregateByPeriod(
+    data: TranscriptData[],
+    period: 'weekly' | 'monthly'
+  ): TranscriptData[] {
+    const aggregated = new Map<string, {
+      records: TranscriptData[];
+      totalCount: number;
+      date: Date;
+    }>();
+
+    data.forEach(record => {
+      const date = new Date(record.date);
+      let key: string;
+      let periodDate: Date;
+
+      if (period === 'weekly') {
+        // Get start of week (Monday)
+        const startOfWeek = new Date(date);
+        startOfWeek.setDate(date.getDate() - date.getDay() + 1);
+        key = `${record.clientName}-${startOfWeek.toISOString().split('T')[0]}`;
+        periodDate = startOfWeek;
+      } else { // monthly
+        key = `${record.clientName}-${date.getFullYear()}-${date.getMonth()}`;
+        periodDate = new Date(date.getFullYear(), date.getMonth(), 1);
+      }
+
+      if (aggregated.has(key)) {
+        const existing = aggregated.get(key)!;
+        existing.records.push(record);
+        existing.totalCount += record.transcriptCount;
+      } else {
+        aggregated.set(key, {
+          records: [record],
+          totalCount: record.transcriptCount,
+          date: periodDate
+        });
+      }
+    });
+
+    return Array.from(aggregated.values()).map(({ records, totalCount, date }) => ({
+      id: `agg_${Date.now()}_${Math.random()}`,
+      clientName: records[0].clientName,
+      date,
+      transcriptCount: totalCount,
+      transcriptType: records[0].transcriptType,
+      notes: `Aggregated from ${records.length} records`,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      createdBy: records[0].createdBy
+    }));
+  }
+
+  /**
+   * Calculate basic statistics
+   */
+  private static calculateStatistics(values: number[]): {
+    mean: number;
+    median: number;
+    std: number;
+    min: number;
+    max: number;
+  } {
+    if (values.length === 0) {
+      return { mean: 0, median: 0, std: 0, min: 0, max: 0 };
     }
-  }
-  
-  // Apply seasonal pattern
-  for (let i = 0; i < values.length; i++) {
-    seasonal[i] = seasonalAverages[i % seasonLength]
-  }
-  
-  // Calculate residual
-  const residual = values.map((val, i) => val - trend[i] - seasonal[i])
-  
-  return { trend, seasonal, residual }
-}
 
-/**
- * Validate data quality for prediction
- */
-export function validateDataQuality(timeSeries: TimeSeriesPoint[]): {
-  isValid: boolean
-  issues: string[]
-  recommendations: string[]
-} {
-  const issues: string[] = []
-  const recommendations: string[] = []
-  
-  // Check minimum data points
-  if (timeSeries.length < 6) {
-    issues.push('Insufficient data points (minimum 6 months required)')
-    recommendations.push('Collect more historical data for better predictions')
-  }
-  
-  // Check for gaps in data
-  const sortedSeries = [...timeSeries].sort((a, b) => a.timestamp - b.timestamp)
-  let hasGaps = false
-  for (let i = 1; i < sortedSeries.length; i++) {
-    const prevDate = new Date(sortedSeries[i - 1].timestamp)
-    const currDate = new Date(sortedSeries[i].timestamp)
-    const monthDiff = (currDate.getFullYear() - prevDate.getFullYear()) * 12 + 
-                     (currDate.getMonth() - prevDate.getMonth())
+    const sorted = [...values].sort((a, b) => a - b);
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
     
-    if (monthDiff > 1) {
-      hasGaps = true
-      break
-    }
-  }
-  
-  if (hasGaps) {
-    issues.push('Data contains gaps in time series')
-    recommendations.push('Fill missing months with interpolated values')
-  }
-  
-  // Check for negative values
-  const hasNegativeValues = timeSeries.some(point => point.value < 0)
-  if (hasNegativeValues) {
-    issues.push('Data contains negative values')
-    recommendations.push('Review data for errors or handle negative values appropriately')
-  }
-  
-  // Check for extreme outliers
-  const values = timeSeries.map(point => point.value)
-  const mean = values.reduce((sum, val) => sum + val, 0) / values.length
-  const std = Math.sqrt(values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length)
-  const hasExtremeOutliers = values.some(val => Math.abs(val - mean) > 3 * std)
-  
-  if (hasExtremeOutliers) {
-    issues.push('Data contains extreme outliers')
-    recommendations.push('Consider outlier detection and removal')
-  }
-  
-  return {
-    isValid: issues.length === 0,
-    issues,
-    recommendations
-  }
-}
+    const median = sorted.length % 2 === 0
+      ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+      : sorted[Math.floor(sorted.length / 2)];
 
-/**
- * Prepare data for TensorFlow.js model training
- */
-export function prepareForTraining(
-  timeSeries: TimeSeriesPoint[], 
-  windowSize: number = 3,
-  testSplit: number = 0.2
-): {
-  trainFeatures: number[][]
-  trainTargets: number[]
-  testFeatures: number[][]
-  testTargets: number[]
-  scaleParams: PreprocessedData['scaleParams']
-} {
-  // Fill missing months and remove outliers
-  const cleanedSeries = removeOutliers(fillMissingMonths(timeSeries))
-  
-  // Create feature matrix
-  const { features, targets } = createFeatureMatrix(cleanedSeries, windowSize)
-  
-  // Normalize targets
-  const { normalized: normalizedTargets, scaleParams } = normalizeData(targets)
-  
-  // Normalize features (each column separately)
-  const normalizedFeatures = features.map(row => {
-    return row.map((val, colIndex) => {
-      const columnValues = features.map(r => r[colIndex])
-      const min = Math.min(...columnValues)
-      const max = Math.max(...columnValues)
-      return max > min ? (val - min) / (max - min) : 0
-    })
-  })
-  
-  // Split into train/test sets
-  const splitIndex = Math.floor(features.length * (1 - testSplit))
-  
-  return {
-    trainFeatures: normalizedFeatures.slice(0, splitIndex),
-    trainTargets: normalizedTargets.slice(0, splitIndex),
-    testFeatures: normalizedFeatures.slice(splitIndex),
-    testTargets: normalizedTargets.slice(splitIndex),
-    scaleParams
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+    const std = Math.sqrt(variance);
+
+    return {
+      mean: Math.round(mean * 100) / 100,
+      median,
+      std: Math.round(std * 100) / 100,
+      min: Math.min(...values),
+      max: Math.max(...values)
+    };
+  }
+
+  /**
+   * Generate data quality recommendations
+   */
+  private static generateRecommendations(report: {
+    totalRecords: number;
+    missingValues: number;
+    duplicates: number;
+    outliers: number;
+    daysCovered: number;
+    statistics: any;
+  }): string[] {
+    const recommendations: string[] = [];
+
+    // Data volume recommendations
+    if (report.totalRecords < 30) {
+      recommendations.push('Consider collecting more data points for better prediction accuracy.');
+    }
+
+    // Missing values
+    if (report.missingValues > 0) {
+      const percentage = (report.missingValues / report.totalRecords) * 100;
+      if (percentage > 10) {
+        recommendations.push(`High percentage of missing values (${percentage.toFixed(1)}%). Consider data collection improvements.`);
+      } else {
+        recommendations.push('Some missing values detected. Consider using interpolation to fill gaps.');
+      }
+    }
+
+    // Duplicates
+    if (report.duplicates > 0) {
+      recommendations.push(`${report.duplicates} duplicate records found. Remove duplicates for better data quality.`);
+    }
+
+    // Outliers
+    if (report.outliers > 0) {
+      const percentage = (report.outliers / report.totalRecords) * 100;
+      if (percentage > 5) {
+        recommendations.push(`High number of outliers (${percentage.toFixed(1)}%). Investigate data collection process.`);
+      } else {
+        recommendations.push('Some outliers detected. Consider capping or removing extreme values.');
+      }
+    }
+
+    // Data coverage
+    if (report.daysCovered < 30) {
+      recommendations.push('Limited time coverage. Collect data over a longer period for seasonal pattern detection.');
+    }
+
+    // Data variance
+    if (report.statistics.std < report.statistics.mean * 0.1) {
+      recommendations.push('Low data variance detected. Predictions may be less informative.');
+    }
+
+    return recommendations;
+  }
+
+  /**
+   * Generate missing date ranges
+   */
+  public static findMissingDateRanges(
+    data: TranscriptData[],
+    clientName?: string
+  ): { start: Date; end: Date }[] {
+    let filteredData = clientName 
+      ? data.filter(d => d.clientName === clientName)
+      : data;
+
+    if (filteredData.length < 2) return [];
+
+    const sortedData = filteredData.sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    const missingRanges: { start: Date; end: Date }[] = [];
+    
+    for (let i = 1; i < sortedData.length; i++) {
+      const prevDate = new Date(sortedData[i - 1].date);
+      const currentDate = new Date(sortedData[i].date);
+      
+      const daysDiff = Math.ceil((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff > 1) {
+        const gapStart = new Date(prevDate);
+        gapStart.setDate(gapStart.getDate() + 1);
+        
+        const gapEnd = new Date(currentDate);
+        gapEnd.setDate(gapEnd.getDate() - 1);
+        
+        missingRanges.push({ start: gapStart, end: gapEnd });
+      }
+    }
+
+    return missingRanges;
   }
 }

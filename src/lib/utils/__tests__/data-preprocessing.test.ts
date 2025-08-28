@@ -1,332 +1,404 @@
-/**
- * Unit tests for data preprocessing utilities
- */
-import {
-  convertToTimeSeries,
-  groupByClient,
-  fillMissingMonths,
-  normalizeData,
-  denormalizeData,
-  createFeatureMatrix,
-  removeOutliers,
-  calculateMovingAverage,
-  decomposeSeasonality,
-  validateDataQuality,
-  prepareForTraining
-} from '../data-preprocessing'
-import { TranscriptData } from '@/types/transcript'
+import { DataPreprocessor, PreprocessingOptions } from '../data-preprocessing';
+import { TranscriptData } from '@/types/transcript';
 
-// Mock data for testing
-const mockTranscriptData: TranscriptData[] = [
-  {
-    id: '1',
-    clientName: 'Client A',
-    month: '2023-01',
-    year: 2023,
-    transcriptCount: 100,
-    createdAt: new Date('2023-01-01'),
-    updatedAt: new Date('2023-01-01')
-  },
-  {
-    id: '2',
-    clientName: 'Client A',
-    month: '2023-02',
-    year: 2023,
-    transcriptCount: 120,
-    createdAt: new Date('2023-02-01'),
-    updatedAt: new Date('2023-02-01')
-  },
-  {
-    id: '3',
-    clientName: 'Client A',
-    month: '2023-04', // Missing March
-    year: 2023,
-    transcriptCount: 110,
-    createdAt: new Date('2023-04-01'),
-    updatedAt: new Date('2023-04-01')
-  },
-  {
-    id: '4',
-    clientName: 'Client B',
-    month: '2023-01',
-    year: 2023,
-    transcriptCount: 80,
-    createdAt: new Date('2023-01-01'),
-    updatedAt: new Date('2023-01-01')
-  },
-  {
-    id: '5',
-    clientName: 'Client B',
-    month: '2023-02',
-    year: 2023,
-    transcriptCount: 90,
-    createdAt: new Date('2023-02-01'),
-    updatedAt: new Date('2023-02-01')
-  }
-]
+describe('DataPreprocessor', () => {
+  let mockData: TranscriptData[];
 
-describe('Data Preprocessing Utilities', () => {
-  describe('convertToTimeSeries', () => {
-    it('should convert transcript data to time series format', () => {
-      const result = convertToTimeSeries(mockTranscriptData.slice(0, 2))
-      
-      expect(result).toHaveLength(2)
-      expect(result[0]).toMatchObject({
-        value: 100,
-        month: '2023-01',
-        year: 2023
-      })
-      expect(result[0].timestamp).toBe(new Date('2023-01-01').getTime())
-    })
-
-    it('should sort time series by timestamp', () => {
-      const unsortedData = [mockTranscriptData[2], mockTranscriptData[0], mockTranscriptData[1]]
-      const result = convertToTimeSeries(unsortedData)
-      
-      expect(result[0].month).toBe('2023-01')
-      expect(result[1].month).toBe('2023-02')
-      expect(result[2].month).toBe('2023-04')
-    })
-  })
-
-  describe('groupByClient', () => {
-    it('should group data by client name', () => {
-      const result = groupByClient(mockTranscriptData)
-      
-      expect(result.size).toBe(2)
-      expect(result.has('Client A')).toBe(true)
-      expect(result.has('Client B')).toBe(true)
-      expect(result.get('Client A')).toHaveLength(3)
-      expect(result.get('Client B')).toHaveLength(2)
-    })
-
-    it('should sort each client data by timestamp', () => {
-      const result = groupByClient(mockTranscriptData)
-      const clientAData = result.get('Client A')!
-      
-      expect(clientAData[0].month).toBe('2023-01')
-      expect(clientAData[1].month).toBe('2023-02')
-      expect(clientAData[2].month).toBe('2023-04')
-    })
-  })
-
-  describe('fillMissingMonths', () => {
-    it('should fill missing months with interpolated values', () => {
-      const timeSeries = convertToTimeSeries(mockTranscriptData.slice(0, 3))
-      const result = fillMissingMonths(timeSeries)
-      
-      expect(result).toHaveLength(4) // Original 3 + 1 interpolated
-      expect(result[2].month).toBe('2023-03')
-      expect(result[2].value).toBe(115) // Interpolated between 120 and 110
-    })
-
-    it('should handle time series with no gaps', () => {
-      const timeSeries = convertToTimeSeries(mockTranscriptData.slice(0, 2))
-      const result = fillMissingMonths(timeSeries)
-      
-      expect(result).toHaveLength(2) // No change
-    })
-
-    it('should handle single data point', () => {
-      const timeSeries = convertToTimeSeries(mockTranscriptData.slice(0, 1))
-      const result = fillMissingMonths(timeSeries)
-      
-      expect(result).toHaveLength(1)
-    })
-  })
-
-  describe('normalizeData', () => {
-    it('should normalize data using min-max scaling', () => {
-      const values = [10, 20, 30, 40, 50]
-      const { normalized, scaleParams } = normalizeData(values)
-      
-      expect(normalized[0]).toBe(0) // Min value
-      expect(normalized[4]).toBe(1) // Max value
-      expect(normalized[2]).toBe(0.5) // Middle value
-      expect(scaleParams.min).toBe(10)
-      expect(scaleParams.max).toBe(50)
-    })
-
-    it('should handle single value', () => {
-      const values = [42]
-      const { normalized, scaleParams } = normalizeData(values)
-      
-      expect(normalized[0]).toBe(0) // Single value becomes 0
-      expect(scaleParams.min).toBe(42)
-      expect(scaleParams.max).toBe(42)
-    })
-  })
-
-  describe('denormalizeData', () => {
-    it('should denormalize data back to original scale', () => {
-      const originalValues = [10, 20, 30, 40, 50]
-      const { normalized, scaleParams } = normalizeData(originalValues)
-      const denormalized = denormalizeData(normalized, scaleParams)
-      
-      expect(denormalized).toEqual(originalValues)
-    })
-  })
-
-  describe('createFeatureMatrix', () => {
-    it('should create feature matrix with sliding window', () => {
-      const timeSeries = convertToTimeSeries(mockTranscriptData.slice(0, 5))
-      const windowSize = 2
-      const { features, targets } = createFeatureMatrix(timeSeries, windowSize)
-      
-      expect(features).toHaveLength(3) // 5 - 2 = 3
-      expect(targets).toHaveLength(3)
-      expect(features[0]).toHaveLength(5) // 2 lag + month + year + trend
-    })
-
-    it('should include time-based features', () => {
-      const timeSeries = convertToTimeSeries(mockTranscriptData.slice(0, 4))
-      const { features } = createFeatureMatrix(timeSeries, 2)
-      
-      // Check that month and year features are included
-      // The first feature should be for the 3rd data point (index 2), which is April (month 4)
-      expect(features[0][2]).toBe(2) // February = month 2 (first prediction point)
-      expect(features[0][3]).toBe(2023) // Year 2023
-    })
-  })
-
-  describe('removeOutliers', () => {
-    it('should remove outliers using IQR method', () => {
-      const timeSeriesWithOutlier = [
-        { timestamp: 1, value: 10, month: '2023-01', year: 2023 },
-        { timestamp: 2, value: 12, month: '2023-02', year: 2023 },
-        { timestamp: 3, value: 11, month: '2023-03', year: 2023 },
-        { timestamp: 4, value: 1000, month: '2023-04', year: 2023 }, // Outlier
-        { timestamp: 5, value: 13, month: '2023-05', year: 2023 }
-      ]
-      
-      const result = removeOutliers(timeSeriesWithOutlier)
-      
-      expect(result).toHaveLength(4) // Outlier removed
-      expect(result.find(point => point.value === 1000)).toBeUndefined()
-    })
-
-    it('should handle data without outliers', () => {
-      const timeSeries = convertToTimeSeries(mockTranscriptData.slice(0, 3))
-      const result = removeOutliers(timeSeries)
-      
-      expect(result).toHaveLength(3) // No change
-    })
-  })
-
-  describe('calculateMovingAverage', () => {
-    it('should calculate moving average', () => {
-      const timeSeries = [
-        { timestamp: 1, value: 10, month: '2023-01', year: 2023 },
-        { timestamp: 2, value: 20, month: '2023-02', year: 2023 },
-        { timestamp: 3, value: 30, month: '2023-03', year: 2023 }
-      ]
-      
-      const result = calculateMovingAverage(timeSeries, 3)
-      
-      expect(result).toHaveLength(3)
-      expect(result[1].value).toBe(20) // Average of 10, 20, 30
-    })
-  })
-
-  describe('decomposeSeasonality', () => {
-    it('should decompose time series into trend, seasonal, and residual components', () => {
-      const timeSeries = Array.from({ length: 24 }, (_, i) => ({
-        timestamp: i,
-        value: 100 + Math.sin(i * Math.PI / 6) * 10 + i * 2, // Trend + seasonal
-        month: `2023-${String((i % 12) + 1).padStart(2, '0')}`,
-        year: 2023 + Math.floor(i / 12)
-      }))
-      
-      const result = decomposeSeasonality(timeSeries, 12)
-      
-      expect(result.trend).toHaveLength(24)
-      expect(result.seasonal).toHaveLength(24)
-      expect(result.residual).toHaveLength(24)
-    })
-  })
-
-  describe('validateDataQuality', () => {
-    it('should identify insufficient data', () => {
-      const shortTimeSeries = convertToTimeSeries(mockTranscriptData.slice(0, 2))
-      const result = validateDataQuality(shortTimeSeries)
-      
-      expect(result.isValid).toBe(false)
-      expect(result.issues).toContain('Insufficient data points (minimum 6 months required)')
-    })
-
-    it('should identify data gaps', () => {
-      const timeSeries = convertToTimeSeries(mockTranscriptData.slice(0, 3)) // Has gap in March
-      const result = validateDataQuality(timeSeries)
-      
-      expect(result.issues).toContain('Data contains gaps in time series')
-    })
-
-    it('should identify negative values', () => {
-      const dataWithNegative = [...mockTranscriptData.slice(0, 2)]
-      dataWithNegative[0].transcriptCount = -10
-      const timeSeries = convertToTimeSeries(dataWithNegative)
-      const result = validateDataQuality(timeSeries)
-      
-      expect(result.issues).toContain('Data contains negative values')
-    })
-
-    it('should pass validation for good data', () => {
-      const goodData: TranscriptData[] = Array.from({ length: 12 }, (_, i) => ({
-        id: String(i + 1),
+  beforeEach(() => {
+    mockData = [
+      {
+        id: '1',
         clientName: 'Client A',
-        month: `2023-${String(i + 1).padStart(2, '0')}`,
-        year: 2023,
-        transcriptCount: 100 + i * 5,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }))
-      
-      const timeSeries = convertToTimeSeries(goodData)
-      const result = validateDataQuality(timeSeries)
-      
-      expect(result.isValid).toBe(true)
-      expect(result.issues).toHaveLength(0)
-    })
-  })
-
-  describe('prepareForTraining', () => {
-    it('should prepare data for model training', () => {
-      const goodData: TranscriptData[] = Array.from({ length: 12 }, (_, i) => ({
-        id: String(i + 1),
+        date: new Date('2024-01-01'),
+        transcriptCount: 10,
+        transcriptType: 'type1',
+        notes: '',
+        createdAt: new Date('2024-01-01T10:00:00Z'),
+        updatedAt: new Date('2024-01-01T10:00:00Z'),
+        createdBy: 'user1'
+      },
+      {
+        id: '2',
         clientName: 'Client A',
-        month: `2023-${String(i + 1).padStart(2, '0')}`,
-        year: 2023,
-        transcriptCount: 100 + i * 5,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }))
-      
-      const timeSeries = convertToTimeSeries(goodData)
-      const result = prepareForTraining(timeSeries, 3, 0.2)
-      
-      expect(result.trainFeatures.length).toBeGreaterThan(0)
-      expect(result.trainTargets.length).toBe(result.trainFeatures.length)
-      expect(result.testFeatures.length).toBeGreaterThan(0)
-      expect(result.testTargets.length).toBe(result.testFeatures.length)
-      expect(result.scaleParams).toBeDefined()
-    })
-
-    it('should handle different window sizes', () => {
-      const goodData: TranscriptData[] = Array.from({ length: 10 }, (_, i) => ({
-        id: String(i + 1),
+        date: new Date('2024-01-02'),
+        transcriptCount: 15,
+        transcriptType: 'type1',
+        notes: '',
+        createdAt: new Date('2024-01-02T10:00:00Z'),
+        updatedAt: new Date('2024-01-02T10:00:00Z'),
+        createdBy: 'user1'
+      },
+      {
+        id: '3',
         clientName: 'Client A',
-        month: `2023-${String(i + 1).padStart(2, '0')}`,
-        year: 2023,
-        transcriptCount: 100 + i * 5,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }))
+        date: new Date('2024-01-03'),
+        transcriptCount: 20,
+        transcriptType: 'type1',
+        notes: '',
+        createdAt: new Date('2024-01-03T10:00:00Z'),
+        updatedAt: new Date('2024-01-03T10:00:00Z'),
+        createdBy: 'user1'
+      },
+      {
+        id: '4',
+        clientName: 'Client A',
+        date: new Date('2024-01-04'),
+        transcriptCount: 100, // Outlier
+        transcriptType: 'type1',
+        notes: '',
+        createdAt: new Date('2024-01-04T10:00:00Z'),
+        updatedAt: new Date('2024-01-04T10:00:00Z'),
+        createdBy: 'user1'
+      },
+      {
+        id: '5',
+        clientName: 'Client A',
+        date: new Date('2024-01-05'),
+        transcriptCount: 18,
+        transcriptType: 'type1',
+        notes: '',
+        createdAt: new Date('2024-01-05T10:00:00Z'),
+        updatedAt: new Date('2024-01-05T10:00:00Z'),
+        createdBy: 'user1'
+      },
+      {
+        id: '6',
+        clientName: 'Client B',
+        date: new Date('2024-01-01'),
+        transcriptCount: 5,
+        transcriptType: 'type2',
+        notes: '',
+        createdAt: new Date('2024-01-01T11:00:00Z'),
+        updatedAt: new Date('2024-01-01T11:00:00Z'),
+        createdBy: 'user1'
+      },
+      // Duplicate entry (same client and date)
+      {
+        id: '7',
+        clientName: 'Client A',
+        date: new Date('2024-01-01'),
+        transcriptCount: 12,
+        transcriptType: 'type1',
+        notes: 'Updated entry',
+        createdAt: new Date('2024-01-01T12:00:00Z'),
+        updatedAt: new Date('2024-01-01T12:00:00Z'),
+        createdBy: 'user1'
+      }
+    ];
+  });
+
+  describe('analyzeDataQuality', () => {
+    it('should analyze data quality correctly', () => {
+      const report = DataPreprocessor.analyzeDataQuality(mockData);
+
+      expect(report.totalRecords).toBe(7);
+      expect(report.duplicates).toBe(1); // One duplicate for Client A on 2024-01-01
+      expect(report.outliers).toBeGreaterThan(0); // Should detect the value 100 as outlier
+      expect(report.dataRange.startDate).toEqual(new Date('2024-01-01'));
+      expect(report.dataRange.endDate).toEqual(new Date('2024-01-05'));
+      expect(report.dataRange.daysCovered).toBe(4);
+      expect(report.statistics.mean).toBeGreaterThan(0);
+      expect(report.statistics.min).toBe(5);
+      expect(report.statistics.max).toBe(100);
+      expect(report.recommendations).toBeDefined();
+      expect(Array.isArray(report.recommendations)).toBe(true);
+    });
+
+    it('should detect missing values', () => {
+      const dataWithMissing = [...mockData];
+      dataWithMissing[0].transcriptCount = null as any;
+      dataWithMissing[1].transcriptCount = undefined as any;
+
+      const report = DataPreprocessor.analyzeDataQuality(dataWithMissing);
+
+      expect(report.missingValues).toBe(2);
+      expect(report.recommendations).toContain(
+        expect.stringContaining('missing values')
+      );
+    });
+
+    it('should calculate statistics correctly', () => {
+      const simpleData = [
+        { ...mockData[0], transcriptCount: 10 },
+        { ...mockData[1], transcriptCount: 20 },
+        { ...mockData[2], transcriptCount: 30 }
+      ];
+
+      const report = DataPreprocessor.analyzeDataQuality(simpleData);
+
+      expect(report.statistics.mean).toBe(20);
+      expect(report.statistics.median).toBe(20);
+      expect(report.statistics.min).toBe(10);
+      expect(report.statistics.max).toBe(30);
+    });
+
+    it('should throw error for empty dataset', () => {
+      expect(() => DataPreprocessor.analyzeDataQuality([])).toThrow('Cannot analyze empty dataset');
+    });
+
+    it('should generate appropriate recommendations', () => {
+      const smallDataset = mockData.slice(0, 2);
+      const report = DataPreprocessor.analyzeDataQuality(smallDataset);
+
+      expect(report.recommendations).toContain(
+        expect.stringContaining('Consider collecting more data')
+      );
+    });
+  });
+
+  describe('preprocessData', () => {
+    const defaultOptions: PreprocessingOptions = {
+      fillMissingValues: false,
+      removeDuplicates: false,
+      handleOutliers: 'keep'
+    };
+
+    it('should remove duplicates when option is enabled', () => {
+      const options: PreprocessingOptions = {
+        ...defaultOptions,
+        removeDuplicates: true
+      };
+
+      const processed = DataPreprocessor.preprocessData(mockData, options);
+
+      // Should have one less record due to duplicate removal
+      expect(processed.length).toBe(6);
       
-      const timeSeries = convertToTimeSeries(goodData)
-      const result1 = prepareForTraining(timeSeries, 2, 0.2)
-      const result2 = prepareForTraining(timeSeries, 4, 0.2)
+      // Should keep the more recent duplicate (id: '7')
+      const clientAJan1 = processed.filter(d => 
+        d.clientName === 'Client A' && 
+        new Date(d.date).toDateString() === new Date('2024-01-01').toDateString()
+      );
+      expect(clientAJan1).toHaveLength(1);
+      expect(clientAJan1[0].transcriptCount).toBe(12); // The updated value
+    });
+
+    it('should fill missing values when option is enabled', () => {
+      const dataWithMissing = [...mockData];
+      dataWithMissing[1].transcriptCount = null as any;
+      dataWithMissing[2].transcriptCount = undefined as any;
+
+      const options: PreprocessingOptions = {
+        ...defaultOptions,
+        fillMissingValues: true
+      };
+
+      const processed = DataPreprocessor.preprocessData(dataWithMissing, options);
+
+      // All records should have valid transcript counts
+      processed.forEach(record => {
+        expect(record.transcriptCount).not.toBeNull();
+        expect(record.transcriptCount).not.toBeUndefined();
+        expect(isNaN(record.transcriptCount)).toBe(false);
+        expect(record.transcriptCount).toBeGreaterThanOrEqual(0);
+      });
+    });
+
+    it('should remove outliers when option is set to remove', () => {
+      const options: PreprocessingOptions = {
+        ...defaultOptions,
+        handleOutliers: 'remove'
+      };
+
+      const processed = DataPreprocessor.preprocessData(mockData, options);
+
+      // Should have fewer records due to outlier removal
+      expect(processed.length).toBeLessThan(mockData.length);
       
-      expect(result1.trainFeatures[0].length).toBeLessThan(result2.trainFeatures[0].length)
-    })
-  })
-})
+      // The outlier value (100) should be removed
+      const hasOutlier = processed.some(d => d.transcriptCount === 100);
+      expect(hasOutlier).toBe(false);
+    });
+
+    it('should cap outliers when option is set to cap', () => {
+      const options: PreprocessingOptions = {
+        ...defaultOptions,
+        handleOutliers: 'cap'
+      };
+
+      const processed = DataPreprocessor.preprocessData(mockData, options);
+
+      // Should have same number of records
+      expect(processed.length).toBe(mockData.length);
+      
+      // The outlier should be capped, not removed
+      const outlierRecord = processed.find(d => d.id === '4');
+      expect(outlierRecord).toBeDefined();
+      expect(outlierRecord!.transcriptCount).not.toBe(100);
+      expect(outlierRecord!.transcriptCount).toBeLessThan(100);
+    });
+
+    it('should apply smoothing when window size is specified', () => {
+      const options: PreprocessingOptions = {
+        ...defaultOptions,
+        smoothingWindow: 3
+      };
+
+      const processed = DataPreprocessor.preprocessData(mockData, options);
+
+      // Should have same number of records
+      expect(processed.length).toBe(mockData.length);
+      
+      // Values should be smoothed (less extreme)
+      const originalOutlier = mockData.find(d => d.transcriptCount === 100);
+      const smoothedOutlier = processed.find(d => d.id === originalOutlier!.id);
+      expect(smoothedOutlier!.transcriptCount).toBeLessThan(100);
+    });
+
+    it('should aggregate by week when specified', () => {
+      const options: PreprocessingOptions = {
+        ...defaultOptions,
+        aggregationPeriod: 'weekly'
+      };
+
+      const processed = DataPreprocessor.preprocessData(mockData, options);
+
+      // Should have fewer records due to weekly aggregation
+      expect(processed.length).toBeLessThan(mockData.length);
+      
+      // Each client should have at most one record per week
+      const clientARecords = processed.filter(d => d.clientName === 'Client A');
+      expect(clientARecords.length).toBeLessThanOrEqual(2); // All data is within one week
+    });
+
+    it('should aggregate by month when specified', () => {
+      const options: PreprocessingOptions = {
+        ...defaultOptions,
+        aggregationPeriod: 'monthly'
+      };
+
+      const processed = DataPreprocessor.preprocessData(mockData, options);
+
+      // Should have fewer records due to monthly aggregation
+      expect(processed.length).toBeLessThan(mockData.length);
+      
+      // Each client should have at most one record per month
+      const clientARecords = processed.filter(d => d.clientName === 'Client A');
+      expect(clientARecords.length).toBe(1); // All data is within January 2024
+    });
+
+    it('should apply multiple preprocessing steps', () => {
+      const dataWithIssues = [...mockData];
+      dataWithIssues[1].transcriptCount = null as any; // Add missing value
+
+      const options: PreprocessingOptions = {
+        fillMissingValues: true,
+        removeDuplicates: true,
+        handleOutliers: 'cap',
+        smoothingWindow: 3
+      };
+
+      const processed = DataPreprocessor.preprocessData(dataWithIssues, options);
+
+      // Should handle all issues
+      expect(processed.length).toBeLessThan(dataWithIssues.length); // Duplicates removed
+      processed.forEach(record => {
+        expect(record.transcriptCount).not.toBeNull();
+        expect(record.transcriptCount).not.toBeUndefined();
+        expect(isNaN(record.transcriptCount)).toBe(false);
+      });
+    });
+  });
+
+  describe('findMissingDateRanges', () => {
+    it('should find missing date ranges', () => {
+      const dataWithGaps = [
+        { ...mockData[0], date: new Date('2024-01-01') },
+        { ...mockData[1], date: new Date('2024-01-05') }, // Gap from 2-4
+        { ...mockData[2], date: new Date('2024-01-10') }  // Gap from 6-9
+      ];
+
+      const missingRanges = DataPreprocessor.findMissingDateRanges(dataWithGaps);
+
+      expect(missingRanges).toHaveLength(2);
+      expect(missingRanges[0].start.toDateString()).toBe(new Date('2024-01-02').toDateString());
+      expect(missingRanges[0].end.toDateString()).toBe(new Date('2024-01-04').toDateString());
+      expect(missingRanges[1].start.toDateString()).toBe(new Date('2024-01-06').toDateString());
+      expect(missingRanges[1].end.toDateString()).toBe(new Date('2024-01-09').toDateString());
+    });
+
+    it('should find missing ranges for specific client', () => {
+      const mixedData = [
+        { ...mockData[0], clientName: 'Client A', date: new Date('2024-01-01') },
+        { ...mockData[1], clientName: 'Client B', date: new Date('2024-01-02') },
+        { ...mockData[2], clientName: 'Client A', date: new Date('2024-01-05') }
+      ];
+
+      const missingRanges = DataPreprocessor.findMissingDateRanges(mixedData, 'Client A');
+
+      expect(missingRanges).toHaveLength(1);
+      expect(missingRanges[0].start.toDateString()).toBe(new Date('2024-01-02').toDateString());
+      expect(missingRanges[0].end.toDateString()).toBe(new Date('2024-01-04').toDateString());
+    });
+
+    it('should return empty array for consecutive dates', () => {
+      const consecutiveData = [
+        { ...mockData[0], date: new Date('2024-01-01') },
+        { ...mockData[1], date: new Date('2024-01-02') },
+        { ...mockData[2], date: new Date('2024-01-03') }
+      ];
+
+      const missingRanges = DataPreprocessor.findMissingDateRanges(consecutiveData);
+
+      expect(missingRanges).toHaveLength(0);
+    });
+
+    it('should return empty array for insufficient data', () => {
+      const singleRecord = [mockData[0]];
+      const missingRanges = DataPreprocessor.findMissingDateRanges(singleRecord);
+
+      expect(missingRanges).toHaveLength(0);
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle data with all same values', () => {
+      const constantData = mockData.map(d => ({ ...d, transcriptCount: 15 }));
+      const report = DataPreprocessor.analyzeDataQuality(constantData);
+
+      expect(report.statistics.mean).toBe(15);
+      expect(report.statistics.std).toBe(0);
+      expect(report.outliers).toBe(0);
+    });
+
+    it('should handle single record', () => {
+      const singleRecord = [mockData[0]];
+      const report = DataPreprocessor.analyzeDataQuality(singleRecord);
+
+      expect(report.totalRecords).toBe(1);
+      expect(report.duplicates).toBe(0);
+      expect(report.outliers).toBe(0);
+      expect(report.statistics.mean).toBe(10);
+      expect(report.statistics.median).toBe(10);
+    });
+
+    it('should handle preprocessing with no changes needed', () => {
+      const cleanData = mockData.slice(0, 3); // No duplicates, outliers, or missing values
+      const options: PreprocessingOptions = {
+        fillMissingValues: true,
+        removeDuplicates: true,
+        handleOutliers: 'remove'
+      };
+
+      const processed = DataPreprocessor.preprocessData(cleanData, options);
+
+      expect(processed.length).toBe(3);
+      expect(processed).toEqual(expect.arrayContaining(cleanData));
+    });
+
+    it('should handle extreme outliers correctly', () => {
+      const dataWithExtremes = [
+        { ...mockData[0], transcriptCount: 1 },
+        { ...mockData[1], transcriptCount: 2 },
+        { ...mockData[2], transcriptCount: 1000000 } // Extreme outlier
+      ];
+
+      const report = DataPreprocessor.analyzeDataQuality(dataWithExtremes);
+
+      expect(report.outliers).toBeGreaterThan(0);
+      expect(report.recommendations).toContain(
+        expect.stringContaining('outliers')
+      );
+    });
+  });
+});
