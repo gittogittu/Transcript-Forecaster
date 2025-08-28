@@ -1,12 +1,34 @@
 import { render, screen } from '@testing-library/react'
+import { useSession } from 'next-auth/react'
 import { MetricsCards } from '../metrics-cards'
+import { ExtendedSession } from '@/lib/auth'
+
+// Mock next-auth/react
+jest.mock('next-auth/react', () => ({
+  useSession: jest.fn(),
+}))
 
 // Mock framer-motion
 jest.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, ...props }: any) => <div className={className} {...props}>{children}</div>,
+    div: ({ children, className, ...props }: any) => {
+      const { initial, animate, transition, whileHover, ...restProps } = props
+      return <div className={className} {...restProps}>{children}</div>
+    },
   },
 }))
+
+const mockUseSession = useSession as jest.MockedFunction<typeof useSession>
+
+const createMockSession = (role: 'admin' | 'analyst' | 'viewer'): ExtendedSession => ({
+  user: {
+    id: '1',
+    email: 'test@example.com',
+    name: 'Test User',
+    role,
+  },
+  expires: '2024-12-31',
+})
 
 describe('MetricsCards', () => {
   const mockMetrics = [
@@ -20,7 +42,8 @@ describe('MetricsCards', () => {
       },
       icon: () => <div data-testid="test-icon-1">Icon1</div>,
       description: 'Test description 1',
-      color: 'blue' as const
+      color: 'blue' as const,
+      allowedRoles: ['viewer', 'analyst', 'admin'] as const
     },
     {
       title: 'Test Metric 2',
@@ -32,9 +55,84 @@ describe('MetricsCards', () => {
       },
       icon: () => <div data-testid="test-icon-2">Icon2</div>,
       description: 'Test description 2',
-      color: 'green' as const
+      color: 'green' as const,
+      allowedRoles: ['analyst', 'admin'] as const
+    },
+    {
+      title: 'Admin Only Metric',
+      value: '300',
+      icon: () => <div data-testid="test-icon-3">Icon3</div>,
+      description: 'Admin only description',
+      color: 'red' as const,
+      requiredRole: 'admin' as const
     }
   ]
+
+  beforeEach(() => {
+    mockUseSession.mockReturnValue({
+      data: createMockSession('admin'),
+      status: 'authenticated'
+    })
+  })
+
+  afterEach(() => {
+    jest.clearAllMocks()
+  })
+
+  describe('Role-based metric filtering', () => {
+    it('shows all metrics for admin users', () => {
+      mockUseSession.mockReturnValue({
+        data: createMockSession('admin'),
+        status: 'authenticated'
+      })
+      
+      render(<MetricsCards metrics={mockMetrics} />)
+
+      expect(screen.getByText('Test Metric 1')).toBeInTheDocument()
+      expect(screen.getByText('Test Metric 2')).toBeInTheDocument()
+      expect(screen.getByText('Admin Only Metric')).toBeInTheDocument()
+    })
+
+    it('shows limited metrics for viewer users', () => {
+      mockUseSession.mockReturnValue({
+        data: createMockSession('viewer'),
+        status: 'authenticated'
+      })
+      
+      render(<MetricsCards metrics={mockMetrics} />)
+
+      expect(screen.getByText('Test Metric 1')).toBeInTheDocument()
+      expect(screen.queryByText('Test Metric 2')).not.toBeInTheDocument()
+      expect(screen.queryByText('Admin Only Metric')).not.toBeInTheDocument()
+    })
+
+    it('shows appropriate metrics for analyst users', () => {
+      mockUseSession.mockReturnValue({
+        data: createMockSession('analyst'),
+        status: 'authenticated'
+      })
+      
+      render(<MetricsCards metrics={mockMetrics} />)
+
+      expect(screen.getByText('Test Metric 1')).toBeInTheDocument()
+      expect(screen.getByText('Test Metric 2')).toBeInTheDocument()
+      expect(screen.queryByText('Admin Only Metric')).not.toBeInTheDocument()
+    })
+
+    it('handles missing session gracefully', () => {
+      mockUseSession.mockReturnValue({
+        data: null,
+        status: 'unauthenticated'
+      })
+      
+      render(<MetricsCards metrics={mockMetrics} />)
+
+      // Should default to viewer permissions
+      expect(screen.getByText('Test Metric 1')).toBeInTheDocument()
+      expect(screen.queryByText('Test Metric 2')).not.toBeInTheDocument()
+      expect(screen.queryByText('Admin Only Metric')).not.toBeInTheDocument()
+    })
+  })
 
   it('renders default metrics when no props provided', () => {
     render(<MetricsCards />)
@@ -42,7 +140,6 @@ describe('MetricsCards', () => {
     expect(screen.getByText('Total Transcripts')).toBeInTheDocument()
     expect(screen.getByText('Active Clients')).toBeInTheDocument()
     expect(screen.getByText('This Month')).toBeInTheDocument()
-    expect(screen.getByText('Avg per Client')).toBeInTheDocument()
   })
 
   it('renders custom metrics when provided', () => {

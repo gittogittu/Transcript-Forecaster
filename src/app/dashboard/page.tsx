@@ -1,57 +1,49 @@
-import { ProtectedRoute } from "@/components/auth/protected-route"
 import { DashboardLayout, MetricsCards } from "@/components/dashboard"
-import { PageTransition } from "@/components/animations/page-transition"
+import { ViewerOrHigher } from "@/components/auth/RoleGuard"
 
 export default function DashboardPage() {
   return (
-    <ProtectedRoute>
-      <DashboardLayout>
-        <PageTransition>
-          <div className="space-y-6">
-            {/* Welcome Section */}
-            <div className="text-center space-y-2">
-              <h2 className="text-3xl font-bold tracking-tight text-gray-900">
-                Welcome to your Dashboard
-              </h2>
-              <p className="text-lg text-muted-foreground">
-                Monitor your transcript analytics and insights
+    <DashboardLayout>
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground">
+            Welcome to your transcript analytics dashboard
+          </p>
+        </div>
+        
+        <ViewerOrHigher>
+          <MetricsCards />
+        </ViewerOrHigher>
+        
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <div className="col-span-4">
+            <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+              <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
+              <p className="text-muted-foreground">
+                Your recent transcript analytics activity will appear here.
               </p>
             </div>
-            
-            {/* Metrics Cards */}
-            <MetricsCards />
-            
-            {/* Quick Actions Section */}
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <div className="col-span-full">
-                <h3 className="text-xl font-semibold mb-4">Quick Actions</h3>
-              </div>
-              
-              {/* Placeholder for future dashboard widgets */}
-              <div className="bg-white rounded-lg border p-6 text-center">
-                <h4 className="font-medium mb-2">Recent Activity</h4>
-                <p className="text-sm text-muted-foreground">
-                  View your latest transcript uploads and updates
-                </p>
-              </div>
-              
-              <div className="bg-white rounded-lg border p-6 text-center">
-                <h4 className="font-medium mb-2">Trending Clients</h4>
-                <p className="text-sm text-muted-foreground">
-                  See which clients have the most activity
-                </p>
-              </div>
-              
-              <div className="bg-white rounded-lg border p-6 text-center">
-                <h4 className="font-medium mb-2">Predictions</h4>
-                <p className="text-sm text-muted-foreground">
-                  View upcoming forecast predictions
-                </p>
+          </div>
+          
+          <div className="col-span-3">
+            <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+              <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+              <div className="space-y-2">
+                <button className="w-full text-left p-2 rounded hover:bg-accent">
+                  Upload new data
+                </button>
+                <button className="w-full text-left p-2 rounded hover:bg-accent">
+                  Generate report
+                </button>
+                <button className="w-full text-left p-2 rounded hover:bg-accent">
+                  View predictions
+                </button>
               </div>
             </div>
           </div>
-        </PageTransition>
-      </DashboardLayout>
-    </ProtectedRoute>
+        </div>
+      </div>
+    </DashboardLayout>
   )
 }

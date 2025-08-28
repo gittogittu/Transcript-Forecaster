@@ -1,6 +1,7 @@
 "use client"
 
 import { motion } from "framer-motion"
+import { useSession } from "next-auth/react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { 
@@ -9,10 +10,14 @@ import {
   Users, 
   FileText, 
   Calendar,
-  BarChart3
+  BarChart3,
+  Shield,
+  Clock,
+  Database
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AnimatedMetricCard, CardSkeleton } from "@/components/animations"
+import { ExtendedSession, UserRole } from "@/lib/auth"
 
 interface MetricCardData {
   title: string
@@ -24,7 +29,9 @@ interface MetricCardData {
   }
   icon: React.ComponentType<{ className?: string }>
   description?: string
-  color?: 'blue' | 'green' | 'purple' | 'orange'
+  color?: 'blue' | 'green' | 'purple' | 'orange' | 'red'
+  requiredRole?: UserRole
+  allowedRoles?: UserRole[]
 }
 
 interface MetricsCardsProps {
@@ -43,7 +50,8 @@ const defaultMetrics: MetricCardData[] = [
     },
     icon: FileText,
     description: "Total transcripts processed",
-    color: 'blue'
+    color: 'blue',
+    allowedRoles: ['viewer', 'analyst', 'admin']
   },
   {
     title: "Active Clients",
@@ -55,7 +63,8 @@ const defaultMetrics: MetricCardData[] = [
     },
     icon: Users,
     description: "Clients with recent activity",
-    color: 'green'
+    color: 'green',
+    allowedRoles: ['viewer', 'analyst', 'admin']
   },
   {
     title: "This Month",
@@ -67,7 +76,8 @@ const defaultMetrics: MetricCardData[] = [
     },
     icon: Calendar,
     description: "Transcripts this month",
-    color: 'purple'
+    color: 'purple',
+    allowedRoles: ['viewer', 'analyst', 'admin']
   },
   {
     title: "Avg per Client",
@@ -79,15 +89,66 @@ const defaultMetrics: MetricCardData[] = [
     },
     icon: BarChart3,
     description: "Average transcripts per client",
-    color: 'orange'
+    color: 'orange',
+    allowedRoles: ['analyst', 'admin']
+  },
+  {
+    title: "System Performance",
+    value: "98.5%",
+    change: {
+      value: 1.2,
+      type: 'increase',
+      period: 'uptime this month'
+    },
+    icon: Shield,
+    description: "System availability and performance",
+    color: 'red',
+    requiredRole: 'admin'
+  },
+  {
+    title: "Avg Response Time",
+    value: "245ms",
+    change: {
+      value: 15.3,
+      type: 'decrease',
+      period: 'improvement'
+    },
+    icon: Clock,
+    description: "Average API response time",
+    color: 'blue',
+    requiredRole: 'admin'
+  },
+  {
+    title: "Data Quality",
+    value: "94.2%",
+    change: {
+      value: 3.1,
+      type: 'increase',
+      period: 'vs last month'
+    },
+    icon: Database,
+    description: "Data validation success rate",
+    color: 'green',
+    allowedRoles: ['analyst', 'admin']
   }
 ]
+
+function hasAccess(userRole: UserRole, metric: MetricCardData): boolean {
+  if (metric.requiredRole) {
+    return userRole === metric.requiredRole
+  }
+  if (metric.allowedRoles) {
+    return metric.allowedRoles.includes(userRole)
+  }
+  return true
+}
 
 const colorVariants = {
   blue: "from-blue-500 to-blue-600",
   green: "from-green-500 to-green-600", 
   purple: "from-purple-500 to-purple-600",
-  orange: "from-orange-500 to-orange-600"
+  orange: "from-orange-500 to-orange-600",
+  red: "from-red-500 to-red-600"
 }
 
 function MetricCard({ metric, index }: { metric: MetricCardData; index: number }) {
@@ -194,14 +255,27 @@ function MetricCardSkeleton({ index }: { index: number }) {
 }
 
 export function MetricsCards({ metrics = defaultMetrics, loading = false }: MetricsCardsProps) {
+  const { data: session } = useSession() as { data: ExtendedSession | null }
+  const userRole = session?.user?.role || 'viewer'
+  
+  // Filter metrics based on user role
+  const accessibleMetrics = metrics.filter(metric => hasAccess(userRole, metric))
+  
+  // Determine grid columns based on number of accessible metrics
+  const getGridCols = (count: number) => {
+    if (count <= 2) return "md:grid-cols-2"
+    if (count <= 3) return "md:grid-cols-2 lg:grid-cols-3"
+    return "md:grid-cols-2 lg:grid-cols-4"
+  }
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className={cn("grid gap-4", getGridCols(accessibleMetrics.length))}>
       {loading ? (
-        Array.from({ length: 4 }).map((_, index) => (
+        Array.from({ length: Math.min(accessibleMetrics.length, 4) }).map((_, index) => (
           <MetricCardSkeleton key={index} index={index} />
         ))
       ) : (
-        metrics.map((metric, index) => (
+        accessibleMetrics.map((metric, index) => (
           <MetricCard key={metric.title} metric={metric} index={index} />
         ))
       )}

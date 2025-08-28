@@ -3,6 +3,7 @@
 import { ReactNode } from "react"
 import { motion } from "framer-motion"
 import { DashboardNavigation } from "./dashboard-navigation"
+import { MobileNavigation } from "./mobile-navigation"
 import { UserProfile } from "@/components/auth/user-profile"
 import { cn } from "@/lib/utils"
 
@@ -18,6 +19,9 @@ export function DashboardLayout({ children, className }: DashboardLayoutProps) {
       <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center space-x-4">
+            {/* Mobile Navigation */}
+            <MobileNavigation />
+            
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -27,8 +31,11 @@ export function DashboardLayout({ children, className }: DashboardLayoutProps) {
               <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
                 <span className="text-white font-bold text-sm">TA</span>
               </div>
-              <h1 className="text-xl font-semibold text-gray-900">
+              <h1 className="text-xl font-semibold text-gray-900 hidden sm:block">
                 Transcript Analytics
+              </h1>
+              <h1 className="text-lg font-semibold text-gray-900 sm:hidden">
+                TA Platform
               </h1>
             </motion.div>
           </div>

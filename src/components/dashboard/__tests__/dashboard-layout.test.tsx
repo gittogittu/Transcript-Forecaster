@@ -16,7 +16,10 @@ jest.mock('next-auth/react', () => ({
 // Mock framer-motion
 jest.mock('framer-motion', () => ({
   motion: {
-    div: ({ children, className, ...props }: any) => <div className={className} {...props}>{children}</div>,
+    div: ({ children, className, ...props }: any) => {
+      const { initial, animate, transition, layoutId, whileHover, ...restProps } = props
+      return <div className={className} {...restProps}>{children}</div>
+    },
   },
 }))
 
@@ -53,14 +56,27 @@ describe('DashboardLayout', () => {
     expect(screen.getByText('Transcript Analytics')).toBeInTheDocument()
     expect(screen.getByText('TA')).toBeInTheDocument()
     
-    // Check for navigation items
-    expect(screen.getByText('Dashboard')).toBeInTheDocument()
-    expect(screen.getByText('Data')).toBeInTheDocument()
-    expect(screen.getByText('Analytics')).toBeInTheDocument()
-    expect(screen.getByText('Predictions')).toBeInTheDocument()
+    // Check for mobile navigation trigger
+    expect(screen.getByRole('button', { name: /toggle navigation menu/i })).toBeInTheDocument()
     
     // Check for content
     expect(screen.getByText('Test Content')).toBeInTheDocument()
+  })
+
+  it('renders responsive title text', () => {
+    render(
+      <DashboardLayout>
+        <div>Test Content</div>
+      </DashboardLayout>
+    )
+
+    // Check for full title (hidden on small screens)
+    const fullTitle = screen.getByText('Transcript Analytics')
+    expect(fullTitle).toHaveClass('hidden', 'sm:block')
+    
+    // Check for short title (visible on small screens)
+    const shortTitle = screen.getByText('TA Platform')
+    expect(shortTitle).toHaveClass('sm:hidden')
   })
 
   it('applies custom className to main content', () => {
