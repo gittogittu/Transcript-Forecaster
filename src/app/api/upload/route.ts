@@ -1,20 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { analystOrAdmin, getCurrentUser } from '@/lib/middleware/auth'
+import { withRateLimit, rateLimitConfigs } from '@/lib/middleware/rate-limit'
+import { performanceMiddleware } from '@/lib/middleware/performance-middleware'
 import { FileProcessor } from '@/lib/utils/file-processors'
 import { FileUploadSchema } from '@/lib/validations/schemas'
 import { z } from 'zod'
 
-export async function POST(request: NextRequest) {
-  try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+async function handlePOST(request: NextRequest) {
+  return performanceMiddleware(request, async () => {
+    try {
+      const user = await getCurrentUser(request)
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        )
+      }
 
     // Parse form data
     const formData = await request.formData()
@@ -120,30 +121,32 @@ export async function POST(request: NextRequest) {
       }
     })
 
-  } catch (error) {
-    console.error('File upload error:', error)
-    
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error occurred'
-      },
-      { status: 500 }
-    )
-  }
+    } catch (error) {
+      console.error('File upload error:', error)
+      
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error occurred'
+        },
+        { status: 500 }
+      )
+    }
+  })
 }
 
 // Handle file upload validation
-export async function PUT(request: NextRequest) {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+async function handlePUT(request: NextRequest) {
+  return performanceMiddleware(request, async () => {
+    try {
+      const user = await getCurrentUser(request)
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        )
+      }
 
     const body = await request.json()
     
@@ -178,27 +181,32 @@ export async function PUT(request: NextRequest) {
       }
     })
 
-  } catch (error) {
-    if (error instanceof z.ZodError) {
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Validation failed',
+            details: error.issues
+          },
+          { status: 400 }
+        )
+      }
+
+      console.error('File validation error:', error)
+      
       return NextResponse.json(
         {
           success: false,
-          error: 'Validation failed',
-          details: error.errors
+          error: 'Internal server error',
+          message: error instanceof Error ? error.message : 'Unknown error occurred'
         },
-        { status: 400 }
+        { status: 500 }
       )
     }
-
-    console.error('File validation error:', error)
-    
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error occurred'
-      },
-      { status: 500 }
-    )
-  }
+  })
 }
+
+// Export handlers with middleware
+export const POST = withRateLimit(rateLimitConfigs.data, analystOrAdmin(handlePOST))
+export const PUT = withRateLimit(rateLimitConfigs.data, analystOrAdmin(handlePUT))

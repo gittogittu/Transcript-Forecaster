@@ -1,181 +1,151 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import { updateTranscriptData, deleteTranscriptData, fetchTranscriptById } from '@/lib/data/transcript-data'
+import { authenticated, analystOrAdmin, getCurrentUser } from '@/lib/middleware/auth'
 import { withRateLimit, rateLimitConfigs } from '@/lib/middleware/rate-limit'
+import { performanceMiddleware } from '@/lib/middleware/performance-middleware'
+import { getTranscriptById, updateTranscript, deleteTranscript } from '@/lib/database/transcripts'
+import { TranscriptUpdateSchema } from '@/lib/validations/schemas'
 import { z } from 'zod'
 
-// Validation schema for transcript updates
-const UpdateTranscriptSchema = z.object({
-  clientName: z.string().min(1, 'Client name is required').max(100).optional(),
-  month: z.string().regex(/^\d{4}-\d{2}$/, 'Month must be in YYYY-MM format').optional(),
-  transcriptCount: z.number().int().min(0, 'Count must be non-negative').optional(),
-  notes: z.string().optional(),
-}).refine(data => Object.keys(data).length > 0, {
-  message: 'At least one field must be provided for update'
+const ParamsSchema = z.object({
+  id: z.string().uuid('Invalid transcript ID')
 })
 
 /**
- * GET /api/transcripts/[id] - Fetch specific transcript data
+ * GET /api/transcripts/[id] - Get specific transcript
  */
-export const GET = withRateLimit(rateLimitConfigs.read, async (
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) => {
-  try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session) {
+async function handleGET(request: NextRequest, { params }: { params: { id: string } }) {
+  return performanceMiddleware(request, async () => {
+    try {
+      const validatedParams = ParamsSchema.parse(params)
+      const transcript = await getTranscriptById(validatedParams.id)
+      
+      if (!transcript) {
+        return NextResponse.json(
+          { error: 'Transcript not found' },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: transcript
+      })
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          { error: 'Invalid transcript ID', details: error.issues },
+          { status: 400 }
+        )
+      }
+
+      console.error('Error fetching transcript:', error)
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Internal server error' },
+        { status: 500 }
       )
     }
-
-    const { id } = params
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Transcript ID is required' },
-        { status: 400 }
-      )
-    }
-
-    const result = await fetchTranscriptById(id)
-    
-    if (result.error) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: result.error === 'Transcript not found' ? 404 : 500 }
-      )
-    }
-
-    return NextResponse.json({
-      data: result.data,
-      success: true,
-    })
-  } catch (error) {
-    console.error('API Error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-})
+  })
+}
 
 /**
- * PUT /api/transcripts/[id] - Update specific transcript data
+ * PUT /api/transcripts/[id] - Update transcript (analyst or admin only)
  */
-export const PUT = withRateLimit(rateLimitConfigs.data, async (
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) => {
-  try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session) {
+async function handlePUT(request: NextRequest, { params }: { params: { id: string } }) {
+  return performanceMiddleware(request, async () => {
+    try {
+      const validatedParams = ParamsSchema.parse(params)
+      const body = await request.json()
+      const validatedData = TranscriptUpdateSchema.parse(body)
+      
+      const user = await getCurrentUser(request)
+      if (!user) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        )
+      }
+
+      const updatedTranscript = await updateTranscript(validatedParams.id, {
+        ...validatedData,
+        updatedAt: new Date()
+      })
+
+      if (!updatedTranscript) {
+        return NextResponse.json(
+          { error: 'Transcript not found' },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        data: updatedTranscript,
+        message: 'Transcript updated successfully'
+      })
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          { error: 'Validation failed', details: error.issues },
+          { status: 400 }
+        )
+      }
+
+      console.error('Error updating transcript:', error)
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Internal server error' },
+        { status: 500 }
       )
     }
-
-    const { id } = params
-    const body = await request.json()
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Transcript ID is required' },
-        { status: 400 }
-      )
-    }
-    
-    // Validate request body
-    const validationResult = UpdateTranscriptSchema.safeParse(body)
-    if (!validationResult.success) {
-      return NextResponse.json(
-        { 
-          error: 'Validation failed',
-          details: validationResult.error.errors,
-        },
-        { status: 400 }
-      )
-    }
-
-    const updateData = validationResult.data
-    
-    // Extract year from month if month is being updated
-    if (updateData.month) {
-      updateData.year = parseInt(updateData.month.split('-')[0])
-    }
-    
-    const result = await updateTranscriptData(id, updateData)
-    
-    if (result.error) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: result.error === 'Transcript not found' ? 404 : 400 }
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Transcript data updated successfully',
-      data: result.data,
-    })
-  } catch (error) {
-    console.error('API Error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-})
+  })
+}
 
 /**
- * DELETE /api/transcripts/[id] - Delete specific transcript data
+ * DELETE /api/transcripts/[id] - Delete transcript (analyst or admin only)
  */
-export const DELETE = withRateLimit(rateLimitConfigs.data, async (
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) => {
-  try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session) {
+async function handleDELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  return performanceMiddleware(request, async () => {
+    try {
+      const validatedParams = ParamsSchema.parse(params)
+      
+      const user = await getCurrentUser(request)
+      if (!user) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        )
+      }
+
+      const deleted = await deleteTranscript(validatedParams.id)
+
+      if (!deleted) {
+        return NextResponse.json(
+          { error: 'Transcript not found' },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Transcript deleted successfully'
+      })
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          { error: 'Invalid transcript ID', details: error.issues },
+          { status: 400 }
+        )
+      }
+
+      console.error('Error deleting transcript:', error)
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Internal server error' },
+        { status: 500 }
       )
     }
+  })
+}
 
-    const { id } = params
-
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Transcript ID is required' },
-        { status: 400 }
-      )
-    }
-    
-    const result = await deleteTranscriptData(id)
-    
-    if (result.error) {
-      return NextResponse.json(
-        { error: result.error },
-        { status: result.error === 'Transcript not found' ? 404 : 500 }
-      )
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Transcript data deleted successfully',
-    })
-  } catch (error) {
-    console.error('API Error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-})
+// Apply middleware and export handlers
+export const GET = withRateLimit(rateLimitConfigs.read, authenticated(handleGET))
+export const PUT = withRateLimit(rateLimitConfigs.data, analystOrAdmin(handlePUT))
+export const DELETE = withRateLimit(rateLimitConfigs.data, analystOrAdmin(handleDELETE))

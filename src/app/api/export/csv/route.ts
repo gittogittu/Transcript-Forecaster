@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authenticated, getCurrentUser } from '@/lib/middleware/auth'
+import { withRateLimit, rateLimitConfigs } from '@/lib/middleware/rate-limit'
+import { performanceMiddleware } from '@/lib/middleware/performance-middleware'
 import { exportService, ExportOptions } from '@/lib/services/export-service'
-import { getTranscripts } from '@/lib/database/transcripts'
+import { getAllTranscripts } from '@/lib/database/transcripts'
 import { z } from 'zod'
 
 const ExportRequestSchema = z.object({
@@ -15,78 +16,99 @@ const ExportRequestSchema = z.object({
   includePredictions: z.boolean().default(false)
 })
 
-export async function POST(request: NextRequest) {
-  try {
-    // Check authentication
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+async function handlePOST(request: NextRequest) {
+  return performanceMiddleware(request, async () => {
+    try {
+      const user = await getCurrentUser(request)
+      if (!user) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+      }
 
-    // Parse and validate request body
-    const body = await request.json()
-    const validatedData = ExportRequestSchema.parse(body)
+      // Parse and validate request body
+      const body = await request.json()
+      const validatedData = ExportRequestSchema.parse(body)
 
-    // Fetch transcript data
-    const transcripts = await getTranscripts({
-      dateRange: validatedData.dateRange,
-      clients: validatedData.clients
-    })
+      // Fetch transcript data
+      const transcriptResult = await getAllTranscripts({
+        startDate: validatedData.dateRange?.start,
+        endDate: validatedData.dateRange?.end,
+        page: 1,
+        limit: 10000 // Get all for export
+      })
 
-    // Prepare analytics data
-    const analyticsData = {
-      transcripts,
-      predictions: validatedData.includePredictions ? [] : undefined, // TODO: Fetch predictions
-      summary: calculateSummaryStatistics(transcripts, validatedData.dateRange)
-    }
+      const transcripts = transcriptResult.data
 
-    // Export options
-    const exportOptions: ExportOptions = {
-      format: 'csv',
-      dateRange: validatedData.dateRange,
-      clients: validatedData.clients,
-      includeAnalytics: validatedData.includeAnalytics,
-      includePredictions: validatedData.includePredictions
-    }
+      // Filter by clients if specified
+      let filteredTranscripts = transcripts
+      if (validatedData.clients && validatedData.clients.length > 0) {
+        filteredTranscripts = transcripts.filter(t => 
+          validatedData.clients!.includes(t.clientName)
+        )
+      }
 
-    // Generate CSV
-    const result = await exportService.exportData(analyticsData, exportOptions)
+      // Prepare analytics data
+      const analyticsData = {
+        transcripts: filteredTranscripts,
+        predictions: validatedData.includePredictions ? [] : undefined, // TODO: Fetch predictions
+        summary: calculateSummaryStatistics(filteredTranscripts, validatedData.dateRange)
+      }
 
-    if (!result.success || !result.data) {
+      // Export options
+      const exportOptions: ExportOptions = {
+        format: 'csv',
+        dateRange: validatedData.dateRange,
+        clients: validatedData.clients,
+        includeAnalytics: validatedData.includeAnalytics,
+        includePredictions: validatedData.includePredictions
+      }
+
+      // Generate CSV
+      const result = await exportService.exportData(analyticsData, exportOptions)
+
+      if (!result.success || !result.data) {
+        return NextResponse.json(
+          { error: result.error || 'Export failed' },
+          { status: 500 }
+        )
+      }
+
+      // Return CSV data
+      return new NextResponse(result.data as string, {
+        status: 200,
+        headers: {
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="${result.filename}"`
+        }
+      })
+
+    } catch (error) {
+      console.error('CSV export error:', error)
+      
+      if (error instanceof z.ZodError) {
+        return NextResponse.json(
+          { error: 'Invalid request data', details: error.issues },
+          { status: 400 }
+        )
+      }
+
       return NextResponse.json(
-        { error: result.error || 'Export failed' },
+        { error: 'Internal server error' },
         { status: 500 }
       )
     }
-
-    // Return CSV data
-    return new NextResponse(result.data as string, {
-      status: 200,
-      headers: {
-        'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="${result.filename}"`
-      }
-    })
-
-  } catch (error) {
-    console.error('CSV export error:', error)
-    
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Invalid request data', details: error.errors },
-        { status: 400 }
-      )
-    }
-
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
+  })
 }
 
-function calculateSummaryStatistics(transcripts: any[], dateRange?: { start: Date; end: Date }) {
-  const totalTranscripts = transcripts.reduce((sum, t) => sum + t.transcript_count, 0)
+interface TranscriptData {
+  id: string
+  clientName: string
+  date: Date
+  transcriptCount: number
+  transcriptType?: string
+}
+
+function calculateSummaryStatistics(transcripts: TranscriptData[], dateRange?: { start: Date; end: Date }) {
+  const totalTranscripts = transcripts.reduce((sum, t) => sum + t.transcriptCount, 0)
   
   // Calculate date range for average calculation
   const dates = transcripts.map(t => new Date(t.date))
@@ -98,27 +120,27 @@ function calculateSummaryStatistics(transcripts: any[], dateRange?: { start: Dat
 
   // Find peak day
   const dailyTotals = transcripts.reduce((acc, t) => {
-    const dateKey = t.date.toString().split('T')[0]
-    acc[dateKey] = (acc[dateKey] || 0) + t.transcript_count
+    const dateKey = t.date.toISOString().split('T')[0]
+    acc[dateKey] = (acc[dateKey] || 0) + t.transcriptCount
     return acc
   }, {} as Record<string, number>)
 
   const peakDay = Object.entries(dailyTotals).reduce(
-    (peak, [date, count]) => count > peak.count ? { date, count } : peak,
+    (peak, [date, count]) => (count as number) > peak.count ? { date, count: count as number } : peak,
     { date: minDate.toISOString().split('T')[0], count: 0 }
   )
 
   // Client breakdown
   const clientTotals = transcripts.reduce((acc, t) => {
-    acc[t.client_name] = (acc[t.client_name] || 0) + t.transcript_count
+    acc[t.clientName] = (acc[t.clientName] || 0) + t.transcriptCount
     return acc
   }, {} as Record<string, number>)
 
   const clientBreakdown = Object.entries(clientTotals)
     .map(([client, count]) => ({
       client,
-      count,
-      percentage: totalTranscripts > 0 ? (count / totalTranscripts) * 100 : 0
+      count: count as number,
+      percentage: totalTranscripts > 0 ? ((count as number) / totalTranscripts) * 100 : 0
     }))
     .sort((a, b) => b.count - a.count)
 
@@ -133,3 +155,5 @@ function calculateSummaryStatistics(transcripts: any[], dateRange?: { start: Dat
     }
   }
 }
+
+export const POST = withRateLimit(rateLimitConfigs.data, authenticated(handlePOST))
