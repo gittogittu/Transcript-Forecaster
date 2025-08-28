@@ -56,20 +56,47 @@ interface ChartDataTransitionProps {
   children: ReactNode
   dataKey: string | number
   className?: string
+  animationType?: 'slide' | 'fade' | 'scale' | 'flip'
 }
 
 export function ChartDataTransition({ 
   children, 
   dataKey, 
-  className 
+  className,
+  animationType = 'slide'
 }: ChartDataTransitionProps) {
+  const animations = {
+    slide: {
+      initial: { opacity: 0, y: 20 },
+      animate: { opacity: 1, y: 0 },
+      exit: { opacity: 0, y: -20 }
+    },
+    fade: {
+      initial: { opacity: 0 },
+      animate: { opacity: 1 },
+      exit: { opacity: 0 }
+    },
+    scale: {
+      initial: { opacity: 0, scale: 0.8 },
+      animate: { opacity: 1, scale: 1 },
+      exit: { opacity: 0, scale: 1.2 }
+    },
+    flip: {
+      initial: { opacity: 0, rotateY: -90 },
+      animate: { opacity: 1, rotateY: 0 },
+      exit: { opacity: 0, rotateY: 90 }
+    }
+  }
+
+  const animation = animations[animationType]
+
   return (
     <AnimatePresence mode="wait">
       <motion.div
         key={dataKey}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -20 }}
+        initial={animation.initial}
+        animate={animation.animate}
+        exit={animation.exit}
         transition={{ duration: 0.4, ease: "easeInOut" }}
         className={className}
       >
@@ -236,6 +263,205 @@ export function FadeInView({
       transition={{ duration: 0.6, ease: "easeOut" }}
     >
       {children}
+    </motion.div>
+  )
+}
+
+interface DashboardGridProps {
+  children: ReactNode | ReactNode[]
+  className?: string
+  columns?: number
+  staggerDelay?: number
+}
+
+export function DashboardGrid({ 
+  children, 
+  className, 
+  columns = 2,
+  staggerDelay = 0.1 
+}: DashboardGridProps) {
+  const childrenArray = Array.isArray(children) ? children : [children]
+  
+  return (
+    <motion.div
+      className={cn(
+        "grid gap-6",
+        columns === 1 && "grid-cols-1",
+        columns === 2 && "grid-cols-1 md:grid-cols-2",
+        columns === 3 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
+        columns === 4 && "grid-cols-1 md:grid-cols-2 lg:grid-cols-4",
+        className
+      )}
+      initial="hidden"
+      animate="visible"
+      variants={{
+        hidden: { opacity: 0 },
+        visible: {
+          opacity: 1,
+          transition: {
+            staggerChildren: staggerDelay
+          }
+        }
+      }}
+    >
+      {childrenArray.map((child, index) => (
+        <motion.div
+          key={index}
+          variants={{
+            hidden: { opacity: 0, y: 20, scale: 0.95 },
+            visible: { 
+              opacity: 1, 
+              y: 0, 
+              scale: 1,
+              transition: {
+                duration: 0.4,
+                ease: "easeOut"
+              }
+            }
+          }}
+        >
+          {child}
+        </motion.div>
+      ))}
+    </motion.div>
+  )
+}
+
+interface ChartUpdateAnimationProps {
+  children: ReactNode
+  isUpdating: boolean
+  className?: string
+}
+
+export function ChartUpdateAnimation({ 
+  children, 
+  isUpdating, 
+  className 
+}: ChartUpdateAnimationProps) {
+  return (
+    <motion.div
+      className={cn("relative", className)}
+      animate={{
+        opacity: isUpdating ? 0.7 : 1,
+        scale: isUpdating ? 0.98 : 1
+      }}
+      transition={{ duration: 0.3 }}
+    >
+      {children}
+      <AnimatePresence>
+        {isUpdating && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 flex items-center justify-center bg-background/50 backdrop-blur-sm rounded-lg"
+          >
+            <motion.div
+              className="flex items-center gap-2 bg-card p-3 rounded-lg shadow-lg border"
+              initial={{ scale: 0.8 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.8 }}
+            >
+              <motion.div
+                className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              />
+              <span className="text-sm">Updating chart...</span>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  )
+}
+
+interface FilterTransitionProps {
+  children: ReactNode
+  filterKey: string
+  className?: string
+}
+
+export function FilterTransition({ 
+  children, 
+  filterKey, 
+  className 
+}: FilterTransitionProps) {
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={filterKey}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        transition={{ duration: 0.3, ease: "easeInOut" }}
+        className={className}
+      >
+        {children}
+      </motion.div>
+    </AnimatePresence>
+  )
+}
+
+interface MetricChangeIndicatorProps {
+  value: number
+  previousValue?: number
+  className?: string
+  showAnimation?: boolean
+}
+
+export function MetricChangeIndicator({ 
+  value, 
+  previousValue, 
+  className,
+  showAnimation = true 
+}: MetricChangeIndicatorProps) {
+  const hasChanged = previousValue !== undefined && value !== previousValue
+  const isIncrease = hasChanged && value > previousValue
+  const isDecrease = hasChanged && value < previousValue
+
+  return (
+    <motion.div
+      className={cn("flex items-center gap-1", className)}
+      animate={showAnimation && hasChanged ? {
+        scale: [1, 1.1, 1],
+        transition: { duration: 0.4 }
+      } : {}}
+    >
+      <motion.span
+        key={value}
+        initial={showAnimation ? { opacity: 0, scale: 0.8 } : false}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.3 }}
+        className="font-semibold"
+      >
+        {value}
+      </motion.span>
+      
+      <AnimatePresence>
+        {hasChanged && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            transition={{ duration: 0.3 }}
+            className={cn(
+              "flex items-center text-xs",
+              isIncrease && "text-green-600",
+              isDecrease && "text-red-600"
+            )}
+          >
+            <motion.span
+              animate={{ 
+                y: isIncrease ? [-2, 0] : isDecrease ? [2, 0] : 0 
+              }}
+              transition={{ duration: 0.3 }}
+            >
+              {isIncrease ? "↗" : isDecrease ? "↘" : ""}
+            </motion.span>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   )
 }

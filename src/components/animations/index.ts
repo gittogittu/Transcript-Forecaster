@@ -21,7 +21,12 @@ export {
   AnimatedInput, 
   AnimatedButton, 
   AnimatedSelect, 
-  FormFieldAnimation 
+  FormFieldAnimation,
+  AnimatedForm,
+  HoverCard,
+  FocusRing,
+  ProgressIndicator,
+  ValidationMessage
 } from "./form-animations"
 
 // Chart animations
@@ -31,5 +36,20 @@ export {
   AnimatedMetricCard, 
   StaggeredList, 
   CountUpAnimation, 
-  FadeInView 
+  FadeInView,
+  DashboardGrid,
+  ChartUpdateAnimation,
+  FilterTransition,
+  MetricChangeIndicator
 } from "./chart-animations"
+
+// Spreadsheet animations
+export {
+  AnimatedCell,
+  AnimatedRow,
+  AnimatedTableHeader,
+  SpreadsheetLoadingOverlay,
+  CellErrorTooltip,
+  AnimatedInput as SpreadsheetAnimatedInput,
+  SaveIndicator
+} from "./spreadsheet-animations"
