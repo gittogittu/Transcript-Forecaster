@@ -19,8 +19,7 @@ import { TranscriptData } from '@/types/transcript'
 
 interface PredictionData {
   clientName: string
-  month: string
-  year: number
+  date: Date
   predictedCount: number
   confidenceInterval: {
     lower: number
@@ -67,7 +66,8 @@ export function PredictionChart({
         : historicalData
       
       filteredHistorical.forEach(item => {
-        const monthKey = `${item.year}-${item.month.padStart(2, '0')}`
+        const itemDate = new Date(item.date)
+        const monthKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`
         if (!dataMap[monthKey]) {
           dataMap[monthKey] = { month: monthKey, isPrediction: false }
         }
@@ -81,7 +81,8 @@ export function PredictionChart({
       : predictionData
     
     filteredPredictions.forEach(item => {
-      const monthKey = `${item.year}-${item.month.padStart(2, '0')}`
+      const itemDate = new Date(item.date)
+      const monthKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`
       if (!dataMap[monthKey]) {
         dataMap[monthKey] = { month: monthKey, isPrediction: true }
       }

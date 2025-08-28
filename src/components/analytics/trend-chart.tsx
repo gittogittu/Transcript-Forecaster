@@ -58,7 +58,7 @@ export function TrendChart({
     
     // Filter data based on time range and selected clients
     const filteredData = data.filter(item => {
-      const itemDate = new Date(item.year, parseInt(item.month) - 1)
+      const itemDate = new Date(item.date)
       const inTimeRange = !timeRange || 
         (itemDate >= timeRange.start && itemDate <= timeRange.end)
       const inSelectedClients = !selectedClients || 
@@ -70,13 +70,14 @@ export function TrendChart({
 
     // Group data by month
     filteredData.forEach(item => {
-      const monthKey = `${item.year}-${item.month.padStart(2, '0')}`
+      const itemDate = new Date(item.date)
+      const monthKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`
       
       if (!groupedData[monthKey]) {
         groupedData[monthKey] = { month: monthKey }
       }
       
-      groupedData[monthKey][item.clientName] = item.transcriptCount
+      groupedData[monthKey][item.clientName] = (groupedData[monthKey][item.clientName] as number || 0) + item.transcriptCount
     })
 
     // Convert to array and sort by month

@@ -87,13 +87,14 @@ export function InteractiveChart({
 
     // Group data by month
     filteredData.forEach(item => {
-      const monthKey = `${item.year}-${item.month.padStart(2, '0')}`
+      const itemDate = new Date(item.date)
+      const monthKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`
       
       if (!groupedData[monthKey]) {
         groupedData[monthKey] = { month: monthKey }
       }
       
-      groupedData[monthKey][item.clientName] = item.transcriptCount
+      groupedData[monthKey][item.clientName] = (groupedData[monthKey][item.clientName] as number || 0) + item.transcriptCount
     })
 
     // Convert to array and sort by month

@@ -63,7 +63,8 @@ export function SummaryStatistics({ data, timeRange, selectedClients }: SummaryS
     // Monthly calculations
     const monthlyData = new Map<string, number>()
     data.forEach(item => {
-      const monthKey = `${item.year}-${item.month.padStart(2, '0')}`
+      const itemDate = new Date(item.date)
+      const monthKey = `${itemDate.getFullYear()}-${String(itemDate.getMonth() + 1).padStart(2, '0')}`
       const current = monthlyData.get(monthKey) || 0
       monthlyData.set(monthKey, current + item.transcriptCount)
     })
