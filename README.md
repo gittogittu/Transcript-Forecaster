@@ -598,6 +598,12 @@ To enable the full analytics page:
 
 ## Recent Updates
 
+### Database Connection Standardization
+- **Consistent Function Naming**: All database services now use the standardized `getDatabasePool()` function from `@/lib/database/connection`
+- **Import Consistency**: Fixed inconsistent imports across database services (`users.ts`, `transcripts.ts`, `performance.ts`, `predictions.ts`) and their corresponding test files
+- **Test Mock Alignment**: Updated all test mocks to use the correct `getDatabasePool` function name for consistent testing
+- **Code Quality**: Eliminated naming inconsistencies that could cause runtime errors and improved code maintainability
+
 ### Database Connection Enhancement
 - **Neon DB Optimization**: Enhanced database connection handling with preferred connection string support for Neon databases
 - **Flexible Configuration**: Support for both connection strings and individual database parameters with automatic fallback

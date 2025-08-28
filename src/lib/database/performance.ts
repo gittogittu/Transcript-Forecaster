@@ -1,5 +1,5 @@
 import { Pool } from 'pg'
-import { getDbConnection } from './connection'
+import { getDatabasePool } from './connection'
 import { PerformanceMetrics, MetricsSummary, TimeRange } from '@/types/transcript'
 import { PerformanceMetricsInput } from '@/lib/validations/schemas'
 
@@ -7,7 +7,7 @@ export class PerformanceService {
   private pool: Pool
 
   constructor() {
-    this.pool = getDbConnection()
+    this.pool = getDatabasePool()
   }
 
   async recordMetrics(data: PerformanceMetricsInput): Promise<PerformanceMetrics> {

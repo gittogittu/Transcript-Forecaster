@@ -1,5 +1,5 @@
 import { Pool } from 'pg'
-import { getPool } from './connection'
+import { getDatabasePool } from './connection'
 import { UserRole } from '../auth'
 
 export interface User {
@@ -30,7 +30,7 @@ export interface UpdateUserData {
  * Get user by email
  */
 export async function getUserByEmail(email: string): Promise<User | null> {
-  const pool = getPool()
+  const pool = getDatabasePool()
   
   try {
     const result = await pool.query(
@@ -63,7 +63,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
  * Get user by ID
  */
 export async function getUserById(id: string): Promise<User | null> {
-  const pool = getPool()
+  const pool = getDatabasePool()
   
   try {
     const result = await pool.query(
@@ -96,7 +96,7 @@ export async function getUserById(id: string): Promise<User | null> {
  * Create a new user
  */
 export async function createUser(userData: CreateUserData): Promise<User> {
-  const pool = getPool()
+  const pool = getDatabasePool()
   
   try {
     const result = await pool.query(
@@ -127,7 +127,7 @@ export async function createUser(userData: CreateUserData): Promise<User> {
  * Update user data
  */
 export async function updateUser(id: string, userData: UpdateUserData): Promise<User | null> {
-  const pool = getPool()
+  const pool = getDatabasePool()
   
   try {
     const setParts: string[] = []
@@ -190,7 +190,7 @@ export async function updateUser(id: string, userData: UpdateUserData): Promise<
  * Update user's last login timestamp
  */
 export async function updateUserLastLogin(id: string): Promise<void> {
-  const pool = getPool()
+  const pool = getDatabasePool()
   
   try {
     await pool.query(
@@ -207,7 +207,7 @@ export async function updateUserLastLogin(id: string): Promise<void> {
  * Get all users (admin only)
  */
 export async function getAllUsers(): Promise<User[]> {
-  const pool = getPool()
+  const pool = getDatabasePool()
   
   try {
     const result = await pool.query(
@@ -234,7 +234,7 @@ export async function getAllUsers(): Promise<User[]> {
  * Delete user (admin only)
  */
 export async function deleteUser(id: string): Promise<boolean> {
-  const pool = getPool()
+  const pool = getDatabasePool()
   
   try {
     const result = await pool.query('DELETE FROM users WHERE id = $1', [id])

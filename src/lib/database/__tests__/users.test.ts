@@ -8,11 +8,11 @@ import {
   hasRole,
   canAccessResource
 } from '../users'
-import { getPool } from '../connection'
+import { getDatabasePool } from '../connection'
 
 // Mock the database connection
 jest.mock('../connection', () => ({
-  getPool: jest.fn()
+  getDatabasePool: jest.fn()
 }))
 
 const mockPool = {
@@ -21,7 +21,7 @@ const mockPool = {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(getPool as jest.Mock).mockReturnValue(mockPool)
+  ;(getDatabasePool as jest.Mock).mockReturnValue(mockPool)
 })
 
 describe('User Database Functions', () => {

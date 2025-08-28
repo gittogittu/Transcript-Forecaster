@@ -163,7 +163,7 @@ describe('useAuth', () => {
 
   it('requireAuth redirects users without required role', () => {
     const mockSession = {
-      user: { id: '1', name: 'John Doe', email: 'john@example.com', role: 'user' },
+      user: { id: '1', name: 'John Doe', email: 'john@example.com', role: 'viewer' },
       provider: 'auth0',
       accessToken: 'token',
       expires: '2024-01-01',

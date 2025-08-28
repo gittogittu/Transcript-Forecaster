@@ -1,7 +1,7 @@
 "use client"
 
 import { getProviders, signIn, getSession } from "next-auth/react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,7 +22,7 @@ const providerIcons = {
   auth0: Shield,
 }
 
-export default function SignInPage() {
+function SignInContent() {
   const [providers, setProviders] = useState<Record<string, Provider> | null>(null)
   const [loading, setLoading] = useState<string | null>(null)
   const router = useRouter()

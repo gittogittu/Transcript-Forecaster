@@ -1,5 +1,5 @@
 import { Pool } from 'pg'
-import { getDbConnection } from './connection'
+import { getDatabasePool } from './connection'
 import { PredictionResult, TimePrediction } from '@/types/transcript'
 import { PredictionResultInput } from '@/lib/validations/schemas'
 
@@ -7,7 +7,7 @@ export class PredictionService {
   private pool: Pool
 
   constructor() {
-    this.pool = getDbConnection()
+    this.pool = getDatabasePool()
   }
 
   async createPrediction(data: PredictionResultInput): Promise<PredictionResult> {

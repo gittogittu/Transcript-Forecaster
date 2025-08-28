@@ -1,5 +1,5 @@
 import { Pool } from 'pg'
-import { getDbConnection } from './connection'
+import { getDatabasePool } from './connection'
 import { TranscriptData, Client, ImportResult, ImportError } from '@/types/transcript'
 import { TranscriptCreate, TranscriptUpdate, TranscriptQuery } from '@/lib/validations/schemas'
 
@@ -7,7 +7,7 @@ export class TranscriptService {
   private pool: Pool
 
   constructor() {
-    this.pool = getDbConnection()
+    this.pool = getDatabasePool()
   }
 
   async createClient(name: string): Promise<Client> {

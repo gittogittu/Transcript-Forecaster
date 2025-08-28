@@ -5,7 +5,7 @@ import { TranscriptCreate, TranscriptUpdate } from '@/lib/validations/schemas'
 
 // Mock the database connection
 jest.mock('../connection', () => ({
-  getDbConnection: jest.fn(() => mockPool)
+  getDatabasePool: jest.fn(() => mockPool)
 }))
 
 const mockPool = {
