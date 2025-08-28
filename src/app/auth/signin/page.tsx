@@ -18,22 +18,12 @@ export default function SignInPage() {
           <CardHeader>
             <CardTitle>Welcome back</CardTitle>
             <CardDescription>
-              Choose your preferred sign-in method
+              Sign in with your Google account
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <LoginButton 
-              provider="auth0" 
-              className="w-full"
-              callbackUrl="/dashboard"
-            />
-            <LoginButton 
               provider="google" 
-              className="w-full"
-              callbackUrl="/dashboard"
-            />
-            <LoginButton 
-              provider="github" 
               className="w-full"
               callbackUrl="/dashboard"
             />

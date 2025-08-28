@@ -23,8 +23,8 @@ export const LazyInteractiveChart = lazy(() =>
 )
 
 export const LazyPredictionService = lazy(() => 
-  import('@/lib/services/prediction-service').then(module => ({
-    default: module.PredictionService
+  import('@/lib/services/prediction-service-mock').then(module => ({
+    default: module.MockPredictionService
   }))
 )
 

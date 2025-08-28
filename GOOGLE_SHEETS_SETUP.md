@@ -147,14 +147,89 @@ Test the Google Sheets API connection.
 }
 ```
 
+## AHT Data Integration
+
+The platform supports Average Handle Time (AHT) data integration from Google Sheets. AHT data can be stored in a separate sheet or combined with transcript data.
+
+### Potential AHT API Endpoints
+
+**Note:** These endpoints are planned for future implementation to support AHT analytics.
+
+#### GET /api/aht
+Fetch AHT data from Google Sheets.
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "client": "Client A",
+      "overallAHT": 15.5,
+      "reviewAHT": 8.2,
+      "validationAHT": 7.3,
+      "monthlyData": {
+        "2024_Jan": 150,
+        "2024_Feb": 175,
+        "2024_Mar": 160
+      },
+      "grandTotal": 485
+    }
+  ],
+  "success": true
+}
+```
+
+#### POST /api/aht
+Add or update AHT data in Google Sheets.
+
+**Request Body:**
+```json
+{
+  "client": "Client Name",
+  "overallAHT": 15.5,
+  "reviewAHT": 8.2,
+  "validationAHT": 7.3,
+  "monthlyData": {
+    "2024_Jan": 150
+  }
+}
+```
+
+#### GET /api/aht/summary
+Get AHT summary statistics.
+
+**Response:**
+```json
+{
+  "data": {
+    "totalClients": 25,
+    "averageAHT": 14.2,
+    "medianAHT": 13.8,
+    "highestAHT": { "client": "Client X", "value": 22.5 },
+    "lowestAHT": { "client": "Client Y", "value": 8.1 },
+    "totalVolume": 12500
+  },
+  "success": true
+}
+```
+
 ## Data Validation
 
 The system validates all input data:
 
+### Transcript Data Validation
 - **Client Name**: Required, 1-100 characters
 - **Month**: Required, YYYY-MM format
 - **Transcript Count**: Required, non-negative integer
 - **Notes**: Optional string
+
+### AHT Data Validation
+- **Client Name**: Required, 1-100 characters, must match existing clients
+- **Overall AHT**: Required, positive number (minutes)
+- **Review AHT**: Required, positive number (minutes)
+- **Validation AHT**: Required, positive number (minutes)
+- **Monthly Data**: Object with month keys (YYYY_MMM format) and positive numeric values
+- **Grand Total**: Required, positive integer representing total volume
 
 ## Error Handling
 

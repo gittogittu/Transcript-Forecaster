@@ -10,7 +10,7 @@ interface SkeletonProps {
 
 export function Skeleton({ className, animate = true }: SkeletonProps) {
   const Component = animate ? motion.div : "div"
-  
+
   return (
     <Component
       className={cn("bg-muted rounded-md", className)}
@@ -38,7 +38,7 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
         <Skeleton className="h-4 w-28" />
         <Skeleton className="h-4 w-20" />
       </div>
-      
+
       {/* Row skeletons */}
       {Array.from({ length: rows }).map((_, i) => (
         <motion.div
@@ -92,7 +92,7 @@ export function ChartSkeleton() {
     >
       {/* Chart title */}
       <Skeleton className="h-6 w-48" />
-      
+
       {/* Chart area */}
       <div className="relative h-64 bg-muted rounded-lg p-4">
         {/* Y-axis labels */}
@@ -101,14 +101,14 @@ export function ChartSkeleton() {
             <Skeleton key={i} className="h-3 w-8" />
           ))}
         </div>
-        
+
         {/* Chart bars/lines */}
         <div className="ml-12 mt-4 flex items-end space-x-2 h-48">
           {Array.from({ length: 12 }).map((_, i) => (
             <motion.div
               key={i}
               className="bg-primary/20 rounded-t"
-              style={{ 
+              style={{
                 width: '20px',
                 height: `${Math.random() * 80 + 20}%`
               }}
@@ -118,7 +118,7 @@ export function ChartSkeleton() {
             />
           ))}
         </div>
-        
+
         {/* X-axis labels */}
         <div className="ml-12 mt-2 flex space-x-2">
           {Array.from({ length: 12 }).map((_, i) => (

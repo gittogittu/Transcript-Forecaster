@@ -25,74 +25,46 @@ const nextConfig: NextConfig = {
       '@radix-ui/react-separator',
       '@radix-ui/react-slot',
       '@radix-ui/react-tabs',
-      'lucide-react',
-      'recharts'
+      'lucide-react'
+      // 'recharts' - temporarily disabled due to SSR issues
     ],
   },
 
   // Bundle optimization
   webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
-    // Exclude TensorFlow.js from server-side bundle
+    // Handle client-side fallbacks for various Node.js modules
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      path: false,
+      crypto: false,
+      stream: false,
+      buffer: false,
+      util: false,
+    }
+
+    // Exclude client-only libraries from server bundle
     if (isServer) {
       config.externals = config.externals || []
       config.externals.push({
-        '@tensorflow/tfjs': 'commonjs @tensorflow/tfjs',
-        '@tensorflow/tfjs-core': 'commonjs @tensorflow/tfjs-core',
-        '@tensorflow/tfjs-layers': 'commonjs @tensorflow/tfjs-layers',
-        '@tensorflow/tfjs-backend-cpu': 'commonjs @tensorflow/tfjs-backend-cpu',
-        '@tensorflow/tfjs-backend-webgl': 'commonjs @tensorflow/tfjs-backend-webgl',
+        'framer-motion': 'framer-motion',
+        'recharts': 'recharts'
       })
     }
-    // Tree shaking optimization
+
+    // Add global polyfills for client-side libraries
+    if (!isServer) {
+      config.plugins.push(
+        new webpack.DefinePlugin({
+          'global.self': 'self',
+        })
+      )
+    }
+    // Simplified optimization to avoid SSR issues
     config.optimization = {
       ...config.optimization,
       usedExports: true,
       sideEffects: false,
-      splitChunks: {
-        chunks: 'all',
-        cacheGroups: {
-          // Vendor chunk for stable dependencies
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            priority: 10,
-            chunks: 'all',
-            enforce: true,
-          },
-          // Analytics chunk for ML and chart libraries
-          analytics: {
-            test: /[\\/]node_modules[\\/](@tensorflow|recharts|d3)/,
-            name: 'analytics',
-            priority: 20,
-            chunks: 'all',
-            enforce: true,
-          },
-          // UI chunk for component libraries
-          ui: {
-            test: /[\\/]node_modules[\\/](@radix-ui|framer-motion|lucide-react)/,
-            name: 'ui',
-            priority: 15,
-            chunks: 'all',
-            enforce: true,
-          },
-          // Auth chunk
-          auth: {
-            test: /[\\/]node_modules[\\/](next-auth)/,
-            name: 'auth',
-            priority: 15,
-            chunks: 'all',
-            enforce: true,
-          },
-          // Common chunk for shared code
-          common: {
-            name: 'common',
-            minChunks: 2,
-            priority: 5,
-            chunks: 'all',
-            enforce: true,
-          },
-        },
-      },
     }
 
     // Bundle analyzer in development

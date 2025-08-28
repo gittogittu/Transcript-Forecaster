@@ -22,9 +22,10 @@ import {
 } from 'lucide-react'
 
 import { TrendChart, PredictionChart, InteractiveChart } from '@/components/analytics'
+import { AHTDashboard } from '@/components/analytics/aht-dashboard'
 import { useTranscripts, useTranscriptSummary } from '@/lib/hooks/use-transcripts'
 import { PredictionResult } from '@/types/transcript'
-// PredictionService will be dynamically imported to avoid SSR issues
+import { clientPredictionService } from '@/lib/services/prediction-service-client'
 
 // Time range options
 const TIME_RANGES = [
@@ -72,7 +73,7 @@ function AnalyticsPage() {
   
   const [predictions, setPredictions] = useState<PredictionResult[]>([])
   const [isGeneratingPredictions, setIsGeneratingPredictions] = useState(false)
-  const [predictionService, setPredictionService] = useState<any>(null)
+  const [isPredictionServiceReady, setIsPredictionServiceReady] = useState(false)
 
   // Data fetching
   const { data: transcripts = [], isLoading, error, refetch } = useTranscripts()
@@ -192,12 +193,10 @@ function AnalyticsPage() {
     
     setIsGeneratingPredictions(true)
     try {
-      // Dynamically import PredictionService to avoid SSR issues
-      let serviceToUse = predictionService
-      if (!serviceToUse) {
-        const { PredictionService } = await import('@/lib/services/prediction-service')
-        serviceToUse = new PredictionService()
-        setPredictionService(serviceToUse)
+      // Initialize prediction service if not ready
+      if (!isPredictionServiceReady) {
+        await clientPredictionService.initialize()
+        setIsPredictionServiceReady(true)
       }
 
       const clientsToPredict = filters.selectedClients.length > 0 
@@ -206,7 +205,7 @@ function AnalyticsPage() {
 
       const predictionPromises = clientsToPredict.map(async (clientName) => {
         try {
-          return await serviceToUse.generatePredictions(clientName, transcripts, {
+          return await clientPredictionService.generatePredictions(clientName, transcripts, {
             monthsAhead: 6,
             modelType: 'linear'
           })
@@ -525,6 +524,21 @@ function AnalyticsPage() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* AHT Analytics Section */}
+      <motion.div variants={itemVariants}>
+        <Card>
+          <CardHeader>
+            <CardTitle>Average Handling Time (AHT) Analytics</CardTitle>
+            <CardDescription>
+              Client performance insights based on historical AHT data
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AHTDashboard />
           </CardContent>
         </Card>
       </motion.div>

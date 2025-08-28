@@ -61,6 +61,10 @@ src/
 │   ├── validations/       # Zod validation schemas
 │   └── utils.ts           # Core utility functions
 ├── types/                 # TypeScript type definitions
+│   ├── transcript.ts      # Transcript data models and interfaces
+│   ├── aht.ts            # Average Handle Time (AHT) data types
+│   ├── auth.d.ts         # Authentication types
+│   └── next-auth.d.ts    # NextAuth type extensions
 ├── middleware.ts          # Next.js middleware for auth/routing
 └── global.d.ts            # Global type declarations
 ```
@@ -168,6 +172,7 @@ This pattern ensures:
 - Real-time data synchronization with conflict resolution
 - Comprehensive data validation with business rule enforcement
 - Batch operations and data consistency checks
+- **Average Handle Time (AHT) Analytics**: Track and analyze client performance metrics including overall AHT, review AHT, and validation AHT with monthly trend analysis
 
 ### Predictive Analytics
 - Machine learning-powered predictions using TensorFlow.js (dynamically loaded for SSR compatibility)
@@ -180,14 +185,18 @@ This pattern ensures:
 ### Interactive Dashboards
 - **Current Status**: Simplified analytics dashboard with basic metrics display
 - **In Development**: Full-featured analytics with interactive charts and visualizations
+- **AHT Analytics**: Comprehensive Average Handling Time dashboard with client performance insights
 - **Planned Features**: Customizable filters, date range selection, and export capabilities
 - Summary statistics and trend analysis (basic implementation available)
+- Multi-dimensional data analysis with risk assessment and predictive modeling
 
 ### Authentication & Security
 - Multi-provider authentication (Auth0, Google, GitHub)
 - Role-based access control (admin/user roles)
 - Session management and secure routing
 - Rate limiting and API protection
+- Compact dropdown-based user profile interface
+- Integrated user settings and sign-out functionality
 
 ### Performance & Monitoring
 - Built-in performance tracking and optimization
@@ -277,6 +286,73 @@ class PredictionErrorClass extends Error implements AppError {
 All API endpoints and data operations return consistent error structures for better debugging and user experience.
 
 For detailed information about error handling patterns, monitoring, and best practices, see [ERROR_HANDLING.md](./ERROR_HANDLING.md).
+
+## Average Handle Time (AHT) Analytics
+
+The platform includes comprehensive Average Handle Time analytics capabilities for tracking client performance metrics and operational efficiency.
+
+### AHT Data Types
+
+The application defines several TypeScript interfaces for AHT data management:
+
+```typescript
+// Core AHT data structure
+interface AHTData {
+  client: string
+  overallAHT: number
+  reviewAHT: number
+  validationAHT: number
+  monthlyData: {
+    [key: string]: number // e.g., "2024_Jun": 0, "2024_Jul": 252
+  }
+  grandTotal: number
+}
+
+// Summary statistics for AHT analysis
+interface AHTSummary {
+  totalClients: number
+  averageAHT: number
+  medianAHT: number
+  highestAHT: { client: string; value: number }
+  lowestAHT: { client: string; value: number }
+  totalVolume: number
+}
+
+// Monthly trend analysis
+interface MonthlyTrend {
+  month: string
+  totalVolume: number
+  averageAHT: number
+  clientCount: number
+}
+
+// Client performance metrics
+interface ClientPerformance {
+  client: string
+  overallAHT: number
+  trend: 'increasing' | 'decreasing' | 'stable'
+  trendPercentage: number
+  riskLevel: 'low' | 'medium' | 'high'
+  monthlyVolumes: Array<{ month: string; volume: number }>
+}
+```
+
+### AHT Features
+
+- **Multi-dimensional AHT Tracking**: Track overall AHT, review AHT, and validation AHT separately for comprehensive performance analysis
+- **Monthly Trend Analysis**: Monitor AHT performance over time with monthly data points and trend calculations
+- **Client Performance Scoring**: Automatic risk level assessment based on AHT trends and performance metrics
+- **Summary Statistics**: Calculate averages, medians, and identify top/bottom performing clients
+- **Volume Correlation**: Track the relationship between transaction volume and AHT performance
+
+### Integration with Existing Analytics
+
+AHT data integrates seamlessly with the existing transcript analytics platform:
+
+- **Unified Dashboard**: AHT metrics can be displayed alongside transcript volume data
+- **Predictive Analytics**: AHT trends can be used to predict future performance and identify potential issues
+- **Client Insights**: Combined transcript and AHT data provides comprehensive client performance profiles
+- **Performance Monitoring**: AHT metrics contribute to overall system health and performance tracking
 
 ## Production Monitoring
 
@@ -424,6 +500,7 @@ npm run test:all
 - [Database Setup](./DATABASE_SETUP.md) - PostgreSQL configuration and migrations
 - [Deployment Guide](./DEPLOYMENT_GUIDE.md) - Production deployment and CI/CD
 - [Error Handling](./ERROR_HANDLING.md) - Comprehensive error management system
+- [AHT Analytics](./AHT_ANALYTICS.md) - Average Handle Time analytics and data types
 
 ## Analytics Page Status
 
@@ -468,6 +545,23 @@ To enable the full analytics page:
    ```
 
 ## Recent Updates
+
+### AHT Analytics Integration
+- **Comprehensive AHT Dashboard**: New analytics system for Average Handling Time data with client performance insights
+- **Multi-dimensional Analysis**: Summary statistics, monthly trends, client performance rankings, and risk assessment
+- **Predictive Analytics**: Simple linear regression for AHT trend forecasting with confidence intervals
+- **Interactive Visualizations**: Charts for volume trends, client comparisons, and risk distribution analysis
+- **API Endpoints**: RESTful endpoints for AHT summary, trends, client data, and predictions (`/api/aht/*`)
+- **Real-time Data Processing**: Client-side analytics service with statistical calculations and trend analysis
+- **CSV Data Support**: Infrastructure for importing and processing AHT data from CSV files
+- **Navigation Integration**: AHT analytics accessible through main navigation with dedicated page at `/analytics/aht`
+
+### User Interface Improvements
+- **UserProfile Component Redesign**: Transformed from a card-based layout to a compact dropdown menu interface
+- **Navigation Integration**: UserProfile now optimized for navigation bars with minimal footprint
+- **Enhanced User Experience**: Dropdown menu provides quick access to user information, settings, and sign-out functionality
+- **Responsive Design**: Avatar-based trigger with fallback to user initials for better mobile experience
+- **Accessibility**: Improved keyboard navigation and screen reader support with proper ARIA labels
 
 ### Analytics Page Fallback System
 - **Simplified Analytics Page**: A simplified analytics page (`page-simple.tsx`) is currently active as a fallback while the full-featured analytics page has build issues
@@ -559,3 +653,5 @@ function MyComponent() {
 - **Comprehensive Validation**: Zod schemas with business rule validation
 - **Real-time Error Tracking**: Structured error logging with detailed context
 - **Performance Optimization**: Bundle analysis, code splitting, and caching strategies
+- **Modern UI Components**: Shadcn UI with Radix primitives for consistent, accessible interfaces
+- **Component Architecture**: Modular design with dropdown menus, animations, and responsive layouts

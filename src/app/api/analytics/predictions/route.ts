@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { fetchAllTranscripts } from '@/lib/data/transcript-data'
-import { PredictionService } from '@/lib/services/prediction-service'
+import { mockPredictionService } from '@/lib/services/prediction-service-mock'
 import { withRateLimit, rateLimitConfigs } from '@/lib/middleware/rate-limit'
 import { z } from 'zod'
 
@@ -15,14 +15,9 @@ const PredictionRequestSchema = z.object({
   includeModelMetrics: z.boolean().default(false),
 })
 
-// Global prediction service instance
-let predictionService: PredictionService | null = null
-
-function getPredictionService(): PredictionService {
-  if (!predictionService) {
-    predictionService = new PredictionService()
-  }
-  return predictionService
+// Use mock prediction service for now
+function getPredictionService() {
+  return mockPredictionService
 }
 
 /**

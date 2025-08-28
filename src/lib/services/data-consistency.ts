@@ -156,7 +156,7 @@ export class DataConsistencyService {
       const serverData = await this.sheetsService.fetchTranscripts()
       
       // Use provided client data or fetch from cache
-      const localData = clientData || await this.getClientData()
+      const localData = clientData || (await this.getClientData())
 
       result.totalRecords = Math.max(serverData.length, localData.length)
 

@@ -198,20 +198,16 @@ export function CountUpAnimation({
   return (
     <motion.span
       className={className}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.3 }}
     >
       <motion.span
-        initial={{ textContent: "0" }}
-        animate={{ textContent: value.toString() }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         transition={{ 
           duration,
-          ease: "easeOut",
-          onUpdate: (latest) => {
-            // This would need a custom implementation for actual counting
-            // For now, we'll just show the final value
-          }
+          ease: "easeOut"
         }}
       >
         {prefix}{value}{suffix}

@@ -213,7 +213,7 @@ export function normalizeClientName(clientName: string): string {
     .split(' ')
     .filter(word => word.length > 0) // Remove empty strings
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+    .join(' ');
 }
 
 /**

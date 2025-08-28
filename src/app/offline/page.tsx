@@ -1,13 +1,13 @@
-import { Metadata } from 'next'
+'use client'
+
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
-export const metadata: Metadata = {
-  title: 'Offline - Transcript Analytics Platform',
-  description: 'You are currently offline',
-}
-
 export default function OfflinePage() {
+  useEffect(() => {
+    document.title = 'Offline - Transcript Analytics Platform'
+  }, [])
   return (
     <div className="container mx-auto py-8 flex items-center justify-center min-h-screen">
       <Card className="w-full max-w-md">

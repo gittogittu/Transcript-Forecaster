@@ -75,28 +75,30 @@ export class PredictionService {
       // Only initialize in browser environment
       if (typeof window === 'undefined') {
         console.warn('TensorFlow.js not available in server environment')
+        this.isInitialized = false
         return
       }
 
+      // Dynamic import to avoid SSR issues
       const tf = await import('@tensorflow/tfjs')
       
       // Set backend to webgl for better performance, fallback to cpu
-      await tf.setBackend('webgl')
-      await tf.ready()
-      this.isInitialized = true
-      console.log('TensorFlow.js initialized with backend:', tf.getBackend())
-    } catch (error) {
-      console.warn('WebGL backend failed, falling back to CPU:', error)
       try {
-        const tf = await import('@tensorflow/tfjs')
+        await tf.setBackend('webgl')
+        await tf.ready()
+        this.isInitialized = true
+        console.log('TensorFlow.js initialized with backend:', tf.getBackend())
+      } catch (webglError) {
+        console.warn('WebGL backend failed, falling back to CPU:', webglError)
         await tf.setBackend('cpu')
         await tf.ready()
         this.isInitialized = true
         console.log('TensorFlow.js initialized with CPU backend')
-      } catch (cpuError) {
-        console.error('Failed to initialize TensorFlow.js:', cpuError)
-        throw new Error('Failed to initialize TensorFlow.js')
       }
+    } catch (error) {
+      console.error('Failed to initialize TensorFlow.js:', error)
+      this.isInitialized = false
+      // Don't throw error, just log it
     }
   }
 
@@ -104,8 +106,16 @@ export class PredictionService {
    * Ensure TensorFlow.js is initialized
    */
   private async ensureInitialized(): Promise<void> {
+    if (typeof window === 'undefined') {
+      throw new Error('TensorFlow.js operations are only available in browser environment')
+    }
+    
     if (!this.isInitialized) {
       await this.initializeTensorFlow()
+    }
+    
+    if (!this.isInitialized) {
+      throw new Error('Failed to initialize TensorFlow.js')
     }
   }
 
@@ -244,7 +254,8 @@ export class PredictionService {
   /**
    * Create a linear regression model
    */
-  private createLinearModel(inputShape: number): tf.Sequential {
+  private async createLinearModel(inputShape: number): Promise<any> {
+    const tf = await import('@tensorflow/tfjs')
     const model = tf.sequential({
       layers: [
         tf.layers.dense({
@@ -277,7 +288,8 @@ export class PredictionService {
   /**
    * Create a polynomial regression model
    */
-  private createPolynomialModel(inputShape: number): tf.Sequential {
+  private async createPolynomialModel(inputShape: number): Promise<any> {
+    const tf = await import('@tensorflow/tfjs')
     const model = tf.sequential({
       layers: [
         tf.layers.dense({

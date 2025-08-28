@@ -48,7 +48,7 @@ NEXTAUTH_SECRET=your-secret-key-here-change-in-production
 ### Authentication Components
 - `LoginButton` - Handles OAuth sign-in
 - `LogoutButton` - Handles sign-out
-- `UserProfile` - Displays user information
+- `UserProfile` - Compact dropdown menu displaying user information and actions
 - `ProtectedRoute` - Wraps components that require authentication
 - `SessionProvider` - Provides session context
 
@@ -69,6 +69,20 @@ import { ProtectedRoute } from '@/components/auth'
   <AdminContent />
 </ProtectedRoute>
 ```
+
+#### User Profile Component
+```tsx
+import { UserProfile } from '@/components/auth'
+
+// Compact dropdown menu for authenticated users
+<UserProfile />
+```
+
+The UserProfile component provides:
+- User avatar with fallback to initials
+- Dropdown menu with user information (name, email, role, provider)
+- Settings and sign-out actions
+- Responsive design optimized for navigation bars
 
 #### Using the Auth Hook
 ```tsx
@@ -121,6 +135,17 @@ The test suite includes:
 - Authentication hook tests
 - Integration tests
 - Role-based access control tests
+
+### UserProfile Component Testing
+
+The UserProfile component has been redesigned as a dropdown menu interface. Key testing considerations:
+
+- **Loading State**: Now displays a skeleton loader instead of "Loading..." text
+- **Dropdown Interaction**: Tests should account for dropdown menu behavior
+- **Accessibility**: Verify keyboard navigation and ARIA attributes
+- **Responsive Design**: Test avatar display and fallback behavior
+
+**Note**: Existing tests may need updates to match the new dropdown interface implementation.
 
 ## Security Features
 

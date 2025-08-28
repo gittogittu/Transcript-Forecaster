@@ -6,11 +6,13 @@ import Link from "next/link"
 interface ErrorPageProps {
   searchParams: {
     error?: string
+    error_description?: string
   }
 }
 
 export default function AuthErrorPage({ searchParams }: ErrorPageProps) {
   const error = searchParams.error
+  const errorDescription = searchParams.error_description
 
   const getErrorMessage = (error: string) => {
     switch (error) {
@@ -20,6 +22,8 @@ export default function AuthErrorPage({ searchParams }: ErrorPageProps) {
         return "Access denied. You do not have permission to sign in."
       case "Verification":
         return "The verification token has expired or has already been used."
+      case "OAuthCallback":
+        return "OAuth callback error. There might be an issue with the OAuth configuration."
       case "Default":
       default:
         return "An error occurred during authentication."
@@ -47,6 +51,14 @@ export default function AuthErrorPage({ searchParams }: ErrorPageProps) {
             <p className="text-sm text-gray-600">
               Please try signing in again. If the problem persists, contact support.
             </p>
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded p-3">
+                <p className="text-sm font-medium text-red-800">Error Code: {error}</p>
+                {errorDescription && (
+                  <p className="text-sm text-red-600 mt-1">{errorDescription}</p>
+                )}
+              </div>
+            )}
             <div className="flex space-x-4">
               <Button asChild className="flex-1">
                 <Link href="/auth/signin">

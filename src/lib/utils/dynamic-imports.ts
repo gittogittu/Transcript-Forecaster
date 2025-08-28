@@ -11,8 +11,8 @@ export const dynamicImports = {
   // Animation libraries
   framerMotion: () => import('framer-motion'),
   
-  // Prediction service
-  predictionService: () => import('@/lib/services/prediction-service'),
+  // Prediction service (using mock for now)
+  predictionService: () => import('@/lib/services/prediction-service-mock'),
   
   // Data preprocessing utilities
   dataPreprocessing: () => import('@/lib/utils/data-preprocessing'),
@@ -21,13 +21,8 @@ export const dynamicImports = {
 // Utility function to preload critical modules
 export async function preloadCriticalModules() {
   try {
-    // Preload TensorFlow.js in the background
-    const tf = await dynamicImports.tensorflow()
-    
-    // Initialize TensorFlow backend
-    await tf.ready()
-    
-    console.log('Critical modules preloaded successfully')
+    // TensorFlow.js temporarily disabled
+    console.log('Critical modules preloaded successfully (TensorFlow.js disabled)')
   } catch (error) {
     console.warn('Failed to preload critical modules:', error)
   }

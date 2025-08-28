@@ -18,7 +18,8 @@ import {
   TrendingUp, 
   FileText,
   Settings,
-  Home
+  Home,
+  Clock
 } from "lucide-react"
 
 const navigationItems = [
@@ -36,7 +37,7 @@ const navigationItems = [
   },
   {
     title: "Analytics",
-    href: "/dashboard/analytics",
+    href: "/analytics",
     icon: BarChart3,
     description: "View trends and insights"
   },
@@ -66,8 +67,9 @@ export function DashboardNavigation() {
           
           return (
             <NavigationMenuItem key={item.href}>
-              <Link href={item.href} legacyBehavior passHref>
-                <NavigationMenuLink
+              <NavigationMenuLink asChild>
+                <Link
+                  href={item.href}
                   className={cn(
                     "group inline-flex h-10 w-max items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50 relative",
                     isActive && "bg-accent text-accent-foreground"
@@ -91,10 +93,10 @@ export function DashboardNavigation() {
                       transition={{ type: "spring", stiffness: 500, damping: 30 }}
                     />
                   )}
-                </NavigationMenuLink>
-              </Link>
+                </Link>
+              </NavigationMenuLink>
             </NavigationMenuItem>
-          )
+          );
         })}
         
         <NavigationMenuItem>
@@ -103,8 +105,23 @@ export function DashboardNavigation() {
             <span>More</span>
           </NavigationMenuTrigger>
           <NavigationMenuContent>
-            <div className="grid gap-3 p-6 w-[400px]">
-              <div className="row-span-3">
+            <div className="grid gap-3 p-6 w-[500px] lg:w-[600px]">
+              <div className="grid gap-3 lg:grid-cols-2">
+                <NavigationMenuLink asChild>
+                  <Link
+                    className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-blue-50 to-blue-100 p-6 no-underline outline-none focus:shadow-md"
+                    href="/analytics/aht"
+                  >
+                    <Clock className="h-6 w-6 text-blue-600" />
+                    <div className="mb-2 mt-4 text-lg font-medium">
+                      AHT Analytics
+                    </div>
+                    <p className="text-sm leading-tight text-muted-foreground">
+                      Average Handling Time performance insights and client analytics.
+                    </p>
+                  </Link>
+                </NavigationMenuLink>
+                
                 <NavigationMenuLink asChild>
                   <Link
                     className="flex h-full w-full select-none flex-col justify-end rounded-md bg-gradient-to-b from-muted/50 to-muted p-6 no-underline outline-none focus:shadow-md"
@@ -125,5 +142,5 @@ export function DashboardNavigation() {
         </NavigationMenuItem>
       </NavigationMenuList>
     </NavigationMenu>
-  )
+  );
 }
