@@ -1,264 +1,315 @@
-import { errorLogger, logError, logAPIError, logNetworkError } from '../error-logger'
-import { APIError, NetworkError, AuthenticationError } from '../error-types'
+import { errorLogger, ErrorLogEntry } from '../error-logger'
 
-// Mock localStorage
-const mockLocalStorage = {
-  getItem: jest.fn(),
-  setItem: jest.fn(),
-  removeItem: jest.fn(),
-  clear: jest.fn()
+// Mock window and performance APIs
+const mockPerformance = {
+  now: jest.fn(() => 100),
+  getEntriesByType: jest.fn(() => [{
+    responseEnd: 150,
+    requestStart: 100,
+  }]),
+  memory: {
+    usedJSHeapSize: 50 * 1024 * 1024, // 50MB
+  },
 }
-Object.defineProperty(window, 'localStorage', {
-  value: mockLocalStorage
+
+const mockNavigator = {
+  userAgent: 'test-user-agent',
+}
+
+Object.defineProperty(global, 'window', {
+  value: {
+    performance: mockPerformance,
+    navigator: mockNavigator,
+    location: { href: 'http://localhost:3000/test' },
+    addEventListener: jest.fn(),
+  },
+  writable: true,
 })
 
-// Mock console methods
-const mockConsole = {
-  group: jest.fn(),
-  groupEnd: jest.fn(),
-  error: jest.fn()
-}
-Object.assign(console, mockConsole)
+Object.defineProperty(global, 'PerformanceObserver', {
+  value: jest.fn().mockImplementation(() => ({
+    observe: jest.fn(),
+    disconnect: jest.fn(),
+  })),
+  writable: true,
+})
+
+// Mock fetch for external logging
+global.fetch = jest.fn()
+global.Response = jest.fn().mockImplementation((body, init) => ({
+  ok: true,
+  status: init?.status || 200,
+  json: () => Promise.resolve(JSON.parse(body || '{}')),
+}))
 
 describe('ErrorLogger', () => {
   beforeEach(() => {
+    errorLogger.clearErrors()
     jest.clearAllMocks()
-    errorLogger.clearLogs()
-    mockLocalStorage.getItem.mockReturnValue('[]')
   })
 
   describe('logError', () => {
-    it('logs error with basic information', () => {
+    it('should log an error with basic information', () => {
       const error = new Error('Test error')
+      const errorId = errorLogger.logError(error)
+
+      expect(errorId).toMatch(/^err_\d+_[a-z0-9]+$/)
       
-      errorLogger.logError(error)
-      
-      const logs = errorLogger.getRecentLogs(1)
-      expect(logs).toHaveLength(1)
-      expect(logs[0]).toMatchObject({
-        error,
-        timestamp: expect.any(Date),
-        userAgent: expect.any(String),
-        url: expect.any(String)
+      const errors = errorLogger.getErrors()
+      expect(errors).toHaveLength(1)
+      expect(errors[0]).toMatchObject({
+        id: errorId,
+        error: {
+          name: 'Error',
+          message: 'Test error',
+        },
+        severity: 'low',
+        resolved: false,
       })
     })
 
-    it('logs error with error info and additional context', () => {
-      const error = new AuthenticationError('Auth failed', 'AUTH_FAILED')
-      const errorInfo = {
-        componentStack: 'Component stack trace',
-        errorBoundary: 'TestBoundary'
+    it('should include context information', () => {
+      const error = new Error('Test error')
+      const context = {
+        component: 'TestComponent',
+        category: 'test_category',
       }
-      const additionalContext = {
-        userId: '123',
-        action: 'login'
-      }
-      
-      errorLogger.logError(error, errorInfo, additionalContext)
-      
-      const logs = errorLogger.getRecentLogs(1)
-      expect(logs[0]).toMatchObject({
-        error,
-        errorInfo,
-        additionalContext
+
+      const errorId = errorLogger.logError(error, context)
+      const errors = errorLogger.getErrors()
+
+      expect(errors[0].context).toMatchObject({
+        component: 'TestComponent',
+        category: 'test_category',
+        userAgent: 'test-user-agent',
+        url: 'http://localhost:3000/test',
       })
     })
 
-    it('generates unique IDs for each log entry', () => {
-      const error1 = new Error('Error 1')
-      const error2 = new Error('Error 2')
-      
-      errorLogger.logError(error1)
-      errorLogger.logError(error2)
-      
-      const logs = errorLogger.getRecentLogs(2)
-      expect(logs[0].id).not.toBe(logs[1].id)
-      expect(logs[0].id).toMatch(/^error_\d+_[a-z0-9]+$/)
-      expect(logs[1].id).toMatch(/^error_\d+_[a-z0-9]+$/)
-    })
-
-    it('logs to console in development mode', () => {
-      const originalEnv = process.env.NODE_ENV
-      process.env.NODE_ENV = 'development'
-      
-      const error = new Error('Dev error')
-      const errorInfo = {
-        componentStack: 'Component stack'
+    it('should include performance metrics', () => {
+      const error = new Error('Test error')
+      const performance = {
+        memoryUsage: 100 * 1024 * 1024,
+        renderTime: 150,
       }
-      
-      errorLogger.logError(error, errorInfo, { extra: 'context' })
-      
-      expect(mockConsole.group).toHaveBeenCalledWith('🚨 Error: Error')
-      expect(mockConsole.error).toHaveBeenCalledWith('Message:', 'Dev error')
-      expect(mockConsole.error).toHaveBeenCalledWith('Stack:', error.stack)
-      expect(mockConsole.error).toHaveBeenCalledWith('Component Stack:', 'Component stack')
-      expect(mockConsole.error).toHaveBeenCalledWith('Additional Context:', { extra: 'context' })
-      expect(mockConsole.groupEnd).toHaveBeenCalled()
-      
-      process.env.NODE_ENV = originalEnv
-    })
 
-    it('sends to external service in production mode', () => {
-      const originalEnv = process.env.NODE_ENV
-      process.env.NODE_ENV = 'production'
-      
-      const error = new Error('Prod error')
-      errorLogger.logError(error)
-      
-      // Should store in localStorage as fallback
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
-        'error_logs',
-        expect.stringContaining('"message":"Prod error"')
-      )
-      
-      process.env.NODE_ENV = originalEnv
-    })
+      errorLogger.logError(error, {}, performance)
+      const errors = errorLogger.getErrors()
 
-    it('handles localStorage errors gracefully', () => {
-      const originalEnv = process.env.NODE_ENV
-      process.env.NODE_ENV = 'production'
-      
-      mockLocalStorage.setItem.mockImplementation(() => {
-        throw new Error('Storage full')
+      expect(errors[0].performance).toMatchObject({
+        memoryUsage: 100 * 1024 * 1024,
+        renderTime: 150,
       })
-      
-      const error = new Error('Storage test error')
-      
-      // Should not throw
-      expect(() => errorLogger.logError(error)).not.toThrow()
-      
-      process.env.NODE_ENV = originalEnv
-    })
-  })
-
-  describe('getRecentLogs', () => {
-    it('returns logs in reverse chronological order', () => {
-      const error1 = new Error('First error')
-      const error2 = new Error('Second error')
-      const error3 = new Error('Third error')
-      
-      errorLogger.logError(error1)
-      // Small delay to ensure different timestamps
-      setTimeout(() => errorLogger.logError(error2), 1)
-      setTimeout(() => errorLogger.logError(error3), 2)
-      
-      const logs = errorLogger.getRecentLogs(3)
-      expect(logs[0].error.message).toBe('Third error')
-      expect(logs[1].error.message).toBe('Second error')
-      expect(logs[2].error.message).toBe('First error')
     })
 
-    it('limits results to specified count', () => {
-      for (let i = 0; i < 15; i++) {
+    it('should determine correct severity levels', () => {
+      // Critical error
+      const criticalError = new Error('ChunkLoadError')
+      errorLogger.logError(criticalError)
+      
+      // High severity error
+      const networkError = new Error('Network request failed')
+      errorLogger.logError(networkError, { category: 'data_operations' })
+      
+      // Medium severity error
+      const validationError = new Error('Validation failed')
+      errorLogger.logError(validationError, { category: 'ui_interaction' })
+
+      const errors = errorLogger.getErrors()
+      expect(errors[2].severity).toBe('critical')
+      expect(errors[1].severity).toBe('high')
+      expect(errors[0].severity).toBe('medium')
+    })
+
+    it('should limit stored errors to maximum', () => {
+      // Log more than the maximum number of errors
+      for (let i = 0; i < 1100; i++) {
         errorLogger.logError(new Error(`Error ${i}`))
       }
-      
-      const logs = errorLogger.getRecentLogs(5)
-      expect(logs).toHaveLength(5)
-    })
 
-    it('returns all logs when limit exceeds log count', () => {
-      errorLogger.logError(new Error('Only error'))
+      const errors = errorLogger.getErrors()
+      expect(errors.length).toBe(1000)
       
-      const logs = errorLogger.getRecentLogs(10)
-      expect(logs).toHaveLength(1)
+      // Should keep the most recent errors
+      expect(errors[0].error.message).toBe('Error 1099')
+      expect(errors[999].error.message).toBe('Error 100')
     })
   })
 
-  describe('clearLogs', () => {
-    it('removes all stored logs', () => {
-      errorLogger.logError(new Error('Error 1'))
-      errorLogger.logError(new Error('Error 2'))
-      
-      expect(errorLogger.getRecentLogs()).toHaveLength(2)
-      
-      errorLogger.clearLogs()
-      
-      expect(errorLogger.getRecentLogs()).toHaveLength(0)
+  describe('getErrors', () => {
+    beforeEach(() => {
+      // Set up test data
+      errorLogger.logError(new Error('Auth error'), { category: 'authentication', component: 'AuthComponent' })
+      errorLogger.logError(new Error('Data error'), { category: 'data_operations', component: 'DataComponent' })
+      errorLogger.logError(new Error('UI error'), { category: 'ui_interaction', component: 'UIComponent' })
+    })
+
+    it('should return all errors when no filters applied', () => {
+      const errors = errorLogger.getErrors()
+      expect(errors).toHaveLength(3)
+    })
+
+    it('should filter by category', () => {
+      const authErrors = errorLogger.getErrors({ category: 'authentication' })
+      expect(authErrors).toHaveLength(1)
+      expect(authErrors[0].error.message).toBe('Auth error')
+    })
+
+    it('should filter by component', () => {
+      const dataErrors = errorLogger.getErrors({ component: 'DataComponent' })
+      expect(dataErrors).toHaveLength(1)
+      expect(dataErrors[0].error.message).toBe('Data error')
+    })
+
+    it('should filter by severity', () => {
+      const highSeverityErrors = errorLogger.getErrors({ severity: 'high' })
+      expect(highSeverityErrors).toHaveLength(1)
+      expect(highSeverityErrors[0].context.category).toBe('data_operations')
+    })
+
+    it('should filter by resolved status', () => {
+      const errorId = errorLogger.logError(new Error('Resolved error'))
+      errorLogger.markErrorAsResolved(errorId)
+
+      const unresolvedErrors = errorLogger.getErrors({ resolved: false })
+      const resolvedErrors = errorLogger.getErrors({ resolved: true })
+
+      expect(unresolvedErrors).toHaveLength(3)
+      expect(resolvedErrors).toHaveLength(1)
+    })
+
+    it('should filter by date range', () => {
+      const since = new Date(Date.now() - 1000) // 1 second ago
+      const recentErrors = errorLogger.getErrors({ since })
+
+      expect(recentErrors).toHaveLength(3)
     })
   })
 
-  describe('localStorage integration', () => {
-    it('maintains only last 50 logs in localStorage', () => {
+  describe('getErrorMetrics', () => {
+    beforeEach(() => {
+      // Set up test data with different categories and severities
+      errorLogger.logError(new Error('Auth error 1'), { category: 'authentication' })
+      errorLogger.logError(new Error('Auth error 2'), { category: 'authentication' })
+      errorLogger.logError(new Error('Data error'), { category: 'data_operations' })
+      errorLogger.logError(new Error('Network error'), { category: 'network' })
+      errorLogger.logError(new Error('Critical error'), { category: 'authentication' }) // Will be high severity
+    })
+
+    it('should calculate error metrics correctly', () => {
+      const metrics = errorLogger.getErrorMetrics()
+
+      expect(metrics.totalErrors).toBe(5)
+      expect(metrics.errorsByCategory).toEqual({
+        authentication: 3,
+        data_operations: 1,
+        network: 1,
+      })
+      expect(metrics.errorsBySeverity.high).toBe(2) // data_operations and network
+      expect(metrics.errorsBySeverity.low).toBe(3) // authentication errors
+    })
+
+    it('should calculate performance impact', () => {
+      // Log errors with performance data
+      errorLogger.logError(new Error('Memory error'), {}, { memoryUsage: 100 * 1024 * 1024 })
+      errorLogger.logError(new Error('Render error'), {}, { renderTime: 200 })
+      errorLogger.logError(new Error('Network error'), { category: 'network' })
+
+      const metrics = errorLogger.getErrorMetrics()
+
+      expect(metrics.performanceImpact.memoryIncrease).toBe(1)
+      expect(metrics.performanceImpact.renderDelays).toBe(1)
+      expect(metrics.performanceImpact.networkFailures).toBe(2) // One from setup, one new
+    })
+
+    it('should filter metrics by time range', () => {
+      const start = new Date(Date.now() - 1000)
+      const end = new Date()
+
+      const metrics = errorLogger.getErrorMetrics({ start, end })
+      expect(metrics.totalErrors).toBe(5)
+    })
+  })
+
+  describe('markErrorAsResolved', () => {
+    it('should mark an error as resolved', () => {
+      const errorId = errorLogger.logError(new Error('Test error'))
+      
+      errorLogger.markErrorAsResolved(errorId)
+      
+      const errors = errorLogger.getErrors()
+      expect(errors[0].resolved).toBe(true)
+    })
+
+    it('should handle non-existent error IDs gracefully', () => {
+      expect(() => {
+        errorLogger.markErrorAsResolved('non-existent-id')
+      }).not.toThrow()
+    })
+  })
+
+  describe('external logging', () => {
+    it('should send errors to external logger in production', async () => {
       const originalEnv = process.env.NODE_ENV
       process.env.NODE_ENV = 'production'
-      
-      // Mock existing logs in localStorage
-      const existingLogs = Array.from({ length: 48 }, (_, i) => ({
-        id: `existing_${i}`,
-        error: { message: `Existing error ${i}` }
-      }))
-      mockLocalStorage.getItem.mockReturnValue(JSON.stringify(existingLogs))
-      
-      // Add 3 more logs (should exceed 50)
-      errorLogger.logError(new Error('New error 1'))
-      errorLogger.logError(new Error('New error 2'))
-      errorLogger.logError(new Error('New error 3'))
-      
-      // Should have called setItem with only last 50 logs
-      const setItemCalls = mockLocalStorage.setItem.mock.calls
-      const lastCall = setItemCalls[setItemCalls.length - 1]
-      const storedLogs = JSON.parse(lastCall[1])
-      
-      expect(storedLogs).toHaveLength(50)
-      
+
+      const mockFetch = jest.fn().mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: () => Promise.resolve({}),
+      })
+      global.fetch = mockFetch
+
+      errorLogger.logError(new Error('Production error'))
+
+      // Wait for async operation
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      expect(mockFetch).toHaveBeenCalledWith('/api/errors/log', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: expect.stringContaining('Production error'),
+      })
+
+      process.env.NODE_ENV = originalEnv
+    })
+
+    it('should handle external logging failures gracefully', async () => {
+      const originalEnv = process.env.NODE_ENV
+      process.env.NODE_ENV = 'production'
+
+      const mockFetch = jest.fn().mockRejectedValueOnce(new Error('Network error'))
+      global.fetch = mockFetch
+
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation()
+
+      errorLogger.logError(new Error('Test error'))
+
+      // Wait for async operation
+      await new Promise(resolve => setTimeout(resolve, 0))
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to send error to external logger:',
+        expect.any(Error)
+      )
+
+      consoleSpy.mockRestore()
       process.env.NODE_ENV = originalEnv
     })
   })
-})
 
-describe('Utility Functions', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-    errorLogger.clearLogs()
-  })
+  describe('clearErrors', () => {
+    it('should clear all stored errors', () => {
+      errorLogger.logError(new Error('Error 1'))
+      errorLogger.logError(new Error('Error 2'))
 
-  describe('logError', () => {
-    it('logs error with context using errorLogger', () => {
-      const error = new Error('Utility error')
-      const context = { component: 'TestComponent' }
-      
-      logError(error, context)
-      
-      const logs = errorLogger.getRecentLogs(1)
-      expect(logs[0]).toMatchObject({
-        error,
-        additionalContext: context
-      })
-    })
-  })
+      expect(errorLogger.getErrors()).toHaveLength(2)
 
-  describe('logAPIError', () => {
-    it('creates and logs APIError', () => {
-      logAPIError('Server error', 500, '/api/test', { requestId: '123' })
-      
-      const logs = errorLogger.getRecentLogs(1)
-      expect(logs[0].error).toBeInstanceOf(APIError)
-      expect(logs[0].error.message).toBe('Server error')
-      expect((logs[0].error as APIError).status).toBe(500)
-      expect((logs[0].error as APIError).endpoint).toBe('/api/test')
-      expect(logs[0].additionalContext).toEqual({ requestId: '123' })
-    })
-  })
+      errorLogger.clearErrors()
 
-  describe('logNetworkError', () => {
-    it('creates and logs NetworkError', () => {
-      logNetworkError('Connection failed', 'https://api.example.com', 0, { timeout: true })
-      
-      const logs = errorLogger.getRecentLogs(1)
-      expect(logs[0].error).toBeInstanceOf(NetworkError)
-      expect(logs[0].error.message).toBe('Connection failed')
-      expect((logs[0].error as NetworkError).url).toBe('https://api.example.com')
-      expect((logs[0].error as NetworkError).status).toBe(0)
-      expect(logs[0].additionalContext).toEqual({ timeout: true })
-    })
-
-    it('creates NetworkError without status', () => {
-      logNetworkError('DNS error', 'https://invalid.domain')
-      
-      const logs = errorLogger.getRecentLogs(1)
-      expect(logs[0].error).toBeInstanceOf(NetworkError)
-      expect((logs[0].error as NetworkError).status).toBeUndefined()
+      expect(errorLogger.getErrors()).toHaveLength(0)
     })
   })
 })

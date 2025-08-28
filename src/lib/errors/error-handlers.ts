@@ -1,306 +1,377 @@
-import { toast } from 'sonner'
-import { 
-  APIError, 
-  NetworkError, 
-  AuthenticationError, 
-  ValidationError, 
-  GoogleSheetsError,
-  PredictionError,
-  AppErrorType 
-} from './error-types'
 import { errorLogger } from './error-logger'
+import { toast } from 'sonner'
 
-/**
- * Global error handler for API responses
- */
-export async function handleAPIResponse<T>(
-  response: Response,
-  endpoint: string
-): Promise<T> {
-  if (!response.ok) {
-    const errorMessage = await response.text().catch(() => 'Unknown error')
-    const error = new APIError(
-      errorMessage || `HTTP ${response.status}: ${response.statusText}`,
-      response.status,
-      endpoint
-    )
-    
-    errorLogger.logError(error, undefined, {
-      responseHeaders: Object.fromEntries(response.headers.entries()),
-      requestUrl: response.url
-    })
-    
-    throw error
-  }
-
-  try {
-    return await response.json()
-  } catch (parseError) {
-    const error = new APIError(
-      'Failed to parse response JSON',
-      response.status,
-      endpoint
-    )
-    errorLogger.logError(error)
-    throw error
+export class APIError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public endpoint: string,
+    public response?: any
+  ) {
+    super(message)
+    this.name = 'APIError'
   }
 }
 
-/**
- * Global error handler for network requests
- */
-export async function handleNetworkRequest<T>(
-  requestFn: () => Promise<T>,
-  url: string,
-  retries: number = 3
-): Promise<T> {
-  let lastError: Error
+export class ValidationError extends Error {
+  constructor(
+    message: string,
+    public field: string,
+    public value: any,
+    public errors: Record<string, string[]> = {}
+  ) {
+    super(message)
+    this.name = 'ValidationError'
+  }
+}
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
+export class NetworkError extends Error {
+  constructor(message: string, public originalError?: Error) {
+    super(message)
+    this.name = 'NetworkError'
+  }
+}
+
+export class AuthenticationError extends Error {
+  constructor(message: string, public code: string) {
+    super(message)
+    this.name = 'AuthenticationError'
+  }
+}
+
+export class PredictionError extends Error {
+  constructor(
+    message: string,
+    public modelType: string,
+    public dataSize: number,
+    public suggestedAction?: string
+  ) {
+    super(message)
+    this.name = 'PredictionError'
+  }
+}
+
+// Global error handler for API requests
+export async function handleAPIRequest<T>(
+  request: () => Promise<Response>,
+  endpoint: string,
+  options: {
+    retries?: number
+    retryDelay?: number
+    showToast?: boolean
+    logError?: boolean
+  } = {}
+): Promise<T> {
+  const {
+    retries = 3,
+    retryDelay = 1000,
+    showToast = true,
+    logError = true,
+  } = options
+
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      return await requestFn()
+      const response = await request()
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const apiError = new APIError(
+          errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+          response.status,
+          endpoint,
+          errorData
+        )
+
+        if (response.status >= 500) {
+          // Server error - retry
+          lastError = apiError
+          if (attempt < retries) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)))
+            continue
+          }
+        }
+
+        throw apiError
+      }
+
+      const data = await response.json()
+      return data
     } catch (error) {
       lastError = error as Error
-      
-      // Don't retry on authentication or validation errors
-      if (error instanceof AuthenticationError || error instanceof ValidationError) {
-        throw error
+
+      // Don't retry for client errors (4xx) except 429 (rate limit)
+      if (error instanceof APIError && error.status >= 400 && error.status < 500 && error.status !== 429) {
+        break
       }
 
-      // Create network error for fetch failures
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        const networkError = new NetworkError(
-          'Network request failed - please check your internet connection',
-          url
-        )
-        errorLogger.logError(networkError, undefined, {
-          attempt,
-          maxRetries: retries,
-          originalError: error.message
-        })
-        lastError = networkError
+      // Don't retry for validation errors
+      if (error instanceof ValidationError) {
+        break
       }
 
-      // If this is the last attempt, throw the error
-      if (attempt === retries) {
-        throw lastError
-      }
-
-      // Wait before retrying (exponential backoff)
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000))
-    }
-  }
-
-  throw lastError!
-}
-
-/**
- * Handle authentication errors globally
- */
-export function handleAuthError(error: AuthenticationError): void {
-  errorLogger.logError(error)
-  
-  // Show user-friendly message
-  toast.error('Authentication failed', {
-    description: 'Please sign in again to continue.',
-    action: {
-      label: 'Sign In',
-      onClick: () => {
-        if (typeof window !== 'undefined') {
-          window.location.href = '/auth/signin'
-        }
+      // Retry for network errors and server errors
+      if (attempt < retries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)))
+        continue
       }
     }
-  })
-}
-
-/**
- * Handle validation errors globally
- */
-export function handleValidationError(error: ValidationError): void {
-  errorLogger.logError(error)
-  
-  toast.error('Validation Error', {
-    description: `${error.field}: ${error.message}`
-  })
-}
-
-/**
- * Handle Google Sheets errors globally
- */
-export function handleGoogleSheetsError(error: GoogleSheetsError): void {
-  errorLogger.logError(error)
-  
-  const isPermissionError = error.message.toLowerCase().includes('permission')
-  const isQuotaError = error.message.toLowerCase().includes('quota')
-  
-  if (isPermissionError) {
-    toast.error('Google Sheets Access Error', {
-      description: 'Please check your Google Sheets permissions and try again.',
-      action: {
-        label: 'Check Setup',
-        onClick: () => {
-          if (typeof window !== 'undefined') {
-            window.open('/docs/google-sheets-setup', '_blank')
-          }
-        }
-      }
-    })
-  } else if (isQuotaError) {
-    toast.error('Google Sheets Quota Exceeded', {
-      description: 'API quota exceeded. Please try again later.'
-    })
-  } else {
-    toast.error('Google Sheets Error', {
-      description: `Failed to ${error.operation}. Please try again.`
-    })
   }
-}
 
-/**
- * Handle prediction errors globally
- */
-export function handlePredictionError(error: PredictionError): void {
-  errorLogger.logError(error)
-  
-  if (error.dataSize < 3) {
-    toast.error('Insufficient Data', {
-      description: 'At least 3 months of data are needed for predictions.',
-      action: {
-        label: 'Add Data',
-        onClick: () => {
-          if (typeof window !== 'undefined') {
-            window.location.href = '/dashboard?tab=add-data'
-          }
-        }
-      }
-    })
-  } else {
-    toast.error('Prediction Error', {
-      description: `Failed to generate predictions using ${error.modelType} model.`
-    })
+  // All retries failed
+  if (lastError) {
+    if (logError) {
+      errorLogger.logError(lastError, {
+        category: 'api_request',
+        component: 'api_handler',
+        url: endpoint,
+      })
+    }
+
+    if (showToast) {
+      showErrorToast(lastError)
+    }
+
+    throw lastError
   }
+
+  throw new Error('Unexpected error in API request handler')
 }
 
-/**
- * Generic error handler that routes to specific handlers
- */
-export function handleError(error: AppErrorType, context?: Record<string, any>): void {
-  // Log the error with context
-  errorLogger.logError(error, undefined, context)
-
-  // Route to specific error handlers
-  if (error instanceof AuthenticationError) {
-    handleAuthError(error)
-  } else if (error instanceof ValidationError) {
-    handleValidationError(error)
-  } else if (error instanceof GoogleSheetsError) {
-    handleGoogleSheetsError(error)
-  } else if (error instanceof PredictionError) {
-    handlePredictionError(error)
-  } else if (error instanceof APIError) {
-    toast.error('API Error', {
-      description: `Server error (${error.status}). Please try again.`
-    })
-  } else if (error instanceof NetworkError) {
-    toast.error('Network Error', {
-      description: 'Please check your internet connection and try again.'
-    })
-  } else {
-    // Generic error handling
-    toast.error('Unexpected Error', {
-      description: 'Something went wrong. Please try again.'
-    })
-  }
-}
-
-/**
- * Async error handler for promises
- */
-export function handleAsyncError<T>(
-  promise: Promise<T>,
-  context?: Record<string, any>
+// Network error handler with retry logic
+export async function handleNetworkRequest<T>(
+  request: () => Promise<T>,
+  options: {
+    retries?: number
+    retryDelay?: number
+    timeout?: number
+    showToast?: boolean
+  } = {}
 ): Promise<T> {
-  return promise.catch((error) => {
-    handleError(error as AppErrorType, context)
-    throw error
-  })
-}
+  const {
+    retries = 3,
+    retryDelay = 1000,
+    timeout = 30000,
+    showToast = true,
+  } = options
 
-/**
- * Error handler for React components
- */
-export function withErrorHandling<T extends (...args: any[]) => any>(
-  fn: T,
-  context?: Record<string, any>
-): T {
-  return ((...args: any[]) => {
+  let lastError: Error | null = null
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
     try {
-      const result = fn(...args)
-      
-      // Handle async functions
-      if (result instanceof Promise) {
-        return result.catch((error) => {
-          handleError(error as AppErrorType, context)
-          throw error
-        })
-      }
-      
+      // Add timeout to the request
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new NetworkError('Request timeout')), timeout)
+      })
+
+      const result = await Promise.race([request(), timeoutPromise])
       return result
     } catch (error) {
-      handleError(error as AppErrorType, context)
-      throw error
+      lastError = error as Error
+
+      // Convert fetch errors to NetworkError
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        lastError = new NetworkError('Network connection failed', error)
+      }
+
+      if (attempt < retries) {
+        await new Promise(resolve => setTimeout(resolve, retryDelay * Math.pow(2, attempt)))
+        continue
+      }
     }
-  }) as T
+  }
+
+  if (lastError) {
+    errorLogger.logError(lastError, {
+      category: 'network',
+      component: 'network_handler',
+    })
+
+    if (showToast) {
+      showErrorToast(lastError)
+    }
+
+    throw lastError
+  }
+
+  throw new Error('Unexpected error in network request handler')
 }
 
-/**
- * Recovery suggestions based on error type
- */
-export function getRecoverySuggestions(error: AppErrorType): string[] {
-  if (error instanceof AuthenticationError) {
-    return [
-      'Sign in again',
-      'Clear browser cache and cookies',
-      'Check if your account is still active'
-    ]
+// Validation error handler
+export function handleValidationError(
+  error: any,
+  context: string = 'form_validation'
+): ValidationError {
+  let validationError: ValidationError
+
+  if (error.name === 'ZodError') {
+    // Handle Zod validation errors
+    const errors: Record<string, string[]> = {}
+    error.errors.forEach((err: any) => {
+      const field = err.path.join('.')
+      if (!errors[field]) {
+        errors[field] = []
+      }
+      errors[field].push(err.message)
+    })
+
+    const firstError = error.errors[0]
+    validationError = new ValidationError(
+      `Validation failed: ${firstError.message}`,
+      firstError.path.join('.'),
+      firstError.received,
+      errors
+    )
+  } else if (error instanceof ValidationError) {
+    validationError = error
+  } else {
+    validationError = new ValidationError(
+      error.message || 'Validation failed',
+      'unknown',
+      null
+    )
   }
 
-  if (error instanceof NetworkError) {
-    return [
-      'Check your internet connection',
-      'Try refreshing the page',
-      'Wait a moment and try again'
-    ]
+  errorLogger.logError(validationError, {
+    category: 'validation',
+    component: context,
+  })
+
+  return validationError
+}
+
+// Authentication error handler
+export function handleAuthError(error: any): AuthenticationError {
+  let authError: AuthenticationError
+
+  if (error.code) {
+    authError = new AuthenticationError(error.message, error.code)
+  } else {
+    authError = new AuthenticationError(
+      error.message || 'Authentication failed',
+      'AUTH_ERROR'
+    )
   }
 
-  if (error instanceof GoogleSheetsError) {
-    return [
-      'Verify Google Sheets permissions',
-      'Check if the sheet still exists',
-      'Ensure you have edit access to the sheet'
-    ]
+  errorLogger.logError(authError, {
+    category: 'authentication',
+    component: 'auth_handler',
+  })
+
+  return authError
+}
+
+// Prediction error handler
+export function handlePredictionError(
+  error: any,
+  modelType: string,
+  dataSize: number
+): PredictionError {
+  let predictionError: PredictionError
+  let suggestedAction: string | undefined
+
+  if (error.message.includes('insufficient data')) {
+    suggestedAction = 'Add more historical data (at least 30 data points recommended)'
+  } else if (error.message.includes('memory')) {
+    suggestedAction = 'Try using a simpler model or reduce the prediction period'
+  } else if (error.message.includes('tensorflow')) {
+    suggestedAction = 'Try refreshing the page or use the linear model as fallback'
   }
 
-  if (error instanceof PredictionError) {
-    return [
-      'Add more historical data',
-      'Try a different prediction model',
-      'Check data quality and consistency'
-    ]
+  predictionError = new PredictionError(
+    error.message || 'Prediction generation failed',
+    modelType,
+    dataSize,
+    suggestedAction
+  )
+
+  errorLogger.logError(predictionError, {
+    category: 'ml_predictions',
+    component: 'prediction_handler',
+  })
+
+  return predictionError
+}
+
+// User-friendly error messages
+export function showErrorToast(error: Error) {
+  let title = 'Error'
+  let message = 'An unexpected error occurred'
+
+  if (error instanceof APIError) {
+    title = 'API Error'
+    if (error.status >= 500) {
+      message = 'Server error. Please try again later.'
+    } else if (error.status === 404) {
+      message = 'Resource not found.'
+    } else if (error.status === 403) {
+      message = 'You do not have permission to perform this action.'
+    } else if (error.status === 401) {
+      message = 'Please sign in to continue.'
+    } else {
+      message = error.message
+    }
+  } else if (error instanceof NetworkError) {
+    title = 'Connection Error'
+    message = 'Please check your internet connection and try again.'
+  } else if (error instanceof ValidationError) {
+    title = 'Validation Error'
+    message = error.message
+  } else if (error instanceof AuthenticationError) {
+    title = 'Authentication Error'
+    message = 'Please sign in again.'
+  } else if (error instanceof PredictionError) {
+    title = 'Prediction Error'
+    message = error.suggestedAction || error.message
+  } else {
+    message = error.message
   }
 
-  if (error instanceof ValidationError) {
-    return [
-      'Check the input format',
-      'Ensure all required fields are filled',
-      'Verify data meets the requirements'
-    ]
+  toast.error(title, {
+    description: message,
+    action: {
+      label: 'Dismiss',
+      onClick: () => {},
+    },
+  })
+}
+
+// Recovery suggestions based on error type
+export function getRecoverySuggestions(error: Error): string[] {
+  const suggestions: string[] = []
+
+  if (error instanceof APIError) {
+    if (error.status >= 500) {
+      suggestions.push('Try again in a few minutes')
+      suggestions.push('Check our status page for known issues')
+    } else if (error.status === 429) {
+      suggestions.push('Wait a moment before trying again')
+      suggestions.push('You may be making requests too quickly')
+    } else if (error.status === 401) {
+      suggestions.push('Sign in to your account')
+      suggestions.push('Check if your session has expired')
+    }
+  } else if (error instanceof NetworkError) {
+    suggestions.push('Check your internet connection')
+    suggestions.push('Try refreshing the page')
+    suggestions.push('Disable any VPN or proxy')
+  } else if (error instanceof ValidationError) {
+    suggestions.push('Check the highlighted fields')
+    suggestions.push('Ensure all required fields are filled')
+    suggestions.push('Verify data format matches requirements')
+  } else if (error instanceof PredictionError) {
+    if (error.suggestedAction) {
+      suggestions.push(error.suggestedAction)
+    }
+    suggestions.push('Try using a different prediction model')
+    suggestions.push('Reduce the prediction time period')
   }
 
-  return [
-    'Refresh the page',
-    'Try again in a few moments',
-    'Contact support if the problem persists'
-  ]
+  if (suggestions.length === 0) {
+    suggestions.push('Try refreshing the page')
+    suggestions.push('Contact support if the problem persists')
+  }
+
+  return suggestions
 }

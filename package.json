@@ -36,6 +36,8 @@
     "validate:deployment": "node scripts/post-deployment-validation.js",
     "lighthouse": "lhci autorun",
     "security:audit": "npm audit --audit-level=high",
+    "security:setup": "node scripts/setup-security.js",
+    "security:test": "jest src/lib/security/__tests__",
     "workflow:complete": "npm run integration:test && npm run build && npm run test:e2e",
     "setup": "node scripts/setup-database.js"
   },
@@ -65,6 +67,7 @@
     "dotenv": "^17.2.1",
     "framer-motion": "^12.23.12",
     "googleapis": "^155.0.0",
+    "isomorphic-dompurify": "^2.26.0",
     "jspdf": "^3.0.2",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.537.0",

@@ -2,9 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticated, analystOrAdmin, getCurrentUser } from '@/lib/middleware/auth'
 import { withRateLimit, rateLimitConfigs } from '@/lib/middleware/rate-limit'
 import { performanceMiddleware } from '@/lib/middleware/performance-middleware'
-import { getAllTranscripts, createTranscript, bulkCreateTranscripts } from '@/lib/database/transcripts'
+import { withSecurityAndContext } from '@/lib/middleware/security-middleware'
+import { transcriptService } from '@/lib/database/transcripts'
+import { AuditLogger } from '@/lib/security/audit-logger'
 import { TranscriptCreateSchema, BulkTranscriptSchema, TranscriptQuerySchema } from '@/lib/validations/schemas'
+import { Pool } from 'pg'
 import { z } from 'zod'
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+})
+
+const auditLogger = AuditLogger.getInstance(pool)
 
 /**
  * GET /api/transcripts - Fetch all transcript data with filtering and pagination
@@ -18,7 +28,7 @@ async function handleGET(request: NextRequest) {
       // Validate query parameters
       const validatedQuery = TranscriptQuerySchema.parse(queryParams)
       
-      const transcripts = await getAllTranscripts({
+      const transcripts = await transcriptService.getTranscripts({
         clientId: validatedQuery.clientId,
         startDate: validatedQuery.startDate ? new Date(validatedQuery.startDate) : undefined,
         endDate: validatedQuery.endDate ? new Date(validatedQuery.endDate) : undefined,
@@ -78,7 +88,18 @@ async function handlePOST(request: NextRequest) {
           createdBy: user.userId
         }))
         
-        const result = await bulkCreateTranscripts(transcriptsWithUser)
+        const result = await transcriptService.bulkCreateTranscripts(transcriptsWithUser)
+        
+        // Log audit event for bulk creation
+        await auditLogger.logDataModification(
+          'transcripts',
+          'bulk',
+          'CREATE',
+          undefined,
+          { count: result.length, transcripts: transcriptsWithUser },
+          { userId: user.userId, userRole: user.role as any, clientIP: undefined, userAgent: undefined, sessionId: user.userId },
+          request
+        )
         
         return NextResponse.json({
           success: true,
@@ -89,10 +110,21 @@ async function handlePOST(request: NextRequest) {
         // Validate single transcript
         const validatedData = TranscriptCreateSchema.parse(body)
         
-        const transcript = await createTranscript({
+        const transcript = await transcriptService.createTranscript({
           ...validatedData,
           createdBy: user.userId
         })
+        
+        // Log audit event for single creation
+        await auditLogger.logDataModification(
+          'transcripts',
+          transcript.id,
+          'CREATE',
+          undefined,
+          transcript,
+          { userId: user.userId, userRole: user.role as any, clientIP: undefined, userAgent: undefined, sessionId: user.userId },
+          request
+        )
         
         return NextResponse.json({
           success: true,

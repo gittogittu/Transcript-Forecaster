@@ -1,9 +1,18 @@
 import { withAuth } from "next-auth/middleware"
 import { NextResponse } from "next/server"
 import { UserRole } from "./lib/auth"
+import { SecurityMiddleware } from "./lib/middleware/security-middleware"
+import { csrfProtection } from "./lib/security/csrf-protection"
 
 export default withAuth(
-  function middleware(req) {
+  async function middleware(req) {
+    // Apply security middleware first
+    const security = SecurityMiddleware.createForEndpoint(req.nextUrl.pathname)
+    const securityResponse = await security.process(req)
+    
+    if (securityResponse) {
+      return securityResponse
+    }
     const token = req.nextauth.token
     const isAuth = !!token
     const isAuthPage = req.nextUrl.pathname.startsWith("/auth")
@@ -82,6 +91,18 @@ export default withAuth(
           }
         }
       }
+    }
+
+    // Generate and set CSRF token for authenticated users
+    if (token && isAuth) {
+      const response = NextResponse.next()
+      const csrfToken = csrfProtection.generateToken()
+      csrfProtection.setCSRFCookie(response, csrfToken)
+      
+      // Add CSRF token to response headers for client-side access
+      response.headers.set('X-CSRF-Token', csrfToken)
+      
+      return response
     }
 
     return NextResponse.next()

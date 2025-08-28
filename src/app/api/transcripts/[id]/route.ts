@@ -2,9 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticated, analystOrAdmin, getCurrentUser } from '@/lib/middleware/auth'
 import { withRateLimit, rateLimitConfigs } from '@/lib/middleware/rate-limit'
 import { performanceMiddleware } from '@/lib/middleware/performance-middleware'
-import { getTranscriptById, updateTranscript, deleteTranscript } from '@/lib/database/transcripts'
+import { transcriptService } from '@/lib/database/transcripts'
+import { AuditLogger } from '@/lib/security/audit-logger'
 import { TranscriptUpdateSchema } from '@/lib/validations/schemas'
+import { Pool } from 'pg'
 import { z } from 'zod'
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+})
+
+const auditLogger = AuditLogger.getInstance(pool)
 
 const ParamsSchema = z.object({
   id: z.string().uuid('Invalid transcript ID')
@@ -17,7 +26,7 @@ async function handleGET(request: NextRequest, { params }: { params: { id: strin
   return performanceMiddleware(request, async () => {
     try {
       const validatedParams = ParamsSchema.parse(params)
-      const transcript = await getTranscriptById(validatedParams.id)
+      const transcript = await transcriptService.getTranscriptById(validatedParams.id)
       
       if (!transcript) {
         return NextResponse.json(
@@ -65,10 +74,26 @@ async function handlePUT(request: NextRequest, { params }: { params: { id: strin
         )
       }
 
-      const updatedTranscript = await updateTranscript(validatedParams.id, {
+      // Get original transcript for audit log
+      const originalTranscript = await transcriptService.getTranscriptById(validatedParams.id)
+      
+      const updatedTranscript = await transcriptService.updateTranscript(validatedParams.id, {
         ...validatedData,
         updatedAt: new Date()
       })
+      
+      // Log audit event for update
+      if (updatedTranscript && originalTranscript) {
+        await auditLogger.logDataModification(
+          'transcripts',
+          validatedParams.id,
+          'UPDATE',
+          originalTranscript,
+          updatedTranscript,
+          { userId: user.userId, userRole: user.role as any, clientIP: undefined, userAgent: undefined, sessionId: user.userId },
+          request
+        )
+      }
 
       if (!updatedTranscript) {
         return NextResponse.json(
@@ -115,7 +140,23 @@ async function handleDELETE(request: NextRequest, { params }: { params: { id: st
         )
       }
 
-      const deleted = await deleteTranscript(validatedParams.id)
+      // Get transcript before deletion for audit log
+      const transcriptToDelete = await transcriptService.getTranscriptById(validatedParams.id)
+      
+      const deleted = await transcriptService.deleteTranscript(validatedParams.id)
+      
+      // Log audit event for deletion
+      if (deleted && transcriptToDelete) {
+        await auditLogger.logDataModification(
+          'transcripts',
+          validatedParams.id,
+          'DELETE',
+          transcriptToDelete,
+          undefined,
+          { userId: user.userId, userRole: user.role as any, clientIP: undefined, userAgent: undefined, sessionId: user.userId },
+          request
+        )
+      }
 
       if (!deleted) {
         return NextResponse.json(

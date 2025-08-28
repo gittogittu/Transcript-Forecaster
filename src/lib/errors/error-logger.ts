@@ -1,145 +1,329 @@
-import { AppError, ErrorInfo, ErrorLogEntry } from './error-types'
+import { ErrorInfo } from 'react'
 
-/**
- * Error logging service for the Transcript Analytics Platform
- */
+export interface ErrorLogEntry {
+  id: string
+  timestamp: string
+  error: {
+    name: string
+    message: string
+    stack?: string
+  }
+  context: {
+    component?: string
+    category?: string
+    userAgent?: string
+    url?: string
+    userId?: string
+    sessionId?: string
+    errorInfo?: ErrorInfo
+  }
+  performance?: {
+    memoryUsage?: number
+    renderTime?: number
+    networkLatency?: number
+  }
+  severity: 'low' | 'medium' | 'high' | 'critical'
+  resolved: boolean
+}
+
+export interface ErrorMetrics {
+  totalErrors: number
+  errorsByCategory: Record<string, number>
+  errorsBySeverity: Record<string, number>
+  averageResolutionTime: number
+  performanceImpact: {
+    memoryIncrease: number
+    renderDelays: number
+    networkFailures: number
+  }
+}
+
 class ErrorLogger {
-  private logs: ErrorLogEntry[] = []
+  private errors: ErrorLogEntry[] = []
+  private maxErrors = 1000 // Keep last 1000 errors in memory
+  private performanceObserver?: PerformanceObserver
 
-  /**
-   * Log an error with context information
-   */
+  constructor() {
+    if (typeof window !== 'undefined') {
+      this.initializePerformanceMonitoring()
+      this.setupGlobalErrorHandlers()
+    }
+  }
+
+  private initializePerformanceMonitoring() {
+    if ('PerformanceObserver' in window) {
+      this.performanceObserver = new PerformanceObserver((list) => {
+        const entries = list.getEntries()
+        // Monitor for performance issues that might be related to errors
+        entries.forEach((entry) => {
+          if (entry.duration > 1000) { // Long tasks
+            this.logPerformanceIssue('long_task', {
+              duration: entry.duration,
+              name: entry.name,
+            })
+          }
+        })
+      })
+
+      try {
+        this.performanceObserver.observe({ entryTypes: ['measure', 'navigation'] })
+      } catch (e) {
+        console.warn('Performance monitoring not available:', e)
+      }
+    }
+  }
+
+  private setupGlobalErrorHandlers() {
+    // Handle unhandled promise rejections
+    window.addEventListener('unhandledrejection', (event) => {
+      this.logError(new Error(event.reason), {
+        category: 'unhandled_promise',
+        component: 'global',
+      })
+    })
+
+    // Handle global JavaScript errors
+    window.addEventListener('error', (event) => {
+      this.logError(event.error || new Error(event.message), {
+        category: 'global_error',
+        component: 'global',
+        url: event.filename,
+      })
+    })
+  }
+
   logError(
-    error: AppError,
-    errorInfo?: ErrorInfo,
-    additionalContext?: Record<string, any>
-  ): void {
+    error: Error,
+    context: Partial<ErrorLogEntry['context']> = {},
+    performance?: Partial<ErrorLogEntry['performance']>
+  ): string {
+    const errorId = this.generateErrorId()
+    const severity = this.determineSeverity(error, context)
+
     const logEntry: ErrorLogEntry = {
-      id: this.generateId(),
-      timestamp: new Date(),
-      error,
-      errorInfo,
-      userAgent: typeof window !== 'undefined' ? window.navigator.userAgent : 'server',
-      url: typeof window !== 'undefined' ? window.location.href : 'server',
-      additionalContext
+      id: errorId,
+      timestamp: new Date().toISOString(),
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      },
+      context: {
+        ...context,
+        userAgent: context.userAgent || (typeof window !== 'undefined' ? window.navigator.userAgent : undefined),
+        url: context.url || (typeof window !== 'undefined' ? window.location.href : undefined),
+      },
+      performance: performance || this.getCurrentPerformanceMetrics(),
+      severity,
+      resolved: false,
     }
 
-    // Store locally
-    this.logs.push(logEntry)
+    this.errors.push(logEntry)
+
+    // Keep only the most recent errors
+    if (this.errors.length > this.maxErrors) {
+      this.errors = this.errors.slice(-this.maxErrors)
+    }
+
+    // Send to external logging service in production
+    if (process.env.NODE_ENV === 'production') {
+      this.sendToExternalLogger(logEntry)
+    }
 
     // Log to console in development
     if (process.env.NODE_ENV === 'development') {
-      console.group(`🚨 Error: ${error.name}`)
-      console.error('Message:', error.message)
-      console.error('Stack:', error.stack)
-      if (errorInfo) {
-        console.error('Component Stack:', errorInfo.componentStack)
-      }
-      if (additionalContext) {
-        console.error('Additional Context:', additionalContext)
-      }
-      console.groupEnd()
+      console.error('Error logged:', logEntry)
     }
 
-    // In production, you would send to external logging service
-    if (process.env.NODE_ENV === 'production') {
-      this.sendToExternalService(logEntry)
+    return errorId
+  }
+
+  private logPerformanceIssue(type: string, data: any) {
+    const performanceError = new Error(`Performance issue: ${type}`)
+    this.logError(performanceError, {
+      category: 'performance',
+      component: 'performance_monitor',
+    }, data)
+  }
+
+  private generateErrorId(): string {
+    return `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  }
+
+  private determineSeverity(error: Error, context: Partial<ErrorLogEntry['context']>): ErrorLogEntry['severity'] {
+    // Critical errors
+    if (
+      error.message.includes('ChunkLoadError') ||
+      error.message.includes('Loading chunk') ||
+      context.category === 'authentication' ||
+      error.name === 'SecurityError'
+    ) {
+      return 'critical'
+    }
+
+    // High severity errors
+    if (
+      error.message.includes('Network') ||
+      error.message.includes('fetch') ||
+      context.category === 'data_operations' ||
+      context.category === 'ml_predictions'
+    ) {
+      return 'high'
+    }
+
+    // Medium severity errors
+    if (
+      error.message.includes('validation') ||
+      error.message.includes('parse') ||
+      context.category === 'ui_interaction'
+    ) {
+      return 'medium'
+    }
+
+    return 'low'
+  }
+
+  private getCurrentPerformanceMetrics(): ErrorLogEntry['performance'] {
+    if (typeof window === 'undefined') return undefined
+
+    const performance = window.performance
+    const memory = (performance as any).memory
+
+    return {
+      memoryUsage: memory ? memory.usedJSHeapSize : undefined,
+      renderTime: performance.now(),
+      networkLatency: this.getNetworkLatency(),
     }
   }
 
-  /**
-   * Get recent error logs
-   */
-  getRecentLogs(limit: number = 10): ErrorLogEntry[] {
-    return this.logs
-      .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
-      .slice(0, limit)
+  private getNetworkLatency(): number | undefined {
+    if (typeof window === 'undefined') return undefined
+
+    const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming
+    if (navigation) {
+      return navigation.responseEnd - navigation.requestStart
+    }
+    return undefined
   }
 
-  /**
-   * Clear error logs
-   */
-  clearLogs(): void {
-    this.logs = []
-  }
-
-  /**
-   * Generate unique ID for error log entry
-   */
-  private generateId(): string {
-    return `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-  }
-
-  /**
-   * Send error to external logging service (placeholder)
-   */
-  private async sendToExternalService(logEntry: ErrorLogEntry): Promise<void> {
+  private async sendToExternalLogger(logEntry: ErrorLogEntry) {
     try {
-      // In a real application, you would send to services like:
-      // - Sentry
-      // - LogRocket
-      // - Datadog
-      // - Custom logging endpoint
-      
-      // For now, we'll just store in localStorage as a fallback
-      if (typeof window !== 'undefined') {
-        const existingLogs = JSON.parse(localStorage.getItem('error_logs') || '[]')
-        existingLogs.push({
-          ...logEntry,
-          error: {
-            name: logEntry.error.name,
-            message: logEntry.error.message,
-            stack: logEntry.error.stack
-          }
-        })
-        
-        // Keep only last 50 logs in localStorage
-        const recentLogs = existingLogs.slice(-50)
-        localStorage.setItem('error_logs', JSON.stringify(recentLogs))
+      // Send to your preferred logging service (e.g., Sentry, LogRocket, etc.)
+      await fetch('/api/errors/log', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(logEntry),
+      })
+    } catch (e) {
+      console.error('Failed to send error to external logger:', e)
+    }
+  }
+
+  getErrors(filters?: {
+    category?: string
+    severity?: ErrorLogEntry['severity']
+    component?: string
+    resolved?: boolean
+    since?: Date
+  }): ErrorLogEntry[] {
+    let filteredErrors = [...this.errors]
+
+    if (filters) {
+      if (filters.category) {
+        filteredErrors = filteredErrors.filter(e => e.context.category === filters.category)
       }
-    } catch (loggingError) {
-      console.error('Failed to log error to external service:', loggingError)
+      if (filters.severity) {
+        filteredErrors = filteredErrors.filter(e => e.severity === filters.severity)
+      }
+      if (filters.component) {
+        filteredErrors = filteredErrors.filter(e => e.context.component === filters.component)
+      }
+      if (filters.resolved !== undefined) {
+        filteredErrors = filteredErrors.filter(e => e.resolved === filters.resolved)
+      }
+      if (filters.since) {
+        filteredErrors = filteredErrors.filter(e => new Date(e.timestamp) >= filters.since!)
+      }
+    }
+
+    return filteredErrors.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  }
+
+  getErrorMetrics(timeRange?: { start: Date; end: Date }): ErrorMetrics {
+    let errors = this.errors
+
+    if (timeRange) {
+      errors = errors.filter(e => {
+        const errorTime = new Date(e.timestamp)
+        return errorTime >= timeRange.start && errorTime <= timeRange.end
+      })
+    }
+
+    const errorsByCategory: Record<string, number> = {}
+    const errorsBySeverity: Record<string, number> = {}
+    let totalMemoryIncrease = 0
+    let totalRenderDelays = 0
+    let networkFailures = 0
+
+    errors.forEach(error => {
+      // Count by category
+      const category = error.context.category || 'unknown'
+      errorsByCategory[category] = (errorsByCategory[category] || 0) + 1
+
+      // Count by severity
+      errorsBySeverity[error.severity] = (errorsBySeverity[error.severity] || 0) + 1
+
+      // Performance impact
+      if (error.performance?.memoryUsage && error.performance.memoryUsage > 50 * 1024 * 1024) { // 50MB
+        totalMemoryIncrease++
+      }
+      if (error.performance?.renderTime && error.performance.renderTime > 100) { // 100ms
+        totalRenderDelays++
+      }
+      if (error.context.category === 'network' || error.error.message.includes('fetch')) {
+        networkFailures++
+      }
+    })
+
+    return {
+      totalErrors: errors.length,
+      errorsByCategory,
+      errorsBySeverity,
+      averageResolutionTime: this.calculateAverageResolutionTime(errors),
+      performanceImpact: {
+        memoryIncrease: totalMemoryIncrease,
+        renderDelays: totalRenderDelays,
+        networkFailures,
+      },
+    }
+  }
+
+  private calculateAverageResolutionTime(errors: ErrorLogEntry[]): number {
+    const resolvedErrors = errors.filter(e => e.resolved)
+    if (resolvedErrors.length === 0) return 0
+
+    // This is a simplified calculation - in a real app, you'd track resolution timestamps
+    return resolvedErrors.length > 0 ? 24 * 60 * 60 * 1000 : 0 // 24 hours average
+  }
+
+  markErrorAsResolved(errorId: string) {
+    const error = this.errors.find(e => e.id === errorId)
+    if (error) {
+      error.resolved = true
+    }
+  }
+
+  clearErrors() {
+    this.errors = []
+  }
+
+  destroy() {
+    if (this.performanceObserver) {
+      this.performanceObserver.disconnect()
     }
   }
 }
 
-// Export singleton instance
 export const errorLogger = new ErrorLogger()
-
-/**
- * Utility function to log errors with automatic context detection
- */
-export function logError(
-  error: AppError,
-  context?: Record<string, any>
-): void {
-  errorLogger.logError(error, undefined, context)
-}
-
-/**
- * Utility function to create and log API errors
- */
-export function logAPIError(
-  message: string,
-  status: number,
-  endpoint: string,
-  context?: Record<string, any>
-): void {
-  const { APIError } = require('./error-types')
-  const error = new APIError(message, status, endpoint)
-  errorLogger.logError(error, undefined, context)
-}
-
-/**
- * Utility function to create and log network errors
- */
-export function logNetworkError(
-  message: string,
-  url: string,
-  status?: number,
-  context?: Record<string, any>
-): void {
-  const { NetworkError } = require('./error-types')
-  const error = new NetworkError(message, url, status)
-  errorLogger.logError(error, undefined, context)
-}

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { SessionProvider } from '@/components/auth/session-provider'
 import { QueryProvider } from '@/components/providers/query-provider'
+import { GlobalErrorBoundary } from '@/components/error-boundaries'
 // import { PerformanceProvider } from '@/components/providers/performance-provider'
 
 const geistSans = Geist({
@@ -53,11 +54,13 @@ export default function RootLayout({
           Performance monitoring can be initialized manually when needed using:
           initializePerformanceMonitoring() from @/lib/monitoring/performance-monitor
         */}
-        <SessionProvider>
-          <QueryProvider>
-            {children}
-          </QueryProvider>
-        </SessionProvider>
+        <GlobalErrorBoundary>
+          <SessionProvider>
+            <QueryProvider>
+              {children}
+            </QueryProvider>
+          </SessionProvider>
+        </GlobalErrorBoundary>
       </body>
     </html>
   )
