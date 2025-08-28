@@ -1,178 +1,322 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { queryKeys } from '@/lib/query/query-client'
+import { PerformanceMetrics, SystemHealthIndicator, Alert, UserActivity, MetricsSummary, AlertConfig } from '@/types/monitoring'
 
-// Types for monitoring data
-interface PerformanceMetrics {
-  id: string
-  timestamp: Date
-  queriesPerSecond: number
-  modelRuntime: number
-  dataSyncLatency: number
-  errorCount: number
-  activeUsers: number
-  memoryUsage: number
-  cpuUsage: number
+interface MonitoringData {
+  currentMetrics: PerformanceMetrics
+  metricsSummary: MetricsSummary
+  timeRange: {
+    start: string
+    end: string
+  }
 }
 
-interface SystemHealth {
-  status: 'healthy' | 'warning' | 'critical'
-  uptime: number
-  lastCheck: Date
-  services: Array<{
-    name: string
-    status: 'up' | 'down' | 'degraded'
-    responseTime: number
-  }>
+interface HealthData {
+  overallStatus: 'healthy' | 'warning' | 'critical' | 'unknown'
+  indicators: SystemHealthIndicator[]
+  timestamp: string
 }
 
-interface AlertConfig {
-  metric: string
-  threshold: number
-  operator: 'gt' | 'lt' | 'eq'
-  enabled: boolean
+interface AlertsData {
+  alerts: Alert[] | AlertConfig[]
+  type: string
+  timestamp: string
 }
 
-// API functions for monitoring operations
-const monitoringApi = {
-  // Get performance metrics
-  getMetrics: async (timeRange?: { start: Date; end: Date }): Promise<PerformanceMetrics[]> => {
-    const params = new URLSearchParams()
-    if (timeRange) {
-      params.append('start', timeRange.start.toISOString())
-      params.append('end', timeRange.end.toISOString())
-    }
-    
-    const response = await fetch(`/api/monitoring/metrics?${params}`)
-    if (!response.ok) {
-      throw new Error(`Failed to fetch metrics: ${response.statusText}`)
-    }
-    return response.json()
-  },
-
-  // Get system health
-  getHealth: async (): Promise<SystemHealth> => {
-    const response = await fetch('/api/monitoring/health')
-    if (!response.ok) {
-      throw new Error(`Failed to fetch health: ${response.statusText}`)
-    }
-    return response.json()
-  },
-
-  // Create performance alert
-  createAlert: async (config: AlertConfig): Promise<void> => {
-    const response = await fetch('/api/monitoring/alert', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config),
-    })
-    if (!response.ok) {
-      throw new Error(`Failed to create alert: ${response.statusText}`)
-    }
-  },
-
-  // Record custom metric
-  recordMetric: async (metric: Partial<PerformanceMetrics>): Promise<void> => {
-    const response = await fetch('/api/monitoring/metrics', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(metric),
-    })
-    if (!response.ok) {
-      throw new Error(`Failed to record metric: ${response.statusText}`)
-    }
-  },
+interface ActivityData {
+  activities: UserActivity[]
+  summary: {
+    totalActivities: number
+    successfulActivities: number
+    errorActivities: number
+    uniqueUsers: number
+    averageResponseTime: number
+    actionCounts: Record<string, number>
+    topErrors: Array<{ message: string; count: number }>
+  }
+  timeWindow: number
+  timestamp: string
 }
 
-// Hook for fetching performance metrics
+export function useMonitoring(timeRange: string = '24h') {
+  const queryClient = useQueryClient()
+
+  // Fetch current metrics and summary
+  const {
+    data: metricsData,
+    isLoading: metricsLoading,
+    error: metricsError,
+  } = useQuery<MonitoringData>({
+    queryKey: ['monitoring', 'metrics', timeRange],
+    queryFn: async () => {
+      const response = await fetch(`/api/monitoring/metrics?timeRange=${timeRange}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch metrics')
+      }
+      return response.json()
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+  })
+
+  // Fetch system health
+  const {
+    data: healthData,
+    isLoading: healthLoading,
+    error: healthError,
+  } = useQuery<HealthData>({
+    queryKey: ['monitoring', 'health'],
+    queryFn: async () => {
+      const response = await fetch('/api/monitoring/health')
+      if (!response.ok) {
+        throw new Error('Failed to fetch system health')
+      }
+      return response.json()
+    },
+    refetchInterval: 60000, // Refetch every minute
+  })
+
+  // Fetch active alerts
+  const {
+    data: activeAlertsData,
+    isLoading: alertsLoading,
+    error: alertsError,
+  } = useQuery<AlertsData>({
+    queryKey: ['monitoring', 'alerts', 'active'],
+    queryFn: async () => {
+      const response = await fetch('/api/monitoring/alerts?type=active')
+      if (!response.ok) {
+        throw new Error('Failed to fetch active alerts')
+      }
+      return response.json()
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+  })
+
+  // Fetch all alerts
+  const {
+    data: allAlertsData,
+  } = useQuery<AlertsData>({
+    queryKey: ['monitoring', 'alerts', 'all'],
+    queryFn: async () => {
+      const response = await fetch('/api/monitoring/alerts?type=all')
+      if (!response.ok) {
+        throw new Error('Failed to fetch all alerts')
+      }
+      return response.json()
+    },
+    refetchInterval: 60000, // Refetch every minute
+  })
+
+  // Fetch alert configurations
+  const {
+    data: alertConfigsData,
+  } = useQuery<AlertsData>({
+    queryKey: ['monitoring', 'alerts', 'configs'],
+    queryFn: async () => {
+      const response = await fetch('/api/monitoring/alerts?type=configs')
+      if (!response.ok) {
+        throw new Error('Failed to fetch alert configs')
+      }
+      return response.json()
+    },
+  })
+
+  // Fetch user activity
+  const {
+    data: activityData,
+    isLoading: activityLoading,
+    error: activityError,
+  } = useQuery<ActivityData>({
+    queryKey: ['monitoring', 'activity'],
+    queryFn: async () => {
+      const response = await fetch('/api/monitoring/activity?timeWindow=300000&limit=100')
+      if (!response.ok) {
+        throw new Error('Failed to fetch user activity')
+      }
+      return response.json()
+    },
+    refetchInterval: 30000, // Refetch every 30 seconds
+  })
+
+  // Mutation to resolve alerts
+  const resolveAlertMutation = useMutation({
+    mutationFn: async (alertId: string) => {
+      const response = await fetch('/api/monitoring/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'resolve_alert',
+          data: { alertId },
+        }),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to resolve alert')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'alerts'] })
+    },
+  })
+
+  // Mutation to update alert configuration
+  const updateAlertConfigMutation = useMutation({
+    mutationFn: async (config: AlertConfig) => {
+      const response = await fetch('/api/monitoring/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: config.id ? 'update_config' : 'create_config',
+          data: config,
+        }),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to update alert configuration')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['monitoring', 'alerts'] })
+    },
+  })
+
+  // Mutation to record user activity
+  const recordActivityMutation = useMutation({
+    mutationFn: async (activity: {
+      action: string
+      endpoint?: string
+      duration?: number
+      success?: boolean
+      errorMessage?: string
+    }) => {
+      const response = await fetch('/api/monitoring/activity', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(activity),
+      })
+      if (!response.ok) {
+        throw new Error('Failed to record activity')
+      }
+      return response.json()
+    },
+  })
+
+  const refreshMetrics = () => {
+    queryClient.invalidateQueries({ queryKey: ['monitoring'] })
+  }
+
+  const getHistoricalMetrics = async (startTime: Date, endTime: Date) => {
+    // This would fetch historical metrics from the database
+    // For now, return empty array as placeholder
+    return []
+  }
+
+  const isLoading = metricsLoading || healthLoading || alertsLoading || activityLoading
+  const error = metricsError || healthError || alertsError || activityError
+
+  return {
+    // Data
+    currentMetrics: metricsData?.currentMetrics || null,
+    metricsSummary: metricsData?.metricsSummary || null,
+    systemHealth: healthData?.indicators || null,
+    overallSystemStatus: healthData?.overallStatus || 'unknown',
+    activeAlerts: (activeAlertsData?.alerts as Alert[]) || null,
+    allAlerts: (allAlertsData?.alerts as Alert[]) || null,
+    alertConfigs: (alertConfigsData?.alerts as AlertConfig[]) || null,
+    recentActivity: activityData?.activities || null,
+    activitySummary: activityData?.summary || null,
+
+    // State
+    isLoading,
+    error,
+
+    // Actions
+    refreshMetrics,
+    getHistoricalMetrics,
+    resolveAlert: resolveAlertMutation.mutateAsync,
+    updateAlertConfig: updateAlertConfigMutation.mutateAsync,
+    recordActivity: recordActivityMutation.mutateAsync,
+
+    // Mutation states
+    isResolvingAlert: resolveAlertMutation.isPending,
+    isUpdatingConfig: updateAlertConfigMutation.isPending,
+    isRecordingActivity: recordActivityMutation.isPending,
+  }
+}
+
+// Legacy hooks for backward compatibility
 export function usePerformanceMetrics(timeRange?: { start: Date; end: Date }) {
-  return useQuery({
-    queryKey: [...queryKeys.monitoring.metrics(), timeRange],
-    queryFn: () => monitoringApi.getMetrics(timeRange),
-    staleTime: 30 * 1000, // 30 seconds for real-time monitoring
-    refetchInterval: 60 * 1000, // Auto-refetch every minute
-  })
+  const { currentMetrics, isLoading, error } = useMonitoring()
+  return {
+    data: currentMetrics ? [currentMetrics] : [],
+    isLoading,
+    error,
+    refetch: () => {},
+  }
 }
 
-// Hook for system health monitoring
 export function useSystemHealth() {
-  return useQuery({
-    queryKey: queryKeys.monitoring.health(),
-    queryFn: monitoringApi.getHealth,
-    staleTime: 15 * 1000, // 15 seconds for health checks
-    refetchInterval: 30 * 1000, // Auto-refetch every 30 seconds
-    retry: 5, // Retry more aggressively for health checks
-  })
-}
-
-// Hook for creating alerts
-export function useCreateAlert() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: monitoringApi.createAlert,
-    onSuccess: () => {
-      // Invalidate monitoring queries to reflect new alert
-      queryClient.invalidateQueries({ queryKey: queryKeys.monitoring.all })
+  const { systemHealth, overallSystemStatus, isLoading, error } = useMonitoring()
+  return {
+    data: {
+      status: overallSystemStatus,
+      uptime: 0,
+      lastCheck: new Date(),
+      services: systemHealth?.map(h => ({
+        name: h.component,
+        status: h.status === 'healthy' ? 'up' as const : h.status === 'critical' ? 'down' as const : 'degraded' as const,
+        responseTime: h.responseTime || 0,
+      })) || [],
     },
-  })
+    isLoading,
+    error,
+    refetch: () => {},
+  }
 }
 
-// Hook for recording custom metrics
-export function useRecordMetric() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: monitoringApi.recordMetric,
-    onSuccess: () => {
-      // Invalidate metrics to show new data
-      queryClient.invalidateQueries({ queryKey: queryKeys.monitoring.metrics() })
-    },
-  })
-}
-
-// Hook for real-time monitoring dashboard
 export function useRealtimeMonitoring(timeRange?: { start: Date; end: Date }) {
+  const monitoring = useMonitoring()
   const metrics = usePerformanceMetrics(timeRange)
   const health = useSystemHealth()
 
   return {
     metrics,
     health,
-    isLoading: metrics.isLoading || health.isLoading,
-    isError: metrics.isError || health.isError,
-    error: metrics.error || health.error,
-    refetchAll: () => {
-      metrics.refetch()
-      health.refetch()
-    },
+    isLoading: monitoring.isLoading,
+    isError: !!monitoring.error,
+    error: monitoring.error,
+    refetchAll: monitoring.refreshMetrics,
   }
 }
 
-// Custom hook for performance tracking
 export function usePerformanceTracker() {
-  const recordMetric = useRecordMetric()
+  const { recordActivity } = useMonitoring()
 
-  const trackQuery = (duration: number, endpoint: string) => {
-    recordMetric.mutate({
-      timestamp: new Date(),
-      queriesPerSecond: 1000 / duration, // Approximate QPS based on duration
-      dataSyncLatency: duration,
+  const trackQuery = async (duration: number, endpoint: string) => {
+    await recordActivity({
+      action: 'api_request',
+      endpoint,
+      duration,
+      success: true,
     })
   }
 
-  const trackModelExecution = (duration: number, modelType: string) => {
-    recordMetric.mutate({
-      timestamp: new Date(),
-      modelRuntime: duration,
+  const trackModelExecution = async (duration: number, modelType: string) => {
+    await recordActivity({
+      action: 'ml_prediction',
+      endpoint: `/api/analytics/predict/${modelType}`,
+      duration,
+      success: true,
     })
   }
 
-  const trackError = (error: Error, context: string) => {
-    recordMetric.mutate({
-      timestamp: new Date(),
-      errorCount: 1,
+  const trackError = async (error: Error, context: string) => {
+    await recordActivity({
+      action: 'error',
+      endpoint: context,
+      success: false,
+      errorMessage: error.message,
     })
   }
 
@@ -180,6 +324,6 @@ export function usePerformanceTracker() {
     trackQuery,
     trackModelExecution,
     trackError,
-    isRecording: recordMetric.isPending,
+    isRecording: false,
   }
 }
