@@ -1,6 +1,6 @@
 import { Pool } from 'pg'
 import { getDatabasePool } from './connection'
-import { TranscriptData, Client, ImportResult, ImportError } from '@/types/transcript'
+import { TranscriptData, Client, ImportResult } from '@/types/transcript'
 import { TranscriptCreate, TranscriptUpdate, TranscriptQuery } from '@/lib/validations/schemas'
 
 export class TranscriptService {
@@ -17,10 +17,10 @@ export class TranscriptService {
       ON CONFLICT (name) DO UPDATE SET updated_at = NOW()
       RETURNING id, name, created_at, updated_at
     `
-    
+
     const result = await this.pool.query(query, [name])
     const row = result.rows[0]
-    
+
     return {
       id: row.id,
       name: row.name,
@@ -35,9 +35,9 @@ export class TranscriptService {
       FROM clients
       ORDER BY name ASC
     `
-    
+
     const result = await this.pool.query(query)
-    
+
     return result.rows.map(row => ({
       id: row.id,
       name: row.name,
@@ -52,13 +52,13 @@ export class TranscriptService {
       FROM clients
       WHERE id = $1
     `
-    
+
     const result = await this.pool.query(query, [id])
-    
+
     if (result.rows.length === 0) {
       return null
     }
-    
+
     const row = result.rows[0]
     return {
       id: row.id,
@@ -74,13 +74,13 @@ export class TranscriptService {
       FROM clients
       WHERE name = $1
     `
-    
+
     const result = await this.pool.query(query, [name])
-    
+
     if (result.rows.length === 0) {
       return null
     }
-    
+
     const row = result.rows[0]
     return {
       id: row.id,
@@ -102,7 +102,7 @@ export class TranscriptService {
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING id, client_id, date, transcript_count, transcript_type, notes, created_at, updated_at, created_by
     `
-    
+
     const values = [
       client.id,
       data.date,
@@ -111,10 +111,10 @@ export class TranscriptService {
       data.notes || null,
       data.createdBy
     ]
-    
+
     const result = await this.pool.query(query, values)
     const row = result.rows[0]
-    
+
     return {
       id: row.id,
       clientId: row.client_id,
@@ -129,7 +129,7 @@ export class TranscriptService {
     }
   }
 
-  async getTranscripts(params: TranscriptQuery = {}): Promise<{
+  async getTranscripts(params: TranscriptQuery & { page?: number; limit?: number } = { page: 1, limit: 50 }): Promise<{
     data: TranscriptData[]
     pagination: {
       page: number
@@ -178,7 +178,7 @@ export class TranscriptService {
       JOIN clients c ON t.client_id = c.id
       ${whereClause}
     `
-    
+
     const countResult = await this.pool.query(countQuery, queryParams)
     const total = parseInt(countResult.rows[0].total)
 
@@ -194,10 +194,10 @@ export class TranscriptService {
       ORDER BY t.date DESC, c.name ASC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `
-    
+
     queryParams.push(limit, offset)
     const dataResult = await this.pool.query(dataQuery, queryParams)
-    
+
     const data = dataResult.rows.map(row => ({
       id: row.id,
       clientId: row.client_id,
@@ -232,13 +232,13 @@ export class TranscriptService {
       JOIN clients c ON t.client_id = c.id
       WHERE t.id = $1
     `
-    
+
     const result = await this.pool.query(query, [id])
-    
+
     if (result.rows.length === 0) {
       return null
     }
-    
+
     const row = result.rows[0]
     return {
       id: row.id,
@@ -261,7 +261,7 @@ export class TranscriptService {
     }
 
     let clientId = existing.clientId
-    
+
     // If client name is being updated, ensure the client exists
     if (data.clientName && data.clientName !== existing.clientName) {
       let client = await this.getClientByName(data.clientName)
@@ -318,13 +318,13 @@ export class TranscriptService {
       WHERE id = $${paramIndex}
       RETURNING id, client_id, date, transcript_count, transcript_type, notes, created_at, updated_at, created_by
     `
-    
+
     const result = await this.pool.query(query, queryParams)
     const row = result.rows[0]
-    
+
     // Get client name
     const client = await this.getClientById(row.client_id)
-    
+
     return {
       id: row.id,
       clientId: row.client_id,
@@ -342,15 +342,15 @@ export class TranscriptService {
   async deleteTranscript(id: string): Promise<boolean> {
     const query = `DELETE FROM transcripts WHERE id = $1`
     const result = await this.pool.query(query, [id])
-    return result.rowCount > 0
+    return (result.rowCount ?? 0) > 0
   }
 
   async bulkCreateTranscripts(transcripts: TranscriptCreate[]): Promise<ImportResult> {
     const client = await this.pool.connect()
-    
+
     try {
       await client.query('BEGIN')
-      
+
       const result: ImportResult = {
         totalRows: transcripts.length,
         successCount: 0,
@@ -361,7 +361,7 @@ export class TranscriptService {
 
       for (let i = 0; i < transcripts.length; i++) {
         const transcript = transcripts[i]
-        
+
         try {
           // Check for existing record (same client and date)
           let clientRecord = await this.getClientByName(transcript.clientName)
@@ -374,7 +374,7 @@ export class TranscriptService {
             WHERE client_id = $1 AND date = $2
           `
           const existingResult = await client.query(existingQuery, [clientRecord.id, transcript.date])
-          
+
           if (existingResult.rows.length > 0) {
             result.duplicateCount++
             continue
@@ -385,7 +385,7 @@ export class TranscriptService {
             INSERT INTO transcripts (client_id, date, transcript_count, transcript_type, notes, created_by)
             VALUES ($1, $2, $3, $4, $5, $6)
           `
-          
+
           await client.query(insertQuery, [
             clientRecord.id,
             transcript.date,
@@ -394,7 +394,7 @@ export class TranscriptService {
             transcript.notes || null,
             transcript.createdBy
           ])
-          
+
           result.successCount++
         } catch (error) {
           result.errorCount++
@@ -428,9 +428,9 @@ export class TranscriptService {
       WHERE t.date >= $1 AND t.date <= $2
       ORDER BY t.date ASC, c.name ASC
     `
-    
+
     const result = await this.pool.query(query, [startDate, endDate])
-    
+
     return result.rows.map(row => ({
       id: row.id,
       clientId: row.client_id,
@@ -464,10 +464,10 @@ export class TranscriptService {
         END as avg_per_day
       FROM transcripts t
     `
-    
+
     const result = await this.pool.query(query)
     const row = result.rows[0]
-    
+
     return {
       totalTranscripts: parseInt(row.total_transcripts),
       totalClients: parseInt(row.total_clients),
@@ -478,4 +478,40 @@ export class TranscriptService {
       }
     }
   }
+}
+
+// Standalone functions for backward compatibility
+const transcriptService = new TranscriptService()
+
+export async function createTranscript(data: TranscriptCreate): Promise<TranscriptData> {
+  return transcriptService.createTranscript(data)
+}
+
+export async function getTranscriptsByClientAndDate(clientName: string, date: Date): Promise<TranscriptData[]> {
+  const query = `
+    SELECT 
+      t.id, t.client_id, c.name as client_name, t.date, 
+      t.transcript_count, t.transcript_type, t.notes,
+      t.created_at, t.updated_at, t.created_by
+    FROM transcripts t
+    JOIN clients c ON t.client_id = c.id
+    WHERE c.name = $1 AND t.date = $2
+    ORDER BY t.created_at DESC
+  `
+
+  const pool = getDatabasePool()
+  const result = await pool.query(query, [clientName, date])
+
+  return result.rows.map(row => ({
+    id: row.id,
+    clientId: row.client_id,
+    clientName: row.client_name,
+    date: row.date,
+    transcriptCount: row.transcript_count,
+    transcriptType: row.transcript_type,
+    notes: row.notes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    createdBy: row.created_by
+  }))
 }

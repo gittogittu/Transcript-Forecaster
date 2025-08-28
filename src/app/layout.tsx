@@ -19,12 +19,17 @@ export const metadata: Metadata = {
   title: 'Transcript Analytics Platform',
   description: 'Predictive analytics for client transcript data',
   manifest: '/manifest.json',
-  themeColor: '#000000',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
   icons: {
     icon: '/favicon.ico',
     apple: '/icon-192x192.png',
   },
+}
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#000000',
 }
 
 export default function RootLayout({

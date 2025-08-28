@@ -45,7 +45,7 @@ src/
 │   ├── data/              # Data table and form components
 │   ├── error-boundaries/  # Error handling components
 │   ├── monitoring/        # Performance monitoring UI
-│   └── ui/                # Shadcn UI components
+│   └── ui/                # Shadcn UI components (Button, Card, Progress, etc.)
 ├── lib/                   # Utilities and configurations
 │   ├── auth.ts            # NextAuth configuration
 │   ├── config/            # Configuration files
@@ -221,6 +221,7 @@ This pattern ensures:
 
 ### Data Management
 - Import and manage client transcript data from Google Sheets
+- File upload with progress tracking for CSV and Excel files
 - Real-time data synchronization with conflict resolution
 - Comprehensive data validation with business rule enforcement
 - Batch operations and data consistency checks
