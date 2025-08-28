@@ -1,285 +1,349 @@
-/**
- * Data transformation utilities for Google Sheets format
- */
+import { TranscriptCreate, CSVTranscriptRowSchema } from '@/lib/validations/schemas'
+import { RawData, ImportError, ValidationResult } from '@/types/transcript'
 
-import { TranscriptData, TranscriptRow } from '@/types/transcript'
-import { TranscriptDataType, SheetsRowSchema } from '@/lib/validations'
-
-/**
- * Transform Google Sheets row data to TranscriptData format
- */
-export function transformSheetsRowToTranscriptData(row: string[], rowIndex: number): TranscriptData {
-  const [clientName, month, transcriptCount, createdDate, updatedDate, notes] = row
-
-  // Parse the month to extract year
-  const [year] = month.split('-').map(Number)
-
-  return {
-    id: `sheet-${rowIndex}`,
-    clientName: clientName?.trim() || '',
-    month: month?.trim() || '',
-    year: year || new Date().getFullYear(),
-    transcriptCount: parseInt(transcriptCount) || 0,
-    createdAt: createdDate ? new Date(createdDate) : new Date(),
-    updatedAt: updatedDate ? new Date(updatedDate) : new Date(),
-    notes: notes?.trim() || undefined,
-  }
-}
-
-/**
- * Transform TranscriptData to Google Sheets row format
- */
-export function transformTranscriptDataToSheetsRow(data: TranscriptData): string[] {
-  return [
-    data.clientName,
-    data.month,
-    data.transcriptCount.toString(),
-    data.createdAt.toISOString(),
-    data.updatedAt.toISOString(),
-    data.notes || '',
-  ]
-}
-
-/**
- * Transform array of Google Sheets rows to TranscriptData array
- */
-export function transformSheetsDataToTranscripts(sheetsData: string[][]): TranscriptData[] {
-  if (!sheetsData || sheetsData.length === 0) {
-    return []
-  }
-
-  // Skip header row if it exists - check if first row contains header-like text
-  // Look for exact header matches, not just containing the word "client"
-  const firstRowText = sheetsData[0]?.[0]?.toLowerCase().trim()
-  const hasHeader = firstRowText === 'client name' || 
-                   firstRowText === 'client' ||
-                   firstRowText === 'name' ||
-                   firstRowText?.startsWith('client name')
-  const dataRows = hasHeader ? sheetsData.slice(1) : sheetsData
-
-  return dataRows
-    .map((row, index) => {
+export class DataTransformer {
+  /**
+   * Transform CSV row data to TranscriptCreate format
+   */
+  static transformCSVRow(
+    rowData: Record<string, string>, 
+    rowIndex: number,
+    createdBy: string
+  ): { data: TranscriptCreate | null; errors: ImportError[] } {
+    const errors: ImportError[] = []
+    
+    try {
+      // Validate raw CSV data structure
+      const validatedRow = CSVTranscriptRowSchema.parse(rowData)
+      
+      // Parse and validate date
+      let parsedDate: Date
       try {
-        // Only transform rows that have valid data (non-empty client name)
-        if (!row[0]?.trim()) {
-          return null
-        }
-        return transformSheetsRowToTranscriptData(row, index + 1)
+        parsedDate = this.parseDate(validatedRow.date)
       } catch (error) {
-        console.warn(`Failed to transform row ${index + 1}:`, error)
-        return null
+        errors.push({
+          row: rowIndex,
+          field: 'date',
+          value: validatedRow.date,
+          message: `Invalid date format: ${validatedRow.date}`
+        })
+        return { data: null, errors }
       }
-    })
-    .filter((item): item is TranscriptData => item !== null)
-}
-
-/**
- * Transform TranscriptData array to Google Sheets format
- */
-export function transformTranscriptsToSheetsData(transcripts: TranscriptData[]): string[][] {
-  const header = ['Client Name', 'Month', 'Transcript Count', 'Created Date', 'Updated Date', 'Notes']
-  const rows = transcripts.map(transformTranscriptDataToSheetsRow)
-  return [header, ...rows]
-}
-
-/**
- * Validate and transform Google Sheets row with error handling
- */
-export function safeTransformSheetsRow(row: string[], rowIndex: number): {
-  data: TranscriptData | null
-  errors: string[]
-} {
-  const errors: string[] = []
-
-  try {
-    // Basic validation
-    if (!row || row.length < 3) {
-      errors.push('Row must have at least 3 columns (Client Name, Month, Transcript Count)')
-      return { data: null, errors }
-    }
-
-    const [clientName, month, transcriptCount] = row
-
-    // Validate client name
-    if (!clientName?.trim()) {
-      errors.push('Client name is required')
-    }
-
-    // Validate month format
-    if (!month?.match(/^\d{4}-\d{2}$/)) {
-      errors.push('Month must be in YYYY-MM format')
-    }
-
-    // Validate transcript count
-    const count = parseInt(transcriptCount)
-    if (isNaN(count) || count < 0) {
-      errors.push('Transcript count must be a non-negative number')
-    }
-
-    if (errors.length > 0) {
-      return { data: null, errors }
-    }
-
-    const transformedData = transformSheetsRowToTranscriptData(row, rowIndex)
-    return { data: transformedData, errors: [] }
-
-  } catch (error) {
-    errors.push(`Transformation error: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    return { data: null, errors }
-  }
-}
-
-/**
- * Batch transform with error collection
- */
-export function batchTransformSheetsData(sheetsData: string[][]): {
-  data: TranscriptData[]
-  errors: Array<{ rowIndex: number; errors: string[] }>
-} {
-  const data: TranscriptData[] = []
-  const errors: Array<{ rowIndex: number; errors: string[] }> = []
-
-  if (!sheetsData || sheetsData.length === 0) {
-    return { data, errors }
-  }
-
-  // Skip header row if it exists
-  const startIndex = sheetsData[0]?.[0]?.toLowerCase().includes('client') ? 1 : 0
-  const dataRows = sheetsData.slice(startIndex)
-
-  dataRows.forEach((row, index) => {
-    const actualRowIndex = startIndex + index + 1
-    const result = safeTransformSheetsRow(row, actualRowIndex)
-
-    if (result.data) {
-      data.push(result.data)
-    }
-
-    if (result.errors.length > 0) {
+      
+      // Parse and validate transcript count
+      let transcriptCount: number
+      try {
+        transcriptCount = this.parseNumber(validatedRow.transcript_count)
+        if (transcriptCount < 0) {
+          throw new Error('Transcript count must be non-negative')
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : `Invalid transcript count: ${validatedRow.transcript_count}`
+        errors.push({
+          row: rowIndex,
+          field: 'transcript_count',
+          value: validatedRow.transcript_count,
+          message: errorMessage
+        })
+        return { data: null, errors }
+      }
+      
+      // Create transcript data
+      const transcriptData: TranscriptCreate = {
+        clientId: '', // Will be resolved by the service layer
+        clientName: validatedRow.client_name.trim(),
+        date: parsedDate,
+        transcriptCount,
+        transcriptType: validatedRow.transcript_type?.trim() || undefined,
+        notes: validatedRow.notes?.trim() || undefined,
+        createdBy
+      }
+      
+      return { data: transcriptData, errors }
+    } catch (error) {
       errors.push({
-        rowIndex: actualRowIndex,
-        errors: result.errors,
+        row: rowIndex,
+        field: 'general',
+        value: rowData,
+        message: error instanceof Error ? error.message : 'Unknown validation error'
       })
+      return { data: null, errors }
     }
-  })
-
-  return { data, errors }
-}
-
-/**
- * Transform form data to TranscriptData
- */
-export function transformFormDataToTranscriptData(
-  formData: { clientName: string; month: string; transcriptCount: number; notes?: string }
-): Omit<TranscriptData, 'id' | 'createdAt' | 'updatedAt'> {
-  const [year] = formData.month.split('-').map(Number)
-
-  return {
-    clientName: formData.clientName.trim(),
-    month: formData.month,
-    year: year,
-    transcriptCount: formData.transcriptCount,
-    notes: formData.notes?.trim() || undefined,
-  }
-}
-
-/**
- * Transform TranscriptData to form data
- */
-export function transformTranscriptDataToFormData(data: TranscriptData): {
-  clientName: string
-  month: string
-  transcriptCount: number
-  notes?: string
-} {
-  return {
-    clientName: data.clientName,
-    month: data.month,
-    transcriptCount: data.transcriptCount,
-    notes: data.notes,
-  }
-}
-
-/**
- * Normalize client names for consistency
- */
-export function normalizeClientName(clientName: string): string {
-  return clientName
-    .trim()
-    .replace(/\s+/g, ' ') // Replace multiple spaces with single space
-    .replace(/[^\w\s-]/g, ' ') // Replace special characters with spaces (except hyphens)
-    .replace(/\s+/g, ' ') // Clean up any double spaces created by replacement
-    .toLowerCase()
-    .split(' ')
-    .filter(word => word.length > 0) // Remove empty strings
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
-/**
- * Validate month format and convert to standard format
- */
-export function normalizeMonth(month: string): string {
-  const trimmed = month.trim()
-  
-  // Handle different date formats
-  if (trimmed.match(/^\d{4}-\d{2}$/)) {
-    return trimmed
   }
   
-  if (trimmed.match(/^\d{4}\/\d{2}$/)) {
-    return trimmed.replace('/', '-')
+  /**
+   * Transform Excel row data to TranscriptCreate format
+   */
+  static transformExcelRow(
+    rowData: Record<string, any>, 
+    rowIndex: number,
+    createdBy: string
+  ): { data: TranscriptCreate | null; errors: ImportError[] } {
+    const errors: ImportError[] = []
+    
+    try {
+      // Convert Excel data to string format for consistent processing
+      const stringData: Record<string, string> = {}
+      
+      // Map common Excel column names to expected format
+      const columnMapping: Record<string, string> = {
+        'client': 'client_name',
+        'client name': 'client_name',
+        'clientname': 'client_name',
+        'client_name': 'client_name',
+        'customer': 'client_name',
+        'company': 'client_name',
+        'date': 'date',
+        'transcript count': 'transcript_count',
+        'transcriptcount': 'transcript_count',
+        'transcript_count': 'transcript_count',
+        'count': 'transcript_count',
+        'transcripts': 'transcript_count',
+        'number': 'transcript_count',
+        'type': 'transcript_type',
+        'transcript type': 'transcript_type',
+        'transcripttype': 'transcript_type',
+        'transcript_type': 'transcript_type',
+        'category': 'transcript_type',
+        'kind': 'transcript_type',
+        'notes': 'notes',
+        'comments': 'notes',
+        'description': 'notes',
+        'remarks': 'notes',
+        'memo': 'notes'
+      }
+      
+      // Normalize column names and map data
+      for (const [key, value] of Object.entries(rowData)) {
+        const normalizedKey = key.toLowerCase().trim()
+        const mappedKey = columnMapping[normalizedKey] || normalizedKey
+        
+        if (value !== null && value !== undefined) {
+          if (mappedKey === 'date' && value instanceof Date) {
+            stringData[mappedKey] = value.toISOString().split('T')[0] // YYYY-MM-DD format
+          } else {
+            stringData[mappedKey] = String(value).trim()
+          }
+        }
+      }
+      
+      // Use CSV transformer for consistent processing
+      return this.transformCSVRow(stringData, rowIndex, createdBy)
+    } catch (error) {
+      errors.push({
+        row: rowIndex,
+        field: 'general',
+        value: rowData,
+        message: error instanceof Error ? error.message : 'Unknown Excel processing error'
+      })
+      return { data: null, errors }
+    }
   }
   
-  if (trimmed.match(/^\d{2}\/\d{4}$/)) {
-    const [month, year] = trimmed.split('/')
-    return `${year}-${month.padStart(2, '0')}`
+  /**
+   * Parse date from various string formats
+   */
+  private static parseDate(dateString: string): Date {
+    const trimmed = dateString.trim()
+    
+    // Try common date formats
+    const formats = [
+      /^\d{4}-\d{2}-\d{2}$/, // YYYY-MM-DD
+      /^\d{2}\/\d{2}\/\d{4}$/, // MM/DD/YYYY
+      /^\d{2}-\d{2}-\d{4}$/, // MM-DD-YYYY
+      /^\d{4}\/\d{2}\/\d{2}$/, // YYYY/MM/DD
+    ]
+    
+    let parsedDate: Date
+    
+    if (formats[0].test(trimmed)) {
+      // YYYY-MM-DD
+      parsedDate = new Date(trimmed)
+    } else if (formats[1].test(trimmed)) {
+      // MM/DD/YYYY
+      const [month, day, year] = trimmed.split('/')
+      parsedDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`)
+    } else if (formats[2].test(trimmed)) {
+      // MM-DD-YYYY
+      const [month, day, year] = trimmed.split('-')
+      parsedDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`)
+    } else if (formats[3].test(trimmed)) {
+      // YYYY/MM/DD
+      const [year, month, day] = trimmed.split('/')
+      parsedDate = new Date(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`)
+    } else {
+      // Try native Date parsing as fallback
+      parsedDate = new Date(trimmed)
+    }
+    
+    if (isNaN(parsedDate.getTime())) {
+      throw new Error(`Unable to parse date: ${dateString}`)
+    }
+    
+    return parsedDate
   }
   
-  throw new Error(`Invalid month format: ${month}. Expected YYYY-MM format.`)
-}
-
-/**
- * Calculate derived fields for TranscriptData
- */
-export function calculateDerivedFields(data: Partial<TranscriptData>): {
-  year?: number
-  createdAt?: Date
-  updatedAt?: Date
-} {
-  const derived: { year?: number; createdAt?: Date; updatedAt?: Date } = {}
-
-  if (data.month) {
-    const [year] = data.month.split('-').map(Number)
-    derived.year = year
-  }
-
-  if (!data.createdAt) {
-    derived.createdAt = new Date()
-  }
-
-  derived.updatedAt = new Date()
-
-  return derived
-}
-
-/**
- * Merge transcript data with updates
- */
-export function mergeTranscriptData(
-  existing: TranscriptData,
-  updates: Partial<TranscriptData>
-): TranscriptData {
-  const merged = { ...existing, ...updates }
-  
-  // Recalculate derived fields if month changed
-  if (updates.month && updates.month !== existing.month) {
-    const derived = calculateDerivedFields(merged)
-    Object.assign(merged, derived)
+  /**
+   * Parse number from string, handling various formats
+   */
+  private static parseNumber(numberString: string): number {
+    const trimmed = numberString.trim()
+    
+    // Remove common formatting characters
+    const cleaned = trimmed.replace(/[,$\s]/g, '')
+    
+    const parsed = parseFloat(cleaned)
+    
+    if (isNaN(parsed)) {
+      throw new Error(`Unable to parse number: ${numberString}`)
+    }
+    
+    // Ensure it's an integer for transcript counts
+    return Math.floor(parsed)
   }
   
-  // Always update the updatedAt timestamp
-  merged.updatedAt = new Date()
+  /**
+   * Validate and transform bulk data
+   */
+  static validateAndTransformBulkData(
+    rawData: RawData[],
+    createdBy: string,
+    fileType: 'csv' | 'excel'
+  ): {
+    validData: TranscriptCreate[]
+    errors: ImportError[]
+    summary: {
+      totalRows: number
+      validRows: number
+      errorRows: number
+    }
+  } {
+    const validData: TranscriptCreate[] = []
+    const allErrors: ImportError[] = []
+    
+    for (let i = 0; i < rawData.length; i++) {
+      const rowIndex = i + 1 // 1-based indexing for user display
+      const rowData = rawData[i]
+      
+      let result: { data: TranscriptCreate | null; errors: ImportError[] }
+      
+      if (fileType === 'csv') {
+        result = this.transformCSVRow(rowData as Record<string, string>, rowIndex, createdBy)
+      } else {
+        result = this.transformExcelRow(rowData, rowIndex, createdBy)
+      }
+      
+      if (result.data) {
+        validData.push(result.data)
+      }
+      
+      allErrors.push(...result.errors)
+    }
+    
+    return {
+      validData,
+      errors: allErrors,
+      summary: {
+        totalRows: rawData.length,
+        validRows: validData.length,
+        errorRows: allErrors.length
+      }
+    }
+  }
   
-  return merged
+  /**
+   * Generate column mapping suggestions for import wizard
+   */
+  static generateColumnMappingSuggestions(headers: string[]): Record<string, string> {
+    const suggestions: Record<string, string> = {}
+    
+    const mappings: Record<string, string[]> = {
+      'client_name': ['client', 'client name', 'clientname', 'client_name', 'customer', 'company'],
+      'date': ['date', 'day', 'timestamp', 'created_date', 'record_date'],
+      'transcript_count': ['count', 'transcript count', 'transcriptcount', 'transcript_count', 'transcripts', 'number'],
+      'transcript_type': ['type', 'transcript type', 'transcripttype', 'transcript_type', 'category', 'kind'],
+      'notes': ['notes', 'comments', 'description', 'remarks', 'memo']
+    }
+    
+    for (const header of headers) {
+      const normalizedHeader = header.toLowerCase().trim()
+      
+      for (const [targetField, possibleNames] of Object.entries(mappings)) {
+        if (possibleNames.includes(normalizedHeader)) {
+          suggestions[header] = targetField
+          break
+        }
+      }
+    }
+    
+    return suggestions
+  }
+  
+  /**
+   * Validate file structure and headers
+   */
+  static validateFileStructure(
+    headers: string[],
+    requiredFields: string[] = ['client_name', 'date', 'transcript_count']
+  ): ValidationResult {
+    const errors: string[] = []
+    
+    if (headers.length === 0) {
+      errors.push('File appears to be empty or has no headers')
+      return { isValid: false, errors }
+    }
+    
+    const normalizedHeaders = headers.map(h => h.toLowerCase().trim())
+    const suggestions = this.generateColumnMappingSuggestions(headers)
+    
+    for (const requiredField of requiredFields) {
+      const hasDirectMatch = normalizedHeaders.includes(requiredField)
+      const hasMappedMatch = Object.values(suggestions).includes(requiredField)
+      
+      if (!hasDirectMatch && !hasMappedMatch) {
+        errors.push(`Required field '${requiredField}' not found in file headers`)
+      }
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors
+    }
+  }
+  
+  /**
+   * Clean and normalize text data
+   */
+  static cleanTextData(text: string): string {
+    if (!text || typeof text !== 'string') {
+      return ''
+    }
+    
+    return text
+      .trim()
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .replace(/[\r\n\t]/g, ' ') // Replace line breaks and tabs with spaces
+      .substring(0, 1000) // Limit length to prevent database issues
+  }
+  
+  /**
+   * Detect and suggest date format from sample data
+   */
+  static detectDateFormat(dateStrings: string[]): string {
+    const formats = [
+      { pattern: /^\d{4}-\d{2}-\d{2}$/, format: 'YYYY-MM-DD' },
+      { pattern: /^\d{2}\/\d{2}\/\d{4}$/, format: 'MM/DD/YYYY' },
+      { pattern: /^\d{2}-\d{2}-\d{4}$/, format: 'MM-DD-YYYY' },
+      { pattern: /^\d{4}\/\d{2}\/\d{2}$/, format: 'YYYY/MM/DD' },
+    ]
+    
+    for (const { pattern, format } of formats) {
+      const matches = dateStrings.filter(date => pattern.test(date.trim()))
+      if (matches.length > dateStrings.length * 0.8) { // 80% match threshold
+        return format
+      }
+    }
+    
+    return 'YYYY-MM-DD' // Default format
+  }
 }

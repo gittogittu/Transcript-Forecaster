@@ -1,61 +1,35 @@
-/**
- * TypeScript interfaces for transcript data models
- */
-
-export interface TranscriptData {
-  id?: string
-  clientName: string
-  month: string // Format: YYYY-MM
-  year: number
-  transcriptCount: number
+export interface User {
+  id: string
+  email: string
+  name: string
+  image?: string
+  role: 'admin' | 'analyst' | 'viewer'
   createdAt: Date
   updatedAt: Date
-  notes?: string
 }
 
-export interface TranscriptRow {
+export interface Client {
+  id: string
+  name: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface TranscriptData {
+  id: string
+  clientId: string
   clientName: string
-  month: string
+  date: Date
   transcriptCount: number
-  createdDate: string
-  updatedDate: string
+  transcriptType?: string
   notes?: string
+  createdAt: Date
+  updatedAt: Date
+  createdBy: string
 }
 
-export interface TranscriptFormData {
-  clientName: string
-  month: string
-  transcriptCount: number
-  notes?: string
-}
-
-export interface TranscriptFilters {
-  clientName?: string
-  startMonth?: string
-  endMonth?: string
-  minCount?: number
-  maxCount?: number
-}
-
-export interface TranscriptSummary {
-  totalClients: number
-  totalTranscripts: number
-  averageTranscriptsPerClient: number
-  dateRange: { start: string; end: string }
-  clientBreakdown: ClientSummary[]
-}
-
-export interface ClientSummary {
-  clientName: string
-  totalTranscripts: number
-  monthlyAverage: number
-  firstMonth: string
-  lastMonth: string
-}
-
-export interface MonthlyPrediction {
-  month: string
-  year: number
+export interface TimePrediction {
+  date: Date
   predictedCount: number
   confidenceInterval: {
     lower: number
@@ -64,18 +38,49 @@ export interface MonthlyPrediction {
 }
 
 export interface PredictionResult {
+  id: string
+  clientId: string
   clientName: string
-  predictions: MonthlyPrediction[]
+  predictionType: 'daily' | 'weekly' | 'monthly'
+  predictions: TimePrediction[]
   confidence: number
   accuracy: number
-  model: 'linear' | 'polynomial' | 'arima'
-  generatedAt: Date
+  modelType: 'linear' | 'polynomial' | 'arima'
+  createdAt: Date
+  createdBy: string
 }
 
-export interface PredictionRequest {
-  clientName?: string
-  monthsAhead: number
-  modelType: 'linear' | 'polynomial' | 'arima'
+export interface PerformanceMetrics {
+  id: string
+  timestamp: Date
+  queriesPerSecond: number
+  modelRuntime: number
+  dataSyncLatency: number
+  errorCount: number
+  activeUsers: number
+  memoryUsage: number
+  cpuUsage: number
+}
+
+// Additional utility types
+export interface ImportResult {
+  totalRows: number
+  successCount: number
+  errorCount: number
+  errors: ImportError[]
+  duplicateCount: number
+}
+
+export interface ImportError {
+  row: number
+  field: string
+  value: any
+  message: string
+}
+
+export interface ValidationResult {
+  isValid: boolean
+  errors: string[]
 }
 
 export interface ModelMetrics {
@@ -84,105 +89,44 @@ export interface ModelMetrics {
   recall: number
   meanAbsoluteError: number
   rootMeanSquareError: number
-  r2Score: number
 }
 
-// Error types for better error handling
-export interface AppError {
-  name: string
-  message: string
-  code: string
-  timestamp: Date
-  context?: Record<string, unknown>
-}
-
-export interface ValidationErrorData {
-  field: string
-  message: string
-  value: any
-  code: string
-  name: string
-  timestamp: Date
-}
-
-export interface ValidationWarning {
-  field: string
-  message: string
-  value: any
-  code: string
-}
-
-export interface ValidationResult {
-  isValid: boolean
-  errors: ValidationErrorData[]
-  warnings: ValidationWarning[]
-}
-
-export interface DataFetchResult<T> {
-  data: T | null
-  error: string | null
-  loading: boolean
-  lastUpdated?: Date
-}
-
-export interface GoogleSheetsConfig {
-  spreadsheetId: string
-  range: string
-  credentials: {
-    type: string
-    project_id: string
-    private_key_id: string
-    private_key: string
-    client_email: string
-    client_id: string
-    auth_uri: string
-    token_uri: string
-    auth_provider_x509_cert_url: string
-    client_x509_cert_url: string
+export interface MetricsSummary {
+  timeRange: {
+    start: Date
+    end: Date
   }
+  averageQueriesPerSecond: number
+  averageModelRuntime: number
+  averageDataSyncLatency: number
+  totalErrors: number
+  peakActiveUsers: number
+  averageMemoryUsage: number
+  averageCpuUsage: number
 }
 
-export interface SheetsApiResponse {
-  values?: string[][]
-  range?: string
-  majorDimension?: string
+export interface TimeRange {
+  start: Date
+  end: Date
 }
 
-export interface SheetsUpdateResponse {
-  spreadsheetId: string
-  updatedRows: number
-  updatedColumns: number
-  updatedCells: number
+// File upload types
+export interface FileUploadData {
+  file: File
+  fileType: 'csv' | 'excel'
+  hasHeaders: boolean
+  dateFormat: string
 }
 
-export interface SheetsError {
-  code: number
-  message: string
-  status: string
+// Export types
+export interface ExportRequest {
+  format: 'csv' | 'pdf'
+  dateRange?: TimeRange
+  clients?: string[]
+  includeAnalytics: boolean
 }
 
-export interface AuthenticationError extends AppError {
-  name: 'AuthenticationError'
-  code: 'AUTH_ERROR'
-}
-
-export interface ValidationError extends AppError {
-  name: 'ValidationError'
-  code: 'VALIDATION_ERROR'
-  field: string
-  value: any
-}
-
-export interface APIError extends AppError {
-  name: 'APIError'
-  code: 'API_ERROR'
-  status: number
-  endpoint: string
-}
-
-export interface PredictionError extends AppError {
-  name: 'PredictionError'
-  code: 'PREDICTION_ERROR'
-  modelType: string
-  dataSize: number
+// Raw data from file imports
+export interface RawData {
+  [key: string]: string | number | Date
 }

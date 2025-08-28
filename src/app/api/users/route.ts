@@ -7,7 +7,7 @@ const CreateUserSchema = z.object({
   email: z.string().email("Invalid email format"),
   name: z.string().min(1, "Name is required").max(255),
   role: z.enum(['admin', 'analyst', 'viewer']).default('viewer'),
-  image: z.string().url().optional()
+  image: z.string().optional()
 })
 
 async function handleGET(request: NextRequest) {
@@ -34,7 +34,7 @@ async function handlePOST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
+        { error: "Validation error", details: error.issues },
         { status: 400 }
       )
     }

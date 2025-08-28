@@ -1,409 +1,396 @@
-/**
- * Unit tests for data transformation utilities
- */
+import { describe, it, expect } from '@jest/globals'
+import { DataTransformer } from '../data-transformers'
+import { TranscriptCreate } from '@/lib/validations/schemas'
 
-import {
-  transformSheetsRowToTranscriptData,
-  transformTranscriptDataToSheetsRow,
-  transformSheetsDataToTranscripts,
-  transformTranscriptsToSheetsData,
-  safeTransformSheetsRow,
-  batchTransformSheetsData,
-  transformFormDataToTranscriptData,
-  transformTranscriptDataToFormData,
-  normalizeClientName,
-  normalizeMonth,
-  calculateDerivedFields,
-  mergeTranscriptData,
-} from '../data-transformers'
-import { TranscriptData } from '@/types/transcript'
+describe('DataTransformer', () => {
+  const mockUserId = '123e4567-e89b-12d3-a456-426614174000'
 
-describe('transformSheetsRowToTranscriptData', () => {
-  it('should transform valid sheets row to transcript data', () => {
-    const row = [
-      'Test Client',
-      '2024-01',
-      '100',
-      '2024-01-01T00:00:00Z',
-      '2024-01-02T00:00:00Z',
-      'Test notes',
-    ]
-    
-    const result = transformSheetsRowToTranscriptData(row, 1)
-    
-    expect(result).toEqual({
-      id: 'sheet-1',
-      clientName: 'Test Client',
-      month: '2024-01',
-      year: 2024,
-      transcriptCount: 100,
-      createdAt: new Date('2024-01-01T00:00:00Z'),
-      updatedAt: new Date('2024-01-02T00:00:00Z'),
-      notes: 'Test notes',
+  describe('transformCSVRow', () => {
+    it('should transform valid CSV row data', () => {
+      const csvRow = {
+        client_name: 'Acme Corp',
+        date: '2024-01-15',
+        transcript_count: '25',
+        transcript_type: 'Medical',
+        notes: 'Regular batch'
+      }
+
+      const result = DataTransformer.transformCSVRow(csvRow, 1, mockUserId)
+
+      expect(result.errors).toHaveLength(0)
+      expect(result.data).toEqual({
+        clientId: '',
+        clientName: 'Acme Corp',
+        date: new Date('2024-01-15'),
+        transcriptCount: 25,
+        transcriptType: 'Medical',
+        notes: 'Regular batch',
+        createdBy: mockUserId
+      })
+    })
+
+    it('should handle optional fields', () => {
+      const csvRow = {
+        client_name: 'Acme Corp',
+        date: '2024-01-15',
+        transcript_count: '25'
+      }
+
+      const result = DataTransformer.transformCSVRow(csvRow, 1, mockUserId)
+
+      expect(result.errors).toHaveLength(0)
+      expect(result.data?.transcriptType).toBeUndefined()
+      expect(result.data?.notes).toBeUndefined()
+    })
+
+    it('should handle different date formats', () => {
+      const testCases = [
+        { input: '2024-01-15', expected: new Date('2024-01-15') },
+        { input: '01/15/2024', expected: new Date('2024-01-15') },
+        { input: '01-15-2024', expected: new Date('2024-01-15') },
+        { input: '2024/01/15', expected: new Date('2024-01-15') }
+      ]
+
+      testCases.forEach(({ input, expected }) => {
+        const csvRow = {
+          client_name: 'Acme Corp',
+          date: input,
+          transcript_count: '25'
+        }
+
+        const result = DataTransformer.transformCSVRow(csvRow, 1, mockUserId)
+
+        expect(result.errors).toHaveLength(0)
+        expect(result.data?.date).toEqual(expected)
+      })
+    })
+
+    it('should handle invalid date format', () => {
+      const csvRow = {
+        client_name: 'Acme Corp',
+        date: 'invalid-date',
+        transcript_count: '25'
+      }
+
+      const result = DataTransformer.transformCSVRow(csvRow, 1, mockUserId)
+
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0].field).toBe('date')
+      expect(result.errors[0].message).toContain('Invalid date format')
+      expect(result.data).toBeNull()
+    })
+
+    it('should handle invalid transcript count', () => {
+      const csvRow = {
+        client_name: 'Acme Corp',
+        date: '2024-01-15',
+        transcript_count: 'invalid-number'
+      }
+
+      const result = DataTransformer.transformCSVRow(csvRow, 1, mockUserId)
+
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0].field).toBe('transcript_count')
+      expect(result.errors[0].message).toContain('Unable to parse number')
+      expect(result.data).toBeNull()
+    })
+
+    it('should handle negative transcript count', () => {
+      const csvRow = {
+        client_name: 'Acme Corp',
+        date: '2024-01-15',
+        transcript_count: '-5'
+      }
+
+      const result = DataTransformer.transformCSVRow(csvRow, 1, mockUserId)
+
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0].field).toBe('transcript_count')
+      expect(result.errors[0].message).toContain('Transcript count must be non-negative')
+      expect(result.data).toBeNull()
+    })
+
+    it('should handle missing required fields', () => {
+      const csvRow = {
+        client_name: '',
+        date: '2024-01-15',
+        transcript_count: '25'
+      }
+
+      const result = DataTransformer.transformCSVRow(csvRow, 1, mockUserId)
+
+      expect(result.errors).toHaveLength(1)
+      expect(result.data).toBeNull()
+    })
+
+    it('should trim whitespace from text fields', () => {
+      const csvRow = {
+        client_name: '  Acme Corp  ',
+        date: '2024-01-15',
+        transcript_count: '25',
+        transcript_type: '  Medical  ',
+        notes: '  Regular batch  '
+      }
+
+      const result = DataTransformer.transformCSVRow(csvRow, 1, mockUserId)
+
+      expect(result.errors).toHaveLength(0)
+      expect(result.data?.clientName).toBe('Acme Corp')
+      expect(result.data?.transcriptType).toBe('Medical')
+      expect(result.data?.notes).toBe('Regular batch')
     })
   })
 
-  it('should handle missing optional fields', () => {
-    const row = ['Test Client', '2024-01', '100', '2024-01-01T00:00:00Z', '2024-01-02T00:00:00Z']
-    
-    const result = transformSheetsRowToTranscriptData(row, 1)
-    
-    expect(result.notes).toBeUndefined()
-  })
+  describe('transformExcelRow', () => {
+    it('should transform Excel row with various column names', () => {
+      const excelRow = {
+        'Client': 'Acme Corp',
+        'Date': new Date('2024-01-15'),
+        'Transcript Count': 25,
+        'Type': 'Medical',
+        'Notes': 'Regular batch'
+      }
 
-  it('should handle invalid transcript count', () => {
-    const row = ['Test Client', '2024-01', 'invalid', '2024-01-01T00:00:00Z', '2024-01-02T00:00:00Z']
-    
-    const result = transformSheetsRowToTranscriptData(row, 1)
-    
-    expect(result.transcriptCount).toBe(0)
-  })
+      const result = DataTransformer.transformExcelRow(excelRow, 1, mockUserId)
 
-  it('should trim whitespace from strings', () => {
-    const row = [
-      '  Test Client  ',
-      '  2024-01  ',
-      '100',
-      '2024-01-01T00:00:00Z',
-      '2024-01-02T00:00:00Z',
-      '  Test notes  ',
-    ]
-    
-    const result = transformSheetsRowToTranscriptData(row, 1)
-    
-    expect(result.clientName).toBe('Test Client')
-    expect(result.month).toBe('2024-01')
-    expect(result.notes).toBe('Test notes')
-  })
-})
+      expect(result.errors).toHaveLength(0)
+      expect(result.data?.clientName).toBe('Acme Corp')
+      expect(result.data?.transcriptCount).toBe(25)
+    })
 
-describe('transformTranscriptDataToSheetsRow', () => {
-  it('should transform transcript data to sheets row', () => {
-    const transcriptData: TranscriptData = {
-      id: 'test-id',
-      clientName: 'Test Client',
-      month: '2024-01',
-      year: 2024,
-      transcriptCount: 100,
-      createdAt: new Date('2024-01-01T00:00:00Z'),
-      updatedAt: new Date('2024-01-02T00:00:00Z'),
-      notes: 'Test notes',
-    }
-    
-    const result = transformTranscriptDataToSheetsRow(transcriptData)
-    
-    expect(result).toEqual([
-      'Test Client',
-      '2024-01',
-      '100',
-      '2024-01-01T00:00:00.000Z',
-      '2024-01-02T00:00:00.000Z',
-      'Test notes',
-    ])
-  })
+    it('should handle Excel date objects', () => {
+      const excelRow = {
+        'client_name': 'Acme Corp',
+        'date': new Date('2024-01-15'),
+        'transcript_count': 25
+      }
 
-  it('should handle missing notes', () => {
-    const transcriptData: TranscriptData = {
-      clientName: 'Test Client',
-      month: '2024-01',
-      year: 2024,
-      transcriptCount: 100,
-      createdAt: new Date('2024-01-01T00:00:00Z'),
-      updatedAt: new Date('2024-01-02T00:00:00Z'),
-    }
-    
-    const result = transformTranscriptDataToSheetsRow(transcriptData)
-    
-    expect(result[5]).toBe('')
-  })
-})
+      const result = DataTransformer.transformExcelRow(excelRow, 1, mockUserId)
 
-describe('transformSheetsDataToTranscripts', () => {
-  it('should transform sheets data with header', () => {
-    const sheetsData = [
-      ['Client Name', 'Month', 'Transcript Count', 'Created Date', 'Updated Date', 'Notes'],
-      ['Client 1', '2024-01', '100', '2024-01-01T00:00:00Z', '2024-01-02T00:00:00Z', 'Notes 1'],
-      ['Client 2', '2024-02', '150', '2024-02-01T00:00:00Z', '2024-02-02T00:00:00Z', 'Notes 2'],
-    ]
-    
-    const result = transformSheetsDataToTranscripts(sheetsData)
-    
-    expect(result).toHaveLength(2)
-    expect(result[0].clientName).toBe('Client 1')
-    expect(result[1].clientName).toBe('Client 2')
-  })
+      expect(result.errors).toHaveLength(0)
+      expect(result.data?.date).toEqual(new Date('2024-01-15'))
+    })
 
-  it('should transform sheets data without header', () => {
-    const sheetsData = [
-      ['Client 1', '2024-01', '100', '2024-01-01T00:00:00Z', '2024-01-02T00:00:00Z', 'Notes 1'],
-      ['Client 2', '2024-02', '150', '2024-02-01T00:00:00Z', '2024-02-02T00:00:00Z', 'Notes 2'],
-    ]
-    
-    const result = transformSheetsDataToTranscripts(sheetsData)
-    
-    expect(result).toHaveLength(2)
-  })
+    it('should map alternative column names', () => {
+      const testCases = [
+        {
+          name: 'client mapping',
+          row: {
+            'client': 'Test Client',
+            'date': new Date('2024-01-15'),
+            'transcript count': 25
+          }
+        },
+        {
+          name: 'customer mapping',
+          row: {
+            'customer': 'Test Client',
+            'date': new Date('2024-01-15'),
+            'count': 25
+          }
+        },
+        {
+          name: 'comments mapping',
+          row: {
+            'client': 'Test Client',
+            'date': new Date('2024-01-15'),
+            'count': 25,
+            'comments': 'Test notes'
+          }
+        }
+      ]
 
-  it('should handle empty data', () => {
-    const result = transformSheetsDataToTranscripts([])
-    expect(result).toEqual([])
-  })
-
-  it('should filter out invalid rows', () => {
-    const sheetsData = [
-      ['Client 1', '2024-01', '100', '2024-01-01T00:00:00Z', '2024-01-02T00:00:00Z'],
-      ['', '', '', '', ''], // Invalid row
-      ['Client 2', '2024-02', '150', '2024-02-01T00:00:00Z', '2024-02-02T00:00:00Z'],
-    ]
-    
-    const result = transformSheetsDataToTranscripts(sheetsData)
-    
-    expect(result).toHaveLength(2)
-    expect(result.every(t => t.clientName !== '')).toBe(true)
-  })
-})
-
-describe('transformTranscriptsToSheetsData', () => {
-  it('should transform transcripts to sheets format with header', () => {
-    const transcripts: TranscriptData[] = [
-      {
-        clientName: 'Client 1',
-        month: '2024-01',
-        year: 2024,
-        transcriptCount: 100,
-        createdAt: new Date('2024-01-01T00:00:00Z'),
-        updatedAt: new Date('2024-01-02T00:00:00Z'),
-        notes: 'Notes 1',
-      },
-    ]
-    
-    const result = transformTranscriptsToSheetsData(transcripts)
-    
-    expect(result[0]).toEqual(['Client Name', 'Month', 'Transcript Count', 'Created Date', 'Updated Date', 'Notes'])
-    expect(result[1]).toEqual([
-      'Client 1',
-      '2024-01',
-      '100',
-      '2024-01-01T00:00:00.000Z',
-      '2024-01-02T00:00:00.000Z',
-      'Notes 1',
-    ])
-  })
-})
-
-describe('safeTransformSheetsRow', () => {
-  it('should return data for valid row', () => {
-    const row = ['Test Client', '2024-01', '100', '2024-01-01T00:00:00Z', '2024-01-02T00:00:00Z']
-    
-    const result = safeTransformSheetsRow(row, 1)
-    
-    expect(result.data).toBeTruthy()
-    expect(result.errors).toHaveLength(0)
-  })
-
-  it('should return errors for invalid row', () => {
-    const row = ['', 'invalid-month', '-1']
-    
-    const result = safeTransformSheetsRow(row, 1)
-    
-    expect(result.data).toBeNull()
-    expect(result.errors.length).toBeGreaterThan(0)
-    expect(result.errors).toContain('Client name is required')
-    expect(result.errors).toContain('Month must be in YYYY-MM format')
-    expect(result.errors).toContain('Transcript count must be a non-negative number')
-  })
-
-  it('should return error for insufficient columns', () => {
-    const row = ['Client']
-    
-    const result = safeTransformSheetsRow(row, 1)
-    
-    expect(result.data).toBeNull()
-    expect(result.errors).toContain('Row must have at least 3 columns (Client Name, Month, Transcript Count)')
-  })
-})
-
-describe('batchTransformSheetsData', () => {
-  it('should transform valid data and collect errors', () => {
-    const sheetsData = [
-      ['Client Name', 'Month', 'Count'], // Header
-      ['Client 1', '2024-01', '100'], // Valid
-      ['', 'invalid', '-1'], // Invalid
-      ['Client 2', '2024-02', '150'], // Valid
-    ]
-    
-    const result = batchTransformSheetsData(sheetsData)
-    
-    expect(result.data).toHaveLength(2)
-    expect(result.errors).toHaveLength(1)
-    expect(result.errors[0].rowIndex).toBe(3)
-  })
-
-  it('should handle empty data', () => {
-    const result = batchTransformSheetsData([])
-    
-    expect(result.data).toEqual([])
-    expect(result.errors).toEqual([])
-  })
-})
-
-describe('transformFormDataToTranscriptData', () => {
-  it('should transform form data to transcript data', () => {
-    const formData = {
-      clientName: 'Test Client',
-      month: '2024-01',
-      transcriptCount: 100,
-      notes: 'Test notes',
-    }
-    
-    const result = transformFormDataToTranscriptData(formData)
-    
-    expect(result).toEqual({
-      clientName: 'Test Client',
-      month: '2024-01',
-      year: 2024,
-      transcriptCount: 100,
-      notes: 'Test notes',
+      testCases.forEach(({ name, row }) => {
+        const result = DataTransformer.transformExcelRow(row, 1, mockUserId)
+        if (result.errors.length > 0) {
+          console.log(`Test case "${name}" failed with errors:`, result.errors)
+        }
+        expect(result.errors).toHaveLength(0)
+      })
     })
   })
 
-  it('should trim client name and notes', () => {
-    const formData = {
-      clientName: '  Test Client  ',
-      month: '2024-01',
-      transcriptCount: 100,
-      notes: '  Test notes  ',
-    }
-    
-    const result = transformFormDataToTranscriptData(formData)
-    
-    expect(result.clientName).toBe('Test Client')
-    expect(result.notes).toBe('Test notes')
-  })
-})
+  describe('validateAndTransformBulkData', () => {
+    it('should process multiple valid records', () => {
+      const rawData = [
+        {
+          client_name: 'Acme Corp',
+          date: '2024-01-15',
+          transcript_count: '25'
+        },
+        {
+          client_name: 'Beta Inc',
+          date: '2024-01-16',
+          transcript_count: '15'
+        }
+      ]
 
-describe('transformTranscriptDataToFormData', () => {
-  it('should transform transcript data to form data', () => {
-    const transcriptData: TranscriptData = {
-      clientName: 'Test Client',
-      month: '2024-01',
-      year: 2024,
-      transcriptCount: 100,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      notes: 'Test notes',
-    }
-    
-    const result = transformTranscriptDataToFormData(transcriptData)
-    
-    expect(result).toEqual({
-      clientName: 'Test Client',
-      month: '2024-01',
-      transcriptCount: 100,
-      notes: 'Test notes',
+      const result = DataTransformer.validateAndTransformBulkData(rawData, mockUserId, 'csv')
+
+      expect(result.validData).toHaveLength(2)
+      expect(result.errors).toHaveLength(0)
+      expect(result.summary.totalRows).toBe(2)
+      expect(result.summary.validRows).toBe(2)
+      expect(result.summary.errorRows).toBe(0)
+    })
+
+    it('should handle mixed valid and invalid records', () => {
+      const rawData = [
+        {
+          client_name: 'Acme Corp',
+          date: '2024-01-15',
+          transcript_count: '25'
+        },
+        {
+          client_name: 'Beta Inc',
+          date: 'invalid-date',
+          transcript_count: '15'
+        },
+        {
+          client_name: 'Gamma LLC',
+          date: '2024-01-17',
+          transcript_count: 'invalid-count'
+        }
+      ]
+
+      const result = DataTransformer.validateAndTransformBulkData(rawData, mockUserId, 'csv')
+
+      expect(result.validData).toHaveLength(1)
+      expect(result.errors).toHaveLength(2)
+      expect(result.summary.totalRows).toBe(3)
+      expect(result.summary.validRows).toBe(1)
+      expect(result.summary.errorRows).toBe(2)
     })
   })
-})
 
-describe('normalizeClientName', () => {
-  it('should normalize client name', () => {
-    expect(normalizeClientName('  test client  ')).toBe('Test Client')
-    expect(normalizeClientName('TEST CLIENT')).toBe('Test Client')
-    expect(normalizeClientName('test-client')).toBe('Test-client')
-    expect(normalizeClientName('test  multiple   spaces')).toBe('Test Multiple Spaces')
-  })
+  describe('generateColumnMappingSuggestions', () => {
+    it('should suggest mappings for common column names', () => {
+      const headers = ['Client', 'Date', 'Count', 'Type', 'Comments']
 
-  it('should remove special characters', () => {
-    expect(normalizeClientName('Test@Client!')).toBe('Test Client')
-    expect(normalizeClientName('Test#$%Client')).toBe('Test Client')
-  })
+      const suggestions = DataTransformer.generateColumnMappingSuggestions(headers)
 
-  it('should preserve hyphens', () => {
-    expect(normalizeClientName('test-client')).toBe('Test-client')
-  })
-})
-
-describe('normalizeMonth', () => {
-  it('should handle YYYY-MM format', () => {
-    expect(normalizeMonth('2024-01')).toBe('2024-01')
-    expect(normalizeMonth('  2024-01  ')).toBe('2024-01')
-  })
-
-  it('should convert YYYY/MM format', () => {
-    expect(normalizeMonth('2024/01')).toBe('2024-01')
-  })
-
-  it('should convert MM/YYYY format', () => {
-    expect(normalizeMonth('01/2024')).toBe('2024-01')
-  })
-
-  it('should throw error for invalid format', () => {
-    expect(() => normalizeMonth('invalid')).toThrow('Invalid month format')
-    expect(() => normalizeMonth('2024-1')).toThrow('Invalid month format')
-  })
-})
-
-describe('calculateDerivedFields', () => {
-  it('should calculate year from month', () => {
-    const result = calculateDerivedFields({ month: '2024-01' })
-    
-    expect(result.year).toBe(2024)
-    expect(result.createdAt).toBeInstanceOf(Date)
-    expect(result.updatedAt).toBeInstanceOf(Date)
-  })
-
-  it('should not override existing createdAt', () => {
-    const existingDate = new Date('2023-01-01')
-    const result = calculateDerivedFields({ 
-      month: '2024-01',
-      createdAt: existingDate,
+      expect(suggestions['Client']).toBe('client_name')
+      expect(suggestions['Date']).toBe('date')
+      expect(suggestions['Count']).toBe('transcript_count')
+      expect(suggestions['Type']).toBe('transcript_type')
+      expect(suggestions['Comments']).toBe('notes')
     })
-    
-    expect(result.createdAt).toBeUndefined()
-    expect(result.updatedAt).toBeInstanceOf(Date)
-  })
-})
 
-describe('mergeTranscriptData', () => {
-  it('should merge transcript data with updates', () => {
-    const existing: TranscriptData = {
-      id: 'test-id',
-      clientName: 'Old Client',
-      month: '2024-01',
-      year: 2024,
-      transcriptCount: 100,
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date('2024-01-01'),
-    }
-    
-    const updates = {
-      clientName: 'New Client',
-      transcriptCount: 150,
-    }
-    
-    const result = mergeTranscriptData(existing, updates)
-    
-    expect(result.clientName).toBe('New Client')
-    expect(result.transcriptCount).toBe(150)
-    expect(result.month).toBe('2024-01') // Unchanged
-    expect(result.updatedAt.getTime()).toBeGreaterThan(existing.updatedAt.getTime())
+    it('should handle case-insensitive matching', () => {
+      const headers = ['CLIENT NAME', 'transcript count', 'Notes']
+
+      const suggestions = DataTransformer.generateColumnMappingSuggestions(headers)
+
+      expect(suggestions['CLIENT NAME']).toBe('client_name')
+      expect(suggestions['transcript count']).toBe('transcript_count')
+      expect(suggestions['Notes']).toBe('notes')
+    })
+
+    it('should not suggest mappings for unrecognized headers', () => {
+      const headers = ['Unknown Column', 'Random Field']
+
+      const suggestions = DataTransformer.generateColumnMappingSuggestions(headers)
+
+      expect(suggestions['Unknown Column']).toBeUndefined()
+      expect(suggestions['Random Field']).toBeUndefined()
+    })
   })
 
-  it('should recalculate derived fields when month changes', () => {
-    const existing: TranscriptData = {
-      clientName: 'Test Client',
-      month: '2024-01',
-      year: 2024,
-      transcriptCount: 100,
-      createdAt: new Date('2024-01-01'),
-      updatedAt: new Date('2024-01-01'),
-    }
-    
-    const updates = { month: '2025-06' }
-    
-    const result = mergeTranscriptData(existing, updates)
-    
-    expect(result.month).toBe('2025-06')
-    expect(result.year).toBe(2025)
+  describe('validateFileStructure', () => {
+    it('should validate file with all required headers', () => {
+      const headers = ['client_name', 'date', 'transcript_count', 'notes']
+
+      const result = DataTransformer.validateFileStructure(headers)
+
+      expect(result.isValid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+    })
+
+    it('should detect missing required fields', () => {
+      const headers = ['client_name', 'notes'] // missing date and transcript_count
+
+      const result = DataTransformer.validateFileStructure(headers)
+
+      expect(result.isValid).toBe(false)
+      expect(result.errors).toHaveLength(2)
+      expect(result.errors[0]).toContain('date')
+      expect(result.errors[1]).toContain('transcript_count')
+    })
+
+    it('should accept mapped field names', () => {
+      const headers = ['Client', 'Date', 'Count'] // These should map to required fields
+
+      const result = DataTransformer.validateFileStructure(headers)
+
+      expect(result.isValid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+    })
+
+    it('should handle empty headers', () => {
+      const headers: string[] = []
+
+      const result = DataTransformer.validateFileStructure(headers)
+
+      expect(result.isValid).toBe(false)
+      expect(result.errors[0]).toContain('empty')
+    })
+  })
+
+  describe('cleanTextData', () => {
+    it('should clean and normalize text', () => {
+      const dirtyText = '  Multiple   spaces\n\nand\tlines  '
+
+      const result = DataTransformer.cleanTextData(dirtyText)
+
+      expect(result).toBe('Multiple spaces and lines')
+    })
+
+    it('should handle empty or null input', () => {
+      expect(DataTransformer.cleanTextData('')).toBe('')
+      expect(DataTransformer.cleanTextData(null as any)).toBe('')
+      expect(DataTransformer.cleanTextData(undefined as any)).toBe('')
+    })
+
+    it('should limit text length', () => {
+      const longText = 'a'.repeat(1500)
+
+      const result = DataTransformer.cleanTextData(longText)
+
+      expect(result.length).toBe(1000)
+    })
+  })
+
+  describe('detectDateFormat', () => {
+    it('should detect YYYY-MM-DD format', () => {
+      const dates = ['2024-01-15', '2024-02-20', '2024-03-25']
+
+      const format = DataTransformer.detectDateFormat(dates)
+
+      expect(format).toBe('YYYY-MM-DD')
+    })
+
+    it('should detect MM/DD/YYYY format', () => {
+      const dates = ['01/15/2024', '02/20/2024', '03/25/2024']
+
+      const format = DataTransformer.detectDateFormat(dates)
+
+      expect(format).toBe('MM/DD/YYYY')
+    })
+
+    it('should return default format for mixed or unrecognized formats', () => {
+      const dates = ['2024-01-15', '02/20/2024', 'invalid-date']
+
+      const format = DataTransformer.detectDateFormat(dates)
+
+      expect(format).toBe('YYYY-MM-DD')
+    })
+
+    it('should handle empty date array', () => {
+      const dates: string[] = []
+
+      const format = DataTransformer.detectDateFormat(dates)
+
+      expect(format).toBe('YYYY-MM-DD')
+    })
   })
 })

@@ -6,7 +6,7 @@ import { z } from "zod"
 const UpdateUserSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   role: z.enum(['admin', 'analyst', 'viewer']).optional(),
-  image: z.string().url().optional()
+  image: z.string().optional()
 })
 
 async function handleGET(
@@ -54,7 +54,7 @@ async function handlePUT(
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: "Validation error", details: error.errors },
+        { error: "Validation error", details: error.issues },
         { status: 400 }
       )
     }
