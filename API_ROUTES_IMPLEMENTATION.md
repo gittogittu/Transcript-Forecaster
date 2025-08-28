@@ -43,6 +43,15 @@
 - `getCurrentUser()` - Get current user from request
 - `hasPermission()` - Check specific permissions
 
+**Client-Side Role Utilities (`src/lib/utils/role-utils.ts`):**
+- `hasRole()` - Check if user has required role or higher
+- `canPerformAction()` - Check specific permissions (read/write/delete/admin)
+- `hasAnyRole()` - Check if user has any of the allowed roles
+- `getRoleDisplayName()` - Get user-friendly role names
+- `getRoleDescription()` - Get role descriptions
+
+*Note: API routes use server-side middleware for authorization, while client components use the role utilities for UI permission checks.*
+
 **Permission Matrix:**
 ```typescript
 Admin: Full access to all endpoints

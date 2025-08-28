@@ -51,7 +51,25 @@ DATABASE_IDLE_TIMEOUT=10000
 
 ## Database Setup
 
-### Option 1: Neon Database (Recommended)
+### Quick Setup (Recommended)
+
+For first-time setup, use the automated setup script:
+
+```bash
+# Automated database setup
+npm run setup
+```
+
+This script will:
+- Test your database connection using the `DATABASE_URL` from `.env.local`
+- Create the users table if it doesn't exist
+- Set up necessary indexes for optimal performance
+- Create a default admin user (`admin@example.com`) if no admin exists
+- Provide helpful troubleshooting tips if connection fails
+
+### Manual Setup Options
+
+#### Option 1: Neon Database (Recommended)
 
 1. **Create a Neon account** at [neon.tech](https://neon.tech)
 2. **Create a new project** and database
@@ -61,8 +79,12 @@ DATABASE_IDLE_TIMEOUT=10000
    DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
    DATABASE_SSL=true
    ```
+5. **Run the setup script**:
+   ```bash
+   npm run setup
+   ```
 
-### Option 2: Local PostgreSQL
+#### Option 2: Local PostgreSQL
 
 1. **Create Database**:
    ```sql
@@ -81,7 +103,14 @@ DATABASE_IDLE_TIMEOUT=10000
    DATABASE_SSL=false
    ```
 
-### 2. Run Migrations
+3. **Run the setup script**:
+   ```bash
+   npm run setup
+   ```
+
+### Advanced Setup
+
+#### Manual Migration Commands
 
 ```bash
 # Check migration status
@@ -91,7 +120,7 @@ npm run db:status
 npm run db:migrate
 ```
 
-### 3. Verify Setup
+#### Verify Setup
 
 ```bash
 # Check if database is properly configured
@@ -123,6 +152,24 @@ npm run migrate import --format json --input ./exports/transcript-data.json --va
 # 3. Validate migration
 npm run migrate validate
 ```
+
+## User Management Commands
+
+### User Role Management
+
+```bash
+# Create admin users or update user roles
+node update-user-role.js
+```
+
+The user role management script provides:
+- **Admin User Creation**: Creates new admin users if they don't exist
+- **Role Updates**: Updates existing user roles to admin
+- **Database Verification**: Checks user existence and final status
+- **SSL Support**: Works with cloud databases like Neon
+- **Error Handling**: Comprehensive error reporting and troubleshooting
+
+To customize the user being managed, edit the `email` variable in `update-user-role.js`.
 
 ## Migration CLI Commands
 
@@ -218,15 +265,100 @@ All database operations return consistent error structures with:
 - Timestamps for debugging
 - Query information when applicable
 
+## Setup Script Details
+
+The automated setup script (`setup-database.js`) performs the following operations:
+
+### What the Script Does
+
+The main setup script (`npm run setup`) performs the following operations:
+
+1. **Connection Testing**: Validates database connectivity using your `DATABASE_URL`
+2. **Table Creation**: Creates the `users` table with proper schema if it doesn't exist:
+   ```sql
+   CREATE TABLE users (
+     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+     email VARCHAR(255) NOT NULL UNIQUE,
+     name VARCHAR(255) NOT NULL,
+     image TEXT,
+     role VARCHAR(20) NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin', 'analyst', 'viewer')),
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+     last_login TIMESTAMP WITH TIME ZONE
+   );
+   ```
+3. **Index Creation**: Sets up performance indexes:
+   - `idx_users_email` on the email column
+   - `idx_users_role` on the role column
+4. **Admin User Creation**: Creates a default admin user if none exists:
+   - Email: `admin@example.com`
+   - Name: `Admin User`
+   - Role: `admin`
+
+### User Role Management Script
+
+For managing specific user roles after initial setup, use the dedicated user role script:
+
+```bash
+# Create or update user roles
+node update-user-role.js
+```
+
+This script is particularly useful for:
+- **Creating Real Admin Users**: Replace the default admin with your actual admin email
+- **Promoting Users**: Upgrade existing users to admin or analyst roles
+- **Production Setup**: Safely manage user roles in production environments
+
+The script includes:
+- User existence checking before creation or updates
+- Comprehensive error handling and logging
+- SSL support for cloud databases
+- Final verification of user status
+
+### Alternative Setup Script
+
+There's also a comprehensive setup script at `scripts/setup-database.js` that includes:
+- Environment validation
+- Migration running
+- Development server testing
+- Health endpoint verification
+
+You can run it directly with:
+```bash
+node scripts/setup-database.js
+```
+
+### SSL Configuration
+
+The script automatically handles SSL configuration for cloud databases:
+- Uses `rejectUnauthorized: false` for Neon compatibility
+- Supports both SSL and non-SSL connections based on your configuration
+
+### Error Handling
+
+The script provides detailed error messages and troubleshooting guidance:
+- Connection refused errors include specific troubleshooting steps
+- SSL certificate issues are handled gracefully
+- Database permission errors are clearly identified
+
 ## Troubleshooting
 
 ### Connection Issues
 
 1. **Database connection fails:**
+   - Run `npm run setup` to get detailed connection diagnostics
    - Verify PostgreSQL is running
    - Check connection parameters in `.env.local`
    - Ensure user has proper permissions
+   - For Neon databases, verify your IP is whitelisted in the dashboard
    - Review structured error logs for specific connection details
+
+2. **Setup script troubleshooting:**
+   The setup script provides specific troubleshooting tips:
+   - Validates `DATABASE_URL` format and connectivity
+   - Checks if your IP is whitelisted (for Neon databases)
+   - Verifies SSL configuration
+   - Tests database permissions
 
 2. **Migration fails:**
    - Check database logs for specific errors

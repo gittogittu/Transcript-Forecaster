@@ -279,7 +279,9 @@ export function getGoogleSheetsService(): GoogleSheetsService {
   return _instance
 }
 
-// For backward compatibility
+// For backward compatibility - only initialize when needed
 export const googleSheetsService = process.env.NODE_ENV === 'test' 
   ? {} as GoogleSheetsService
-  : getGoogleSheetsService()
+  : process.env.DATA_SOURCE_TYPE === 'google-sheets'
+    ? getGoogleSheetsService()
+    : {} as GoogleSheetsService

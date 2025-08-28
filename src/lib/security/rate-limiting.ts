@@ -92,12 +92,12 @@ class RateLimiter {
 // Predefined rate limiters for different endpoints
 export const apiRateLimit = new RateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 100
+  maxRequests: process.env.NODE_ENV === 'development' ? 1000 : 100 // More permissive in development
 })
 
 export const authRateLimit = new RateLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  maxRequests: 5
+  maxRequests: process.env.NODE_ENV === 'development' ? 100 : 5 // More permissive in development
 })
 
 export const uploadRateLimit = new RateLimiter({
@@ -107,7 +107,7 @@ export const uploadRateLimit = new RateLimiter({
 
 export const predictionRateLimit = new RateLimiter({
   windowMs: 5 * 60 * 1000, // 5 minutes
-  maxRequests: 20
+  maxRequests: process.env.NODE_ENV === 'development' ? 200 : 20 // More permissive in development
 })
 
 export function createRateLimitMiddleware(limiter: RateLimiter) {

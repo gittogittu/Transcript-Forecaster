@@ -97,6 +97,12 @@ src/
    ```bash
    npm run setup
    ```
+   
+   This automated setup script will:
+   - Test your database connection
+   - Create the users table if it doesn't exist
+   - Set up necessary indexes
+   - Create a default admin user for initial access
 
 4. **Start the development server:**
    ```bash
@@ -162,9 +168,13 @@ If you prefer to set up the database manually:
 - `npm run test:all` - Run all test suites
 
 ### Database
+- `npm run setup` - Automated database setup (recommended for first-time setup)
 - `npm run migrate` - Run database migrations
 - `npm run db:migrate` - Alias for migrate
 - `npm run db:status` - Check migration status
+
+### User Management
+- `node update-user-role.js` - Update user roles (create admin users, modify permissions)
 
 ### Performance & Monitoring
 - `npm run benchmark` - Performance benchmarks
@@ -701,6 +711,21 @@ function DataManagementPanel() {
 ```
 
 ## Recent Updates
+
+### User Role Management Utility
+- **New User Role Script**: Added `update-user-role.js` for managing user roles and permissions
+- **Admin User Creation**: Automatically creates admin users if they don't exist in the database
+- **Role Updates**: Updates existing user roles with proper validation and error handling
+- **Database Integration**: Direct PostgreSQL integration with SSL support for cloud databases
+- **Production Ready**: Includes comprehensive error handling and user verification
+
+### Automated Database Setup
+- **New Setup Script**: Added `setup-database.js` for automated database initialization
+- **One-Command Setup**: Run `npm run setup` to automatically configure your database
+- **Intelligent Setup**: Script tests connection, creates tables, sets up indexes, and creates default admin user
+- **Enhanced Error Handling**: Provides detailed troubleshooting guidance for connection issues
+- **Neon DB Optimized**: Specifically optimized for Neon database connections with proper SSL handling
+- **Production Ready**: Includes proper error handling and graceful failure modes
 
 ### Role-Based Access Control Enhancement
 - **Enhanced Role Utilities**: Completely refactored `src/lib/utils/role-utils.ts` with improved role hierarchy system

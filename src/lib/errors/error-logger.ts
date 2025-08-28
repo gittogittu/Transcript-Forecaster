@@ -57,7 +57,7 @@ class ErrorLogger {
           const entries = list.getEntries()
           // Monitor for performance issues that might be related to errors
           entries.forEach((entry) => {
-            if (entry && entry.duration > 1000) { // Long tasks
+            if (entry && entry.duration > 2000) { // Increased threshold to reduce noise
               this.logPerformanceIssue('long_task', {
                 duration: entry.duration,
                 name: entry.name || 'unknown',
@@ -72,7 +72,8 @@ class ErrorLogger {
       })
 
       try {
-        this.performanceObserver.observe({ entryTypes: ['measure', 'navigation'] })
+        // Only observe navigation entries to reduce noise
+        this.performanceObserver.observe({ entryTypes: ['navigation'] })
       } catch (e) {
         console.warn('Performance monitoring not available:', e)
       }
@@ -173,11 +174,10 @@ class ErrorLogger {
 
   private logPerformanceIssue(type: string, data: any) {
     try {
-      const performanceError = new Error(`Performance issue: ${type}`)
-      this.logError(performanceError, {
-        category: 'performance',
-        component: 'performance_monitor',
-      }, data)
+      // Only log performance issues in development to avoid recursive logging
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(`Performance issue detected: ${type}`, data)
+      }
     } catch (error) {
       // Prevent recursive error logging
       console.warn('Failed to log performance issue:', error)

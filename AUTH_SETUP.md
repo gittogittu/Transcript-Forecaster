@@ -224,6 +224,48 @@ All authentication errors include:
 - Timestamps for debugging
 - Optional context for additional information
 
+## User Role Management
+
+### Managing User Roles
+
+The platform includes a utility script for managing user roles and creating admin users:
+
+```bash
+# Update user roles or create admin users
+node update-user-role.js
+```
+
+#### What the Script Does
+
+The `update-user-role.js` script:
+- Checks if a specific user exists in the database
+- Creates new users with admin role if they don't exist
+- Updates existing user roles from any role to admin
+- Provides detailed logging and error handling
+- Supports SSL connections for cloud databases
+
+#### Script Features
+
+- **User Verification**: Checks if user exists before creating or updating
+- **Role Management**: Creates admin users or updates existing user roles
+- **Database Integration**: Direct PostgreSQL connection with SSL support
+- **Error Handling**: Comprehensive error reporting and troubleshooting
+- **Production Ready**: Safe for use in production environments
+
+#### Customizing the Script
+
+To manage different users, edit the `email` variable in `update-user-role.js`:
+
+```javascript
+const email = 'your-admin@example.com'; // Change this to your admin email
+```
+
+The script will:
+1. Check if the user exists
+2. Create them with admin role if they don't exist
+3. Update their role to admin if they exist with a different role
+4. Confirm the final user status
+
 ## Troubleshooting
 
 ### Common Issues
