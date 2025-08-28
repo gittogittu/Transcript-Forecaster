@@ -1,5 +1,130 @@
 import { TranscriptCreate, CSVTranscriptRowSchema } from '@/lib/validations/schemas'
-import { RawData, ImportError, ValidationResult } from '@/types/transcript'
+import { RawData, ImportError, ValidationResult, TranscriptData } from '@/types/transcript'
+
+/**
+ * Transform raw data to transcript format using column mapping
+ */
+export async function transformRawDataToTranscripts(
+  rawData: RawData[],
+  columnMapping: Record<string, string>
+): Promise<{
+  validData: TranscriptData[]
+  errors: ImportError[]
+}> {
+  const validData: TranscriptData[] = []
+  const errors: ImportError[] = []
+  
+  for (let i = 0; i < rawData.length; i++) {
+    const row = rawData[i]
+    const rowIndex = i + 1
+    
+    try {
+      // Map raw data to expected format using column mapping
+      const mappedData: Record<string, any> = {}
+      
+      Object.entries(columnMapping).forEach(([field, header]) => {
+        if (header && row[header] !== undefined) {
+          mappedData[field] = row[header]
+        }
+      })
+      
+      // Validate required fields
+      if (!mappedData.clientName) {
+        errors.push({
+          row: rowIndex,
+          field: 'clientName',
+          value: mappedData.clientName,
+          message: 'Client name is required'
+        })
+        continue
+      }
+      
+      if (!mappedData.date) {
+        errors.push({
+          row: rowIndex,
+          field: 'date',
+          value: mappedData.date,
+          message: 'Date is required'
+        })
+        continue
+      }
+      
+      if (!mappedData.transcriptCount) {
+        errors.push({
+          row: rowIndex,
+          field: 'transcriptCount',
+          value: mappedData.transcriptCount,
+          message: 'Transcript count is required'
+        })
+        continue
+      }
+      
+      // Parse and validate data
+      let parsedDate: Date
+      try {
+        parsedDate = DataTransformer.parseDate(String(mappedData.date))
+      } catch (error) {
+        errors.push({
+          row: rowIndex,
+          field: 'date',
+          value: mappedData.date,
+          message: `Invalid date format: ${mappedData.date}`
+        })
+        continue
+      }
+      
+      let transcriptCount: number
+      try {
+        transcriptCount = DataTransformer.parseNumber(String(mappedData.transcriptCount))
+        if (transcriptCount < 0) {
+          throw new Error('Transcript count must be non-negative')
+        }
+      } catch (error) {
+        let errorMessage = `Invalid transcript count: ${mappedData.transcriptCount}`
+        if (error instanceof Error) {
+          if (error.message.includes('non-negative')) {
+            errorMessage = error.message
+          } else {
+            errorMessage = `Invalid transcript count: ${mappedData.transcriptCount}`
+          }
+        }
+        errors.push({
+          row: rowIndex,
+          field: 'transcriptCount',
+          value: mappedData.transcriptCount,
+          message: errorMessage
+        })
+        continue
+      }
+      
+      // Create transcript data
+      const transcriptData: TranscriptData = {
+        id: `temp-${i}`, // Temporary ID for preview
+        clientId: '', // Will be resolved during actual import
+        clientName: String(mappedData.clientName).trim(),
+        date: parsedDate,
+        transcriptCount,
+        transcriptType: mappedData.transcriptType ? String(mappedData.transcriptType).trim() : undefined,
+        notes: mappedData.notes ? String(mappedData.notes).trim() : undefined,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: 'import-user' // Will be set to actual user during import
+      }
+      
+      validData.push(transcriptData)
+      
+    } catch (error) {
+      errors.push({
+        row: rowIndex,
+        field: 'general',
+        value: row,
+        message: error instanceof Error ? error.message : 'Unknown processing error'
+      })
+    }
+  }
+  
+  return { validData, errors }
+}
 
 export class DataTransformer {
   /**
@@ -143,7 +268,7 @@ export class DataTransformer {
   /**
    * Parse date from various string formats
    */
-  private static parseDate(dateString: string): Date {
+  static parseDate(dateString: string): Date {
     const trimmed = dateString.trim()
     
     // Try common date formats
@@ -186,7 +311,7 @@ export class DataTransformer {
   /**
    * Parse number from string, handling various formats
    */
-  private static parseNumber(numberString: string): number {
+  static parseNumber(numberString: string): number {
     const trimmed = numberString.trim()
     
     // Remove common formatting characters

@@ -1,6 +1,7 @@
 import { describe, it, expect } from '@jest/globals'
-import { DataTransformer } from '../data-transformers'
+import { DataTransformer, transformRawDataToTranscripts } from '../data-transformers'
 import { TranscriptCreate } from '@/lib/validations/schemas'
+import type { RawData } from '@/types/transcript'
 
 describe('DataTransformer', () => {
   const mockUserId = '123e4567-e89b-12d3-a456-426614174000'
@@ -391,6 +392,239 @@ describe('DataTransformer', () => {
       const format = DataTransformer.detectDateFormat(dates)
 
       expect(format).toBe('YYYY-MM-DD')
+    })
+  })
+
+  describe('transformRawDataToTranscripts', () => {
+    it('should transform raw data using column mapping', async () => {
+      const rawData: RawData[] = [
+        {
+          'Client Name': 'Acme Corp',
+          'Date': '2024-01-15',
+          'Count': '25',
+          'Type': 'Medical',
+          'Notes': 'Regular batch'
+        },
+        {
+          'Client Name': 'Beta Inc',
+          'Date': '2024-01-16',
+          'Count': '15',
+          'Type': 'Legal',
+          'Notes': 'Urgent processing'
+        }
+      ]
+
+      const columnMapping = {
+        clientName: 'Client Name',
+        date: 'Date',
+        transcriptCount: 'Count',
+        transcriptType: 'Type',
+        notes: 'Notes'
+      }
+
+      const result = await transformRawDataToTranscripts(rawData, columnMapping)
+
+      expect(result.validData).toHaveLength(2)
+      expect(result.errors).toHaveLength(0)
+      
+      expect(result.validData[0].clientName).toBe('Acme Corp')
+      expect(result.validData[0].transcriptCount).toBe(25)
+      expect(result.validData[0].transcriptType).toBe('Medical')
+      
+      expect(result.validData[1].clientName).toBe('Beta Inc')
+      expect(result.validData[1].transcriptCount).toBe(15)
+    })
+
+    it('should handle missing required fields', async () => {
+      const rawData: RawData[] = [
+        {
+          'Client Name': 'Acme Corp',
+          'Date': '2024-01-15'
+          // Missing transcript count
+        }
+      ]
+
+      const columnMapping = {
+        clientName: 'Client Name',
+        date: 'Date',
+        transcriptCount: 'Count' // This column doesn't exist in data
+      }
+
+      const result = await transformRawDataToTranscripts(rawData, columnMapping)
+
+      expect(result.validData).toHaveLength(0)
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0].field).toBe('transcriptCount')
+      expect(result.errors[0].message).toBe('Transcript count is required')
+    })
+
+    it('should handle invalid date formats', async () => {
+      const rawData: RawData[] = [
+        {
+          'Client Name': 'Acme Corp',
+          'Date': 'invalid-date',
+          'Count': '25'
+        }
+      ]
+
+      const columnMapping = {
+        clientName: 'Client Name',
+        date: 'Date',
+        transcriptCount: 'Count'
+      }
+
+      const result = await transformRawDataToTranscripts(rawData, columnMapping)
+
+      expect(result.validData).toHaveLength(0)
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0].field).toBe('date')
+      expect(result.errors[0].message).toContain('Invalid date format')
+    })
+
+    it('should handle invalid transcript counts', async () => {
+      const rawData: RawData[] = [
+        {
+          'Client Name': 'Acme Corp',
+          'Date': '2024-01-15',
+          'Count': 'not-a-number'
+        }
+      ]
+
+      const columnMapping = {
+        clientName: 'Client Name',
+        date: 'Date',
+        transcriptCount: 'Count'
+      }
+
+      const result = await transformRawDataToTranscripts(rawData, columnMapping)
+
+      expect(result.validData).toHaveLength(0)
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0].field).toBe('transcriptCount')
+      expect(result.errors[0].message).toContain('Invalid transcript count')
+    })
+
+    it('should handle negative transcript counts', async () => {
+      const rawData: RawData[] = [
+        {
+          'Client Name': 'Acme Corp',
+          'Date': '2024-01-15',
+          'Count': '-5'
+        }
+      ]
+
+      const columnMapping = {
+        clientName: 'Client Name',
+        date: 'Date',
+        transcriptCount: 'Count'
+      }
+
+      const result = await transformRawDataToTranscripts(rawData, columnMapping)
+
+      expect(result.validData).toHaveLength(0)
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0].field).toBe('transcriptCount')
+      expect(result.errors[0].message).toContain('Transcript count must be non-negative')
+    })
+
+    it('should handle optional fields correctly', async () => {
+      const rawData: RawData[] = [
+        {
+          'Client Name': 'Acme Corp',
+          'Date': '2024-01-15',
+          'Count': '25'
+          // No optional fields
+        }
+      ]
+
+      const columnMapping = {
+        clientName: 'Client Name',
+        date: 'Date',
+        transcriptCount: 'Count'
+        // No optional field mappings
+      }
+
+      const result = await transformRawDataToTranscripts(rawData, columnMapping)
+
+      expect(result.validData).toHaveLength(1)
+      expect(result.errors).toHaveLength(0)
+      expect(result.validData[0].transcriptType).toBeUndefined()
+      expect(result.validData[0].notes).toBeUndefined()
+    })
+
+    it('should trim whitespace from text fields', async () => {
+      const rawData: RawData[] = [
+        {
+          'Client Name': '  Acme Corp  ',
+          'Date': '2024-01-15',
+          'Count': '25',
+          'Type': '  Medical  ',
+          'Notes': '  Regular batch  '
+        }
+      ]
+
+      const columnMapping = {
+        clientName: 'Client Name',
+        date: 'Date',
+        transcriptCount: 'Count',
+        transcriptType: 'Type',
+        notes: 'Notes'
+      }
+
+      const result = await transformRawDataToTranscripts(rawData, columnMapping)
+
+      expect(result.validData).toHaveLength(1)
+      expect(result.validData[0].clientName).toBe('Acme Corp')
+      expect(result.validData[0].transcriptType).toBe('Medical')
+      expect(result.validData[0].notes).toBe('Regular batch')
+    })
+
+    it('should handle mixed valid and invalid records', async () => {
+      const rawData: RawData[] = [
+        {
+          'Client Name': 'Acme Corp',
+          'Date': '2024-01-15',
+          'Count': '25'
+        },
+        {
+          'Client Name': 'Beta Inc',
+          'Date': 'invalid-date',
+          'Count': '15'
+        },
+        {
+          'Client Name': 'Gamma LLC',
+          'Date': '2024-01-17',
+          'Count': '30'
+        }
+      ]
+
+      const columnMapping = {
+        clientName: 'Client Name',
+        date: 'Date',
+        transcriptCount: 'Count'
+      }
+
+      const result = await transformRawDataToTranscripts(rawData, columnMapping)
+
+      expect(result.validData).toHaveLength(2)
+      expect(result.errors).toHaveLength(1)
+      expect(result.errors[0].row).toBe(2) // Second row (1-based indexing)
+      expect(result.validData[0].clientName).toBe('Acme Corp')
+      expect(result.validData[1].clientName).toBe('Gamma LLC')
+    })
+
+    it('should handle empty raw data', async () => {
+      const rawData: RawData[] = []
+      const columnMapping = {
+        clientName: 'Client Name',
+        date: 'Date',
+        transcriptCount: 'Count'
+      }
+
+      const result = await transformRawDataToTranscripts(rawData, columnMapping)
+
+      expect(result.validData).toHaveLength(0)
+      expect(result.errors).toHaveLength(0)
     })
   })
 })
