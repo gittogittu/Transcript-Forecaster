@@ -4,7 +4,7 @@ import { useSession } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { useEffect } from "react"
 import { UserRole, ExtendedSession } from "@/lib/auth"
-import { hasRole } from "@/lib/database/users"
+import { hasRole } from "@/lib/utils/role-utils"
 
 interface ProtectedRouteProps {
   children: React.ReactNode

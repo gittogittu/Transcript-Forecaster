@@ -3,7 +3,6 @@ import { csrfProtection } from '@/lib/security/csrf-protection'
 import { apiRateLimit, authRateLimit, uploadRateLimit, predictionRateLimit, createRateLimitMiddleware } from '@/lib/security/rate-limiting'
 import { inputSanitizer } from '@/lib/security/input-sanitization'
 import { SecurityHeaders, XSSProtection } from '@/lib/security/security-headers'
-import { withSecurityContext } from '@/lib/database/security-context'
 
 export interface SecurityMiddlewareConfig {
   enableCSRF?: boolean
@@ -45,7 +44,7 @@ export class SecurityMiddleware {
 
       // 3. CSRF protection
       if (this.config.enableCSRF) {
-        const csrfResponse = this.applyCSRFProtection(request)
+        const csrfResponse = await this.applyCSRFProtection(request)
         if (csrfResponse) return csrfResponse
       }
 
@@ -95,8 +94,9 @@ export class SecurityMiddleware {
     return middleware(request)
   }
 
-  private applyCSRFProtection(request: NextRequest): NextResponse | null {
-    if (!csrfProtection.validateCSRF(request)) {
+  private async applyCSRFProtection(request: NextRequest): Promise<NextResponse | null> {
+    const isValid = await csrfProtection.validateCSRF(request)
+    if (!isValid) {
       return new NextResponse(
         JSON.stringify({
           error: 'CSRF token validation failed',
@@ -227,40 +227,10 @@ export function withSecurity(
   }
 }
 
-// Wrapper function for API routes with database context
-export function withSecurityAndContext(
-  handler: (request: NextRequest, context: any) => Promise<NextResponse>,
-  config?: SecurityMiddlewareConfig
-) {
-  return async (request: NextRequest): Promise<NextResponse> => {
-    const security = new SecurityMiddleware(config)
-    
-    // Apply security middleware
-    const securityResponse = await security.process(request)
-    if (securityResponse) {
-      return securityResponse
-    }
-
-    // Execute with security context
-    try {
-      return await withSecurityContext(request, async (context) => {
-        const response = await handler(request, context)
-        return SecurityHeaders.applySecurityHeaders(response)
-      })
-    } catch (error) {
-      console.error('Handler with context error:', error)
-      
-      if (error instanceof Error && error.message.includes('Unauthorized')) {
-        return SecurityHeaders.createSecureResponse(
-          JSON.stringify({ error: 'Unauthorized access' }),
-          { status: 401, headers: { 'Content-Type': 'application/json' } }
-        )
-      }
-      
-      return SecurityHeaders.createSecureResponse(
-        JSON.stringify({ error: 'Internal server error' }),
-        { status: 500, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-  }
-}
+// Note: Database context functions moved to API route level to avoid edge runtime issues
+// Use withSecurity for middleware-level protection and handle database context in individual API routes
+// 
+// Architecture Decision: 
+// - SecurityMiddleware handles request-level security (CSRF, rate limiting, XSS, headers)
+// - Database security context (withSecurityContext) is handled at individual API route level
+// - This separation ensures Edge Runtime compatibility and better performance

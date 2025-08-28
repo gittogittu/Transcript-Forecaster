@@ -1,5 +1,4 @@
 import { ExportOptions, exportService, AnalyticsData } from './export-service'
-import { getTranscripts } from '@/lib/database/transcripts'
 import { subDays, subWeeks, subMonths, format } from 'date-fns'
 
 export interface ScheduledExport {
@@ -280,8 +279,8 @@ export class ScheduledExportService {
       }
     }
 
-    // Fetch transcript data
-    const transcripts = await getTranscripts({
+    // Fetch transcript data via API call
+    const transcripts = await this.fetchTranscriptsViaAPI({
       dateRange,
       clients: options.clients
     })
@@ -293,6 +292,36 @@ export class ScheduledExportService {
       transcripts,
       predictions: options.includePredictions ? [] : undefined, // TODO: Fetch predictions
       summary
+    }
+  }
+
+  /**
+   * Fetch transcripts via API call (works on both client and server)
+   */
+  private async fetchTranscriptsViaAPI(params: {
+    dateRange: { start: Date; end: Date }
+    clients?: string[]
+  }): Promise<any[]> {
+    try {
+      const searchParams = new URLSearchParams({
+        start: params.dateRange.start.toISOString(),
+        end: params.dateRange.end.toISOString()
+      })
+
+      if (params.clients && params.clients.length > 0) {
+        searchParams.append('clients', params.clients.join(','))
+      }
+
+      const response = await fetch(`/api/transcripts?${searchParams}`)
+      if (!response.ok) {
+        throw new Error(`Failed to fetch transcripts: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      return data.transcripts || []
+    } catch (error) {
+      console.error('Error fetching transcripts for export:', error)
+      return []
     }
   }
 

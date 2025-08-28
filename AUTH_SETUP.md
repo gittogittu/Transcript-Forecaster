@@ -147,11 +147,62 @@ The UserProfile component has been redesigned as a dropdown menu interface. Key 
 
 **Note**: Existing tests may need updates to match the new dropdown interface implementation.
 
+## Role-Based Access Control
+
+The platform implements a hierarchical role system with three levels:
+
+### Role Hierarchy
+- **Admin** (Level 3): Full system access including user management and system configuration
+- **Analyst** (Level 2): Can create, edit, and analyze transcript data  
+- **Viewer** (Level 1): Read-only access to transcript data and analytics
+
+### Role Utilities
+
+Use the role utilities from `@/lib/utils/role-utils` for permission checking:
+
+```tsx
+import { hasRole, canPerformAction, getRoleDisplayName } from '@/lib/utils/role-utils'
+import { useSession } from 'next-auth/react'
+
+function ProtectedComponent() {
+  const { data: session } = useSession()
+  const userRole = session?.user?.role || 'viewer'
+
+  return (
+    <div>
+      <p>Role: {getRoleDisplayName(userRole)}</p>
+      
+      {hasRole(userRole, 'viewer') && (
+        <ViewDataButton />
+      )}
+      
+      {canPerformAction(userRole, 'write') && (
+        <EditDataButton />
+      )}
+      
+      {canPerformAction(userRole, 'admin') && (
+        <AdminPanel />
+      )}
+    </div>
+  )
+}
+```
+
+### Available Role Functions
+
+- `hasRole(userRole, requiredRole)` - Check if user has required role or higher
+- `hasAnyRole(userRole, allowedRoles)` - Check if user has any of the allowed roles
+- `canPerformAction(userRole, action)` - Check specific permissions (read/write/delete/admin)
+- `getRolesAtOrBelow(role)` - Get all roles at or below a certain level
+- `getRolesAbove(role)` - Get all roles above a certain level
+- `getRoleDisplayName(role)` - Get user-friendly role name
+- `getRoleDescription(role)` - Get role description
+
 ## Security Features
 
 - CSRF protection
 - Secure session management
-- Role-based access control
+- **Enhanced Role-Based Access Control** with hierarchical permissions and comprehensive utilities
 - Automatic token refresh
 - Secure redirect handling
 - Structured error handling with AuthenticationError types

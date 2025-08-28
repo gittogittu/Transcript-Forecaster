@@ -97,7 +97,7 @@ export default withAuth(
     if (token && isAuth) {
       const response = NextResponse.next()
       const csrfToken = csrfProtection.generateToken()
-      csrfProtection.setCSRFCookie(response, csrfToken)
+      await csrfProtection.setCSRFCookie(response, csrfToken)
       
       // Add CSRF token to response headers for client-side access
       response.headers.set('X-CSRF-Token', csrfToken)

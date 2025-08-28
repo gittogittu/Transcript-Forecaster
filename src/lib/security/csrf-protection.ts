@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { randomBytes, createHash } from 'crypto'
 
 export interface CSRFConfig {
   secret: string
@@ -27,22 +26,26 @@ export class CSRFProtection {
   }
 
   generateToken(): string {
-    return randomBytes(this.config.tokenLength).toString('hex')
+    const array = new Uint8Array(this.config.tokenLength)
+    crypto.getRandomValues(array)
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('')
   }
 
-  createTokenHash(token: string): string {
-    return createHash('sha256')
-      .update(token + this.config.secret)
-      .digest('hex')
+  async createTokenHash(token: string): Promise<string> {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(token + this.config.secret)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = new Uint8Array(hashBuffer)
+    return Array.from(hashArray, byte => byte.toString(16).padStart(2, '0')).join('')
   }
 
-  verifyToken(token: string, hash: string): boolean {
-    const expectedHash = this.createTokenHash(token)
+  async verifyToken(token: string, hash: string): Promise<boolean> {
+    const expectedHash = await this.createTokenHash(token)
     return expectedHash === hash
   }
 
-  setCSRFCookie(response: NextResponse, token: string): void {
-    const hash = this.createTokenHash(token)
+  async setCSRFCookie(response: NextResponse, token: string): Promise<void> {
+    const hash = await this.createTokenHash(token)
     response.cookies.set(this.config.cookieName, hash, {
       httpOnly: true,
       secure: this.config.secure,
@@ -61,7 +64,7 @@ export class CSRFProtection {
     return request.cookies.get(this.config.cookieName)?.value || null
   }
 
-  validateCSRF(request: NextRequest): boolean {
+  async validateCSRF(request: NextRequest): Promise<boolean> {
     // Skip CSRF for GET, HEAD, OPTIONS requests
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       return true
@@ -74,7 +77,7 @@ export class CSRFProtection {
       return false
     }
 
-    return this.verifyToken(token, cookieHash)
+    return await this.verifyToken(token, cookieHash)
   }
 }
 

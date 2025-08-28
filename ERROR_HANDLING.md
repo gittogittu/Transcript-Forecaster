@@ -240,6 +240,32 @@ function MyComponent() {
 
 ## Error Logging and Monitoring
 
+### Defensive Error Logging
+
+The error logging system implements defensive programming practices to prevent recursive error logging and ensure system stability:
+
+```typescript
+private logPerformanceIssue(type: string, data: any) {
+  try {
+    const performanceError = new Error(`Performance issue: ${type}`)
+    this.logError(performanceError, {
+      category: 'performance',
+      component: 'performance_monitor',
+    }, data)
+  } catch (error) {
+    // Prevent recursive error logging
+    console.warn('Failed to log performance issue:', error)
+  }
+}
+```
+
+Key defensive practices:
+- **Recursive Error Prevention**: All error logging operations are wrapped in try-catch blocks
+- **Graceful Degradation**: Failed logging operations fall back to console warnings
+- **Error Validation**: Input validation prevents invalid error objects from causing system failures
+- **Memory Management**: Error logs are limited to prevent memory leaks (max 1000 entries)
+- **Modern JavaScript**: Uses current JavaScript methods (e.g., `substring` instead of deprecated `substr`)
+
 ### Development
 
 In development, errors are logged to the console with full context:
@@ -420,6 +446,72 @@ it('should return structured error for invalid data', async () => {
   })
 })
 ```
+
+## Error Logger Implementation
+
+### Defensive Programming in Error Logging
+
+The `ErrorLogger` class implements several defensive programming techniques to ensure robust error handling:
+
+#### 1. Recursive Error Prevention
+```typescript
+// All internal error logging operations are protected
+private logPerformanceIssue(type: string, data: any) {
+  try {
+    // Error logging logic
+  } catch (error) {
+    // Prevent recursive error logging
+    console.warn('Failed to log performance issue:', error)
+  }
+}
+```
+
+#### 2. Input Validation
+```typescript
+logError(error: Error, context = {}, performance = {}): string {
+  // Validate error object
+  if (!error || typeof error !== 'object') {
+    console.warn('Invalid error object passed to logError:', error)
+    return ''
+  }
+  
+  try {
+    // Safe error logging logic
+  } catch (loggingError) {
+    console.error('Failed to log error:', loggingError)
+    return ''
+  }
+}
+```
+
+#### 3. Memory Management
+```typescript
+// Keep only the most recent errors to prevent memory leaks
+if (this.errors.length > this.maxErrors) {
+  this.errors = this.errors.slice(-this.maxErrors)
+}
+```
+
+#### 4. Safe Performance Monitoring
+```typescript
+private initializePerformanceMonitoring() {
+  try {
+    // Performance observer setup
+  } catch (error) {
+    // Prevent recursive error logging in performance observer
+    console.warn('Performance observer error:', error)
+  }
+}
+```
+
+### Error Logger Features
+
+- **Automatic Error Capture**: Global error handlers for unhandled promises and JavaScript errors
+- **Performance Integration**: Monitors performance issues that might be related to errors
+- **Severity Classification**: Automatic error severity determination based on error type and context
+- **External Service Integration**: Sends errors to external logging services in production
+- **Filtering and Metrics**: Comprehensive error filtering and metrics calculation
+- **Memory Efficient**: Limits stored errors and provides cleanup methods
 
 ## Best Practices
 

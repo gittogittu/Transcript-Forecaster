@@ -2,7 +2,7 @@
 
 import { useSession } from "next-auth/react"
 import { UserRole, ExtendedSession } from "@/lib/auth"
-import { hasRole } from "@/lib/database/users"
+import { hasRole } from "@/lib/utils/role-utils"
 
 interface RoleGuardProps {
   children: React.ReactNode

@@ -245,28 +245,5 @@ export async function deleteUser(id: string): Promise<boolean> {
   }
 }
 
-/**
- * Check if user has required role or higher
- */
-export function hasRole(userRole: UserRole, requiredRole: UserRole): boolean {
-  const roleHierarchy: Record<UserRole, number> = {
-    viewer: 1,
-    analyst: 2,
-    admin: 3,
-  }
-  
-  return roleHierarchy[userRole] >= roleHierarchy[requiredRole]
-}
-
-/**
- * Check if user can access resource based on role
- */
-export function canAccessResource(userRole: UserRole, resource: string): boolean {
-  const permissions: Record<UserRole, string[]> = {
-    viewer: ['read'],
-    analyst: ['read', 'write', 'analyze'],
-    admin: ['read', 'write', 'analyze', 'admin', 'delete'],
-  }
-  
-  return permissions[userRole]?.includes(resource) || false
-}
+// Re-export role utilities for backward compatibility
+export { hasRole, canAccessResource } from '../utils/role-utils'

@@ -52,7 +52,7 @@ src/
 │   ├── database/          # Database connection and migrations
 │   ├── errors/            # Error handling utilities
 │   ├── hooks/             # Custom React hooks
-│   ├── middleware/        # API middleware (rate limiting, validation)
+│   ├── middleware/        # API middleware (rate limiting, security, performance)
 │   ├── migration/         # Database migration utilities
 │   ├── monitoring/        # Performance monitoring
 │   ├── services/          # External service integrations
@@ -245,7 +245,11 @@ This pattern ensures:
 
 ### Authentication & Security
 - Multi-provider authentication (Auth0, Google, GitHub)
-- Role-based access control (admin/user roles)
+- **Enhanced Role-Based Access Control**: Hierarchical role system (admin > analyst > viewer) with comprehensive utilities:
+  - Role hierarchy validation (`hasRole`, `hasAnyRole`)
+  - Permission checking (`canPerformAction` for read/write/delete/admin actions)
+  - Role comparison utilities (`getRolesAtOrBelow`, `getRolesAbove`)
+  - User-friendly role display (`getRoleDisplayName`, `getRoleDescription`)
 - Session management and secure routing
 - Rate limiting and API protection
 - Compact dropdown-based user profile interface
@@ -597,7 +601,129 @@ To enable the full analytics page:
    // Uncomment: export default AnalyticsPage
    ```
 
+## Role-Based Access Control
+
+The platform implements a comprehensive role-based access control system with three hierarchical user roles:
+
+### Role Hierarchy
+- **Admin** (Level 3): Full system access including user management and system configuration
+- **Analyst** (Level 2): Can create, edit, and analyze transcript data
+- **Viewer** (Level 1): Read-only access to transcript data and analytics
+
+### Role Utilities
+
+The `src/lib/utils/role-utils.ts` module provides comprehensive utilities for role management:
+
+#### Role Validation
+```typescript
+import { hasRole, hasAnyRole } from '@/lib/utils/role-utils'
+
+// Check if user has required role or higher
+hasRole('analyst', 'viewer') // true - analyst has viewer permissions
+hasRole('viewer', 'admin')   // false - viewer doesn't have admin permissions
+
+// Check if user has any of the allowed roles
+hasAnyRole('analyst', ['viewer', 'admin']) // false
+hasAnyRole('admin', ['viewer', 'admin'])   // true
+```
+
+#### Permission Checking
+```typescript
+import { canPerformAction } from '@/lib/utils/role-utils'
+
+// Check specific permissions
+canPerformAction('viewer', 'read')   // true
+canPerformAction('viewer', 'write')  // false
+canPerformAction('analyst', 'write') // true
+canPerformAction('analyst', 'admin') // false
+canPerformAction('admin', 'admin')   // true
+```
+
+#### Role Comparison
+```typescript
+import { getRolesAtOrBelow, getRolesAbove } from '@/lib/utils/role-utils'
+
+// Get roles at or below a certain level
+getRolesAtOrBelow('analyst') // ['viewer', 'analyst']
+getRolesAtOrBelow('admin')   // ['viewer', 'analyst', 'admin']
+
+// Get roles above a certain level
+getRolesAbove('viewer')   // ['analyst', 'admin']
+getRolesAbove('analyst')  // ['admin']
+```
+
+#### Display Utilities
+```typescript
+import { getRoleDisplayName, getRoleDescription } from '@/lib/utils/role-utils'
+
+// Get user-friendly role names
+getRoleDisplayName('admin')    // "Administrator"
+getRoleDisplayName('analyst')  // "Analyst"
+getRoleDisplayName('viewer')   // "Viewer"
+
+// Get role descriptions
+getRoleDescription('admin')    // "Full system access including user management..."
+getRoleDescription('analyst')  // "Can create, edit, and analyze transcript data"
+getRoleDescription('viewer')   // "Read-only access to transcript data and analytics"
+```
+
+### Usage in Components
+
+The role utilities are used throughout the application for:
+- **Navigation**: Showing/hiding menu items based on user permissions
+- **Component Rendering**: Conditionally rendering UI elements
+- **API Access**: Validating permissions before API calls
+- **Route Protection**: Middleware-level access control
+
+Example usage in a React component:
+```typescript
+import { useSession } from 'next-auth/react'
+import { hasRole, canPerformAction } from '@/lib/utils/role-utils'
+
+function DataManagementPanel() {
+  const { data: session } = useSession()
+  const userRole = session?.user?.role || 'viewer'
+
+  return (
+    <div>
+      {hasRole(userRole, 'viewer') && (
+        <ViewDataButton />
+      )}
+      {canPerformAction(userRole, 'write') && (
+        <EditDataButton />
+      )}
+      {canPerformAction(userRole, 'admin') && (
+        <AdminPanel />
+      )}
+    </div>
+  )
+}
+```
+
 ## Recent Updates
+
+### Role-Based Access Control Enhancement
+- **Enhanced Role Utilities**: Completely refactored `src/lib/utils/role-utils.ts` with improved role hierarchy system
+- **Comprehensive Permission Checking**: New utilities for role validation (`hasRole`, `hasAnyRole`), permission checking (`canPerformAction`), and role comparison (`getRolesAtOrBelow`, `getRolesAbove`)
+- **Improved Role Hierarchy**: Clear numeric hierarchy (admin: 3, analyst: 2, viewer: 1) with better role comparison logic
+- **User-Friendly Display**: Enhanced role display names and descriptions for better user experience
+- **Client-Safe Implementation**: All role utilities are client-safe and don't require database access
+- **Better Code Organization**: Cleaner function signatures, improved error handling, and consistent return types
+- **Action-Based Permissions**: New `canPerformAction` function supports read/write/delete/admin permission checking
+
+### Error Logging System Enhancement
+- **Defensive Error Logging**: Enhanced error logger with recursive error prevention to ensure system stability
+- **Robust Performance Monitoring**: Performance issue logging now includes try-catch protection to prevent logging failures
+- **Graceful Error Handling**: Failed error logging operations gracefully degrade to console warnings instead of causing system failures
+- **Memory Safety**: Error logging system includes input validation and memory management to prevent resource leaks
+- **Code Modernization**: Updated deprecated `substr` method to modern `substring` for better compatibility
+
+### Security Middleware Architecture Optimization
+- **Edge Runtime Compatibility**: Database security context functions moved from middleware level to individual API route level to ensure compatibility with Next.js Edge Runtime
+- **Cleaner Middleware**: Removed unused `withSecurityContext` import from security middleware, keeping middleware focused on request-level security (CSRF, rate limiting, XSS protection)
+- **API-Level Security Context**: Each API route now handles database security context individually using `withSecurityContext` from `@/lib/database/security-context` when needed
+- **Improved Performance**: Reduced middleware overhead by handling database connections only where necessary
+- **Better Error Handling**: Database context errors are now handled at the appropriate API route level with proper error responses
 
 ### Database Connection Standardization
 - **Consistent Function Naming**: All database services now use the standardized `getDatabasePool()` function from `@/lib/database/connection`

@@ -53,16 +53,22 @@ class ErrorLogger {
   private initializePerformanceMonitoring() {
     if ('PerformanceObserver' in window) {
       this.performanceObserver = new PerformanceObserver((list) => {
-        const entries = list.getEntries()
-        // Monitor for performance issues that might be related to errors
-        entries.forEach((entry) => {
-          if (entry.duration > 1000) { // Long tasks
-            this.logPerformanceIssue('long_task', {
-              duration: entry.duration,
-              name: entry.name,
-            })
-          }
-        })
+        try {
+          const entries = list.getEntries()
+          // Monitor for performance issues that might be related to errors
+          entries.forEach((entry) => {
+            if (entry && entry.duration > 1000) { // Long tasks
+              this.logPerformanceIssue('long_task', {
+                duration: entry.duration,
+                name: entry.name || 'unknown',
+                entryType: entry.entryType,
+              })
+            }
+          })
+        } catch (error) {
+          // Prevent recursive error logging in performance observer
+          console.warn('Performance observer error:', error)
+        }
       })
 
       try {
@@ -76,19 +82,35 @@ class ErrorLogger {
   private setupGlobalErrorHandlers() {
     // Handle unhandled promise rejections
     window.addEventListener('unhandledrejection', (event) => {
-      this.logError(new Error(event.reason), {
-        category: 'unhandled_promise',
-        component: 'global',
-      })
+      try {
+        const error = event.reason instanceof Error 
+          ? event.reason 
+          : new Error(String(event.reason || 'Unhandled promise rejection'))
+        
+        this.logError(error, {
+          category: 'unhandled_promise',
+          component: 'global',
+        })
+      } catch (e) {
+        console.error('Failed to log unhandled rejection:', e)
+      }
     })
 
     // Handle global JavaScript errors
     window.addEventListener('error', (event) => {
-      this.logError(event.error || new Error(event.message), {
-        category: 'global_error',
-        component: 'global',
-        url: event.filename,
-      })
+      try {
+        const error = event.error instanceof Error 
+          ? event.error 
+          : new Error(event.message || 'Unknown global error')
+        
+        this.logError(error, {
+          category: 'global_error',
+          component: 'global',
+          url: event.filename,
+        })
+      } catch (e) {
+        console.error('Failed to log global error:', e)
+      }
     })
   }
 
@@ -97,57 +119,73 @@ class ErrorLogger {
     context: Partial<ErrorLogEntry['context']> = {},
     performance?: Partial<ErrorLogEntry['performance']>
   ): string {
-    const errorId = this.generateErrorId()
-    const severity = this.determineSeverity(error, context)
-
-    const logEntry: ErrorLogEntry = {
-      id: errorId,
-      timestamp: new Date().toISOString(),
-      error: {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      },
-      context: {
-        ...context,
-        userAgent: context.userAgent || (typeof window !== 'undefined' ? window.navigator.userAgent : undefined),
-        url: context.url || (typeof window !== 'undefined' ? window.location.href : undefined),
-      },
-      performance: performance || this.getCurrentPerformanceMetrics(),
-      severity,
-      resolved: false,
+    // Validate error object
+    if (!error || typeof error !== 'object') {
+      console.warn('Invalid error object passed to logError:', error)
+      return ''
     }
 
-    this.errors.push(logEntry)
+    try {
+      const errorId = this.generateErrorId()
+      const severity = this.determineSeverity(error, context)
 
-    // Keep only the most recent errors
-    if (this.errors.length > this.maxErrors) {
-      this.errors = this.errors.slice(-this.maxErrors)
+      const logEntry: ErrorLogEntry = {
+        id: errorId,
+        timestamp: new Date().toISOString(),
+        error: {
+          name: error.name || 'UnknownError',
+          message: error.message || 'No error message provided',
+          stack: error.stack,
+        },
+        context: {
+          ...context,
+          userAgent: context.userAgent || (typeof window !== 'undefined' ? window.navigator.userAgent : undefined),
+          url: context.url || (typeof window !== 'undefined' ? window.location.href : undefined),
+        },
+        performance: performance || this.getCurrentPerformanceMetrics(),
+        severity,
+        resolved: false,
+      }
+
+      this.errors.push(logEntry)
+
+      // Keep only the most recent errors
+      if (this.errors.length > this.maxErrors) {
+        this.errors = this.errors.slice(-this.maxErrors)
+      }
+
+      // Send to external logging service in production
+      if (process.env.NODE_ENV === 'production') {
+        this.sendToExternalLogger(logEntry)
+      }
+
+      // Log to console in development
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error logged:', logEntry)
+      }
+
+      return errorId
+    } catch (loggingError) {
+      console.error('Failed to log error:', loggingError)
+      return ''
     }
-
-    // Send to external logging service in production
-    if (process.env.NODE_ENV === 'production') {
-      this.sendToExternalLogger(logEntry)
-    }
-
-    // Log to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Error logged:', logEntry)
-    }
-
-    return errorId
   }
 
   private logPerformanceIssue(type: string, data: any) {
-    const performanceError = new Error(`Performance issue: ${type}`)
-    this.logError(performanceError, {
-      category: 'performance',
-      component: 'performance_monitor',
-    }, data)
+    try {
+      const performanceError = new Error(`Performance issue: ${type}`)
+      this.logError(performanceError, {
+        category: 'performance',
+        component: 'performance_monitor',
+      }, data)
+    } catch (error) {
+      // Prevent recursive error logging
+      console.warn('Failed to log performance issue:', error)
+    }
   }
 
   private generateErrorId(): string {
-    return `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    return `err_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
   }
 
   private determineSeverity(error: Error, context: Partial<ErrorLogEntry['context']>): ErrorLogEntry['severity'] {

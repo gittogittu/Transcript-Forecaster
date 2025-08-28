@@ -97,6 +97,7 @@ Viewer: Read-only access to transcripts and analytics
 3. **Authentication** - Validates JWT tokens
 4. **Authorization** - Enforces role-based permissions
 5. **Validation** - Validates request data with Zod schemas
+6. **Security Context** - Database security context is handled individually at each API route level for edge runtime compatibility
 
 #### **Error Handling:**
 - Consistent error response format across all endpoints
@@ -110,6 +111,7 @@ Viewer: Read-only access to transcripts and analytics
 - Input sanitization and validation
 - Rate limiting to prevent abuse
 - CSRF protection through NextAuth.js
+- Database security context handled at API route level (not middleware level) for edge runtime compatibility
 
 #### **Performance Optimizations:**
 - Pagination for large datasets
