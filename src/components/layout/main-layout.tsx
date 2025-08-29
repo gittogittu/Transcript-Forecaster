@@ -2,6 +2,7 @@
 
 import { useSession } from "next-auth/react"
 import { Header } from "./header"
+import { Toaster } from "@/components/ui/toaster"
 import { cn } from "@/lib/utils"
 
 interface MainLayoutProps {
@@ -27,6 +28,7 @@ export function MainLayout({
       )}>
         {children}
       </main>
+      <Toaster />
     </div>
   )
 }

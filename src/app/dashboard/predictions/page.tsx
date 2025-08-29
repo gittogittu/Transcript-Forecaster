@@ -2,15 +2,101 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import { MainLayout } from '@/components/layout/main-layout'
-import { TrendingUp, Brain, Calendar, Target, BarChart3, Settings } from 'lucide-react'
+import { PredictionTools } from '@/components/dashboard/prediction-tools'
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from '@/components/ui/table'
+import { 
+  TrendingUp, 
+  Brain, 
+  Target, 
+  RefreshCw,
+  CheckCircle,
+  AlertTriangle
+} from 'lucide-react'
+
+interface PredictionResult {
+  id: string
+  type: string
+  forecast: number
+  confidence: number
+  period: string
+  generatedAt: string
+  accuracy?: number
+}
 
 export default function PredictionsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const [predictions, setPredictions] = useState<PredictionResult[]>([
+    {
+      id: '1',
+      type: 'Volume Forecast',
+      forecast: 1456,
+      confidence: 87,
+      period: 'next-month',
+      generatedAt: '2025-01-15T10:30:00Z',
+      accuracy: 89
+    },
+    {
+      id: '2',
+      type: 'Seasonal Analysis',
+      forecast: 1234,
+      confidence: 92,
+      period: 'next-quarter',
+      generatedAt: '2025-01-10T14:15:00Z',
+      accuracy: 91
+    },
+    {
+      id: '3',
+      type: 'Scenario Analysis',
+      forecast: 1678,
+      confidence: 78,
+      period: 'optimistic',
+      generatedAt: '2025-01-08T09:45:00Z',
+      accuracy: 85
+    }
+  ])
+
+  const handlePredictionGenerated = (newPrediction: PredictionResult) => {
+    setPredictions(prev => [newPrediction, ...prev])
+  }
+
+  const getConfidenceColor = (confidence: number) => {
+    if (confidence >= 85) return 'bg-green-100 text-green-800'
+    if (confidence >= 70) return 'bg-yellow-100 text-yellow-800'
+    return 'bg-red-100 text-red-800'
+  }
+
+  const getAccuracyIcon = (accuracy?: number) => {
+    if (!accuracy) return null
+    if (accuracy >= 85) return <CheckCircle className="h-4 w-4 text-green-600" />
+    return <AlertTriangle className="h-4 w-4 text-yellow-600" />
+  }
+
+  const formatPeriod = (period: string) => {
+    const periodMap: { [key: string]: string } = {
+      'next-week': 'Next Week',
+      'next-month': 'Next Month',
+      'next-quarter': 'Next Quarter',
+      'next-6-months': 'Next 6 Months',
+      'optimistic': 'Optimistic Scenario',
+      'pessimistic': 'Conservative Scenario',
+      'seasonal': 'Seasonal Adjustment'
+    }
+    return periodMap[period] || period
+  }
 
   useEffect(() => {
     if (status === 'loading') return
@@ -30,7 +116,17 @@ export default function PredictionsPage() {
   if (status === 'loading') {
     return (
       <MainLayout>
-        <div className="flex items-center justify-center min-h-screen">Loading...</div>
+        <div className="container mx-auto py-8 px-4">
+          <div className="mb-8">
+            <div className="h-8 w-48 bg-muted animate-pulse rounded mb-2" />
+            <div className="h-4 w-96 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-48 bg-muted animate-pulse rounded-lg" />
+            ))}
+          </div>
+        </div>
       </MainLayout>
     )
   }
@@ -38,6 +134,14 @@ export default function PredictionsPage() {
   if (!session?.user || session.user.role === 'viewer') {
     return null
   }
+
+  const avgConfidence = predictions.length > 0 
+    ? Math.round(predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length)
+    : 0
+
+  const avgAccuracy = predictions.filter(p => p.accuracy).length > 0
+    ? Math.round(predictions.filter(p => p.accuracy).reduce((sum, p) => sum + (p.accuracy || 0), 0) / predictions.filter(p => p.accuracy).length)
+    : 0
 
   return (
     <MainLayout>
@@ -49,125 +153,113 @@ export default function PredictionsPage() {
           </p>
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Prediction Summary Cards */}
+        <div className="grid gap-4 md:grid-cols-3 mb-8">
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <TrendingUp className="h-5 w-5" />
-                <span>Volume Forecast</span>
-              </CardTitle>
-              <CardDescription>
-                Predict future transcript volumes based on historical data
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Predictions</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <Button className="w-full">
-                Generate Forecast
-              </Button>
+              <div className="text-2xl font-bold">{predictions.length}</div>
+              <p className="text-xs text-muted-foreground">
+                Generated this month
+              </p>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Brain className="h-5 w-5" />
-                <span>ML Models</span>
-              </CardTitle>
-              <CardDescription>
-                View and manage machine learning prediction models
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Avg Confidence</CardTitle>
+              <Target className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <Button className="w-full" variant="outline">
-                View Models
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Calendar className="h-5 w-5" />
-                <span>Seasonal Trends</span>
-              </CardTitle>
-              <CardDescription>
-                Analyze seasonal patterns and cyclical trends
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button className="w-full" variant="outline">
-                View Trends
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Target className="h-5 w-5" />
-                <span>Accuracy Metrics</span>
-              </CardTitle>
-              <CardDescription>
-                Monitor prediction accuracy and model performance
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button className="w-full" variant="outline">
-                View Metrics
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <BarChart3 className="h-5 w-5" />
-                <span>Scenario Analysis</span>
-              </CardTitle>
-              <CardDescription>
-                Run what-if scenarios and sensitivity analysis
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button className="w-full" variant="outline">
-                Run Analysis
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <Settings className="h-5 w-5" />
-                <span>Model Settings</span>
-              </CardTitle>
-              <CardDescription>
-                Configure prediction parameters and thresholds
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button className="w-full" variant="outline">
-                Configure
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Predictions</CardTitle>
-              <CardDescription>
-                Latest forecasting results and insights
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-8 text-muted-foreground">
-                No predictions generated yet. Click "Generate Forecast" to create your first prediction.
+              <div className="text-2xl font-bold">{avgConfidence}%</div>
+              <div className="mt-2">
+                <Progress value={avgConfidence} className="h-2" />
               </div>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Model Accuracy</CardTitle>
+              <Brain className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{avgAccuracy}%</div>
+              <p className="text-xs text-muted-foreground">
+                Historical performance
+              </p>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* Prediction Tools */}
+        <div className="mb-8">
+          <PredictionTools onPredictionGenerated={handlePredictionGenerated} />
+        </div>
+
+        {/* Recent Predictions */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Predictions</CardTitle>
+            <CardDescription>
+              Latest forecasting results and insights
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {predictions.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Forecast</TableHead>
+                    <TableHead>Period</TableHead>
+                    <TableHead>Confidence</TableHead>
+                    <TableHead>Accuracy</TableHead>
+                    <TableHead>Generated</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {predictions.map((prediction) => (
+                    <TableRow key={prediction.id}>
+                      <TableCell>
+                        <Badge variant="outline">{prediction.type}</Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {prediction.forecast.toLocaleString()}
+                      </TableCell>
+                      <TableCell>{formatPeriod(prediction.period)}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <Badge className={getConfidenceColor(prediction.confidence)}>
+                            {prediction.confidence}%
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          {getAccuracyIcon(prediction.accuracy)}
+                          <span className="text-sm">
+                            {prediction.accuracy ? `${prediction.accuracy}%` : 'N/A'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {new Date(prediction.generatedAt).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                No predictions generated yet. Click "Generate Forecast" to create your first prediction.
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </MainLayout>
   )
