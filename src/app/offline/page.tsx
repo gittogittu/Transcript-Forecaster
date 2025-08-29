@@ -3,13 +3,15 @@
 import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { MainLayout } from '@/components/layout/main-layout'
 
 export default function OfflinePage() {
   useEffect(() => {
     document.title = 'Offline - Transcript Analytics Platform'
   }, [])
   return (
-    <div className="container mx-auto py-8 flex items-center justify-center min-h-screen">
+    <MainLayout>
+      <div className="container mx-auto py-8 flex items-center justify-center min-h-screen">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">You're Offline</CardTitle>
@@ -45,6 +47,7 @@ export default function OfflinePage() {
           </div>
         </CardContent>
       </Card>
-    </div>
+      </div>
+    </MainLayout>
   )
 }
