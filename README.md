@@ -176,6 +176,9 @@ If you prefer to set up the database manually:
 ### User Management
 - `node update-user-role.js` - Update user roles (create admin users, modify permissions)
 
+### Utility Scripts
+For comprehensive script documentation, see [SCRIPTS.md](./SCRIPTS.md)
+
 ### Performance & Monitoring
 - `npm run benchmark` - Performance benchmarks
 - `npm run perf:monitor` - Performance monitoring tests
@@ -568,6 +571,7 @@ npm run test:all
 - [Deployment Guide](./DEPLOYMENT_GUIDE.md) - Production deployment and CI/CD
 - [Error Handling](./ERROR_HANDLING.md) - Comprehensive error management system
 - [AHT Analytics](./AHT_ANALYTICS.md) - Average Handle Time analytics and data types
+- [Utility Scripts](./SCRIPTS.md) - Database management, user administration, and deployment scripts
 
 ## Analytics Page Status
 
@@ -712,6 +716,13 @@ function DataManagementPanel() {
 
 ## Recent Updates
 
+### Database Service Architecture Refactoring
+- **Class-Based Service Pattern**: Refactored `TranscriptService` from singleton instance to class-based architecture for better testability and dependency injection
+- **API Route Updates**: Updated `/api/transcripts` and `/api/transcripts/[id]` routes to instantiate `TranscriptService` class instead of importing singleton instance
+- **Improved Encapsulation**: Service classes now provide better encapsulation of database operations and connection management
+- **Enhanced Testing**: Class-based services enable better unit testing with dependency injection and mocking capabilities
+- **Backward Compatibility**: Maintained backward compatibility with existing standalone functions for gradual migration
+
 ### User Role Management Utility
 - **New User Role Script**: Added `update-user-role.js` for managing user roles and permissions
 - **Admin User Creation**: Automatically creates admin users if they don't exist in the database
@@ -750,9 +761,12 @@ function DataManagementPanel() {
 - **Improved Performance**: Reduced middleware overhead by handling database connections only where necessary
 - **Better Error Handling**: Database context errors are now handled at the appropriate API route level with proper error responses
 
-### Database Connection Standardization
+### Database Service Architecture Modernization
+- **Class-Based Services**: Refactored database services to use class-based architecture for better encapsulation and testability
+- **TranscriptService Class**: Updated `TranscriptService` from singleton instance to instantiable class pattern for improved dependency injection and testing
 - **Consistent Function Naming**: All database services now use the standardized `getDatabasePool()` function from `@/lib/database/connection`
 - **Import Consistency**: Fixed inconsistent imports across database services (`users.ts`, `transcripts.ts`, `performance.ts`, `predictions.ts`) and their corresponding test files
+- **API Route Updates**: Updated API routes to instantiate service classes (`new TranscriptService()`) instead of importing singleton instances
 - **Test Mock Alignment**: Updated all test mocks to use the correct `getDatabasePool` function name for consistent testing
 - **Code Quality**: Eliminated naming inconsistencies that could cause runtime errors and improved code maintainability
 

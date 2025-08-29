@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticated, analystOrAdmin, getCurrentUser } from '@/lib/middleware/auth'
 import { withRateLimit, rateLimitConfigs } from '@/lib/middleware/rate-limit'
 import { performanceMiddleware } from '@/lib/middleware/performance-middleware'
-import { transcriptService } from '@/lib/database/transcripts'
+import { TranscriptService } from '@/lib/database/transcripts'
 import { AuditLogger } from '@/lib/security/audit-logger'
 import { TranscriptUpdateSchema } from '@/lib/validations/schemas'
 import { Pool } from 'pg'
@@ -14,6 +14,7 @@ const pool = new Pool({
 })
 
 const auditLogger = AuditLogger.getInstance(pool)
+const transcriptService = new TranscriptService()
 
 const ParamsSchema = z.object({
   id: z.string().uuid('Invalid transcript ID')

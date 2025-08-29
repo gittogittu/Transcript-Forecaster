@@ -481,10 +481,15 @@ export class TranscriptService {
 }
 
 // Standalone functions for backward compatibility
-const transcriptService = new TranscriptService()
+export const transcriptService = new TranscriptService()
 
 export async function createTranscript(data: TranscriptCreate): Promise<TranscriptData> {
   return transcriptService.createTranscript(data)
+}
+
+export async function getAllTranscripts(params?: TranscriptQuery): Promise<TranscriptData[]> {
+  const result = await transcriptService.getTranscripts(params)
+  return result.data
 }
 
 export async function getTranscriptsByClientAndDate(clientName: string, date: Date): Promise<TranscriptData[]> {

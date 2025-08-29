@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { analystOrAdmin, getCurrentUser } from '@/lib/middleware/auth'
 import { withRateLimit, rateLimitConfigs } from '@/lib/middleware/rate-limit'
 import { performanceMiddleware, measureModelPerformance } from '@/lib/middleware/performance-middleware'
-import { getAllTranscripts } from '@/lib/database/transcripts'
+import { TranscriptService } from '@/lib/database/transcripts'
 import { PredictionService } from '@/lib/services/prediction-service'
 import { PredictionRequestSchema } from '@/lib/validations/schemas'
 import { z } from 'zod'
@@ -63,7 +63,8 @@ async function handlePOST(request: NextRequest) {
       const validatedData = PredictionRequestSchema.parse(body)
 
       // Fetch historical data for predictions
-      const transcriptResult = await getAllTranscripts({
+      const transcriptService = new TranscriptService()
+      const transcriptResult = await transcriptService.getTranscripts({
         clientId: validatedData.clientId,
         page: 1,
         limit: 10000 // Get all historical data

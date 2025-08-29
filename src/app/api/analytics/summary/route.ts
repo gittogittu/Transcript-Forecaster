@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { authenticated, getCurrentUser } from '@/lib/middleware/auth'
 import { withRateLimit, rateLimitConfigs } from '@/lib/middleware/rate-limit'
 import { performanceMiddleware } from '@/lib/middleware/performance-middleware'
-import { getAllTranscripts } from '@/lib/database/transcripts'
+import { TranscriptService } from '@/lib/database/transcripts'
 import { z } from 'zod'
 
 // Validation schema for summary request
@@ -73,7 +73,8 @@ async function handleGET(request: NextRequest) {
       const params = validationResult.data
 
       // Fetch transcript data with filters
-      const transcriptResult = await getAllTranscripts({
+      const transcriptService = new TranscriptService()
+      const transcriptResult = await transcriptService.getTranscripts({
         startDate: params.startDate ? new Date(params.startDate) : undefined,
         endDate: params.endDate ? new Date(params.endDate) : undefined,
         transcriptType: params.transcriptType,

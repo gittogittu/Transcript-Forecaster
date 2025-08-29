@@ -1,5 +1,6 @@
 export interface TranscriptData {
   id: string
+  clientId: string
   clientName: string
   date: Date
   transcriptCount: number
@@ -42,4 +43,24 @@ export interface UpdateTranscriptData {
   transcriptCount?: number
   transcriptType?: string
   notes?: string
+}
+
+export interface Client {
+  id: string
+  name: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface ImportResult {
+  totalRows: number
+  successCount: number
+  errorCount: number
+  duplicateCount: number
+  errors: Array<{
+    row: number
+    field: string
+    value: any
+    message: string
+  }>
 }
