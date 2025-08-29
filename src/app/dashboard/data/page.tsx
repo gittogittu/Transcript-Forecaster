@@ -2,7 +2,8 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { useDataSummary } from '@/lib/hooks/use-data-summary'
 import { MainLayout } from '@/components/layout/main-layout'
 import { DataActions } from '@/components/dashboard/data-actions'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -41,57 +42,10 @@ interface DataSummary {
 export default function DataPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [dataSummary, setDataSummary] = useState<DataSummary | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { data: dataSummary, loading, error, refetch } = useDataSummary()
 
-  const fetchDataSummary = async () => {
-    try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const mockSummary: DataSummary = {
-        totalRecords: 12847,
-        lastUpdated: '2 minutes ago',
-        dataQuality: 94.2,
-        activeClients: 23,
-        recentEntries: [
-          {
-            id: '1',
-            clientName: 'Acme Corp',
-            date: '2025-01-15',
-            count: 45,
-            type: 'call'
-          },
-          {
-            id: '2',
-            clientName: 'TechStart Inc',
-            date: '2025-01-15',
-            count: 23,
-            type: 'meeting'
-          },
-          {
-            id: '3',
-            clientName: 'Global Solutions',
-            date: '2025-01-14',
-            count: 67,
-            type: 'call'
-          },
-          {
-            id: '4',
-            clientName: 'Innovation Labs',
-            date: '2025-01-14',
-            count: 12,
-            type: 'interview'
-          }
-        ]
-      }
-      
-      setDataSummary(mockSummary)
-    } catch (error) {
-      console.error('Error fetching data summary:', error)
-    } finally {
-      setLoading(false)
-    }
+  const handleDataChange = () => {
+    refetch()
   }
 
   useEffect(() => {
@@ -108,7 +62,6 @@ export default function DataPage() {
       return
     }
 
-    fetchDataSummary()
   }, [session, status, router])
 
   if (status === 'loading' || loading) {
@@ -144,11 +97,12 @@ export default function DataPage() {
             </p>
           </div>
           <Button 
-            onClick={fetchDataSummary} 
+            onClick={refetch} 
             variant="outline"
             size="sm"
+            disabled={loading}
           >
-            <RefreshCw className="h-4 w-4 mr-2" />
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -161,9 +115,9 @@ export default function DataPage() {
               <Database className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dataSummary.totalRecords.toLocaleString()}</div>
+              <div className="text-2xl font-bold">{dataSummary?.totalRecords.toLocaleString() || '0'}</div>
               <p className="text-xs text-muted-foreground">
-                Last updated {dataSummary.lastUpdated}
+                Last updated {dataSummary?.lastUpdated || 'Never'}
               </p>
             </CardContent>
           </Card>
@@ -174,7 +128,7 @@ export default function DataPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dataSummary.dataQuality}%</div>
+              <div className="text-2xl font-bold">{dataSummary?.dataQuality || 0}%</div>
               <p className="text-xs text-muted-foreground">
                 Validation success rate
               </p>
@@ -187,7 +141,7 @@ export default function DataPage() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{dataSummary.activeClients}</div>
+              <div className="text-2xl font-bold">{dataSummary?.activeClients || 0}</div>
               <p className="text-xs text-muted-foreground">
                 With recent activity
               </p>
@@ -200,7 +154,7 @@ export default function DataPage() {
               <Calendar className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">1,234</div>
+              <div className="text-2xl font-bold">{dataSummary?.thisMonthEntries.toLocaleString() || '0'}</div>
               <p className="text-xs text-muted-foreground">
                 New entries added
               </p>
@@ -210,7 +164,7 @@ export default function DataPage() {
 
         {/* Data Actions */}
         <div className="mb-8">
-          <DataActions onDataChange={fetchDataSummary} />
+          <DataActions onDataChange={handleDataChange} />
         </div>
 
         {/* Recent Entries */}
@@ -232,7 +186,7 @@ export default function DataPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dataSummary.recentEntries.map((entry) => (
+                {dataSummary?.recentEntries.map((entry) => (
                   <TableRow key={entry.id}>
                     <TableCell className="font-medium">{entry.clientName}</TableCell>
                     <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
@@ -243,7 +197,13 @@ export default function DataPage() {
                       </Badge>
                     </TableCell>
                   </TableRow>
-                ))}
+                )) || (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground">
+                      No recent entries found
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>

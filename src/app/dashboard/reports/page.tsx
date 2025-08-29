@@ -38,34 +38,43 @@ interface GeneratedReport {
 export default function ReportsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [reports, setReports] = useState<GeneratedReport[]>([
-    {
-      id: '1',
-      name: 'Analytics Report - January 2025',
-      type: 'Analytics',
-      generatedAt: '2025-01-15T10:30:00Z',
-      status: 'completed',
-      downloadUrl: '/api/reports/1/download',
-      size: '2.4 MB'
-    },
-    {
-      id: '2',
-      name: 'AHT Report - Q4 2024',
-      type: 'AHT',
-      generatedAt: '2025-01-10T14:15:00Z',
-      status: 'completed',
-      downloadUrl: '/api/reports/2/download',
-      size: '1.8 MB'
-    },
-    {
-      id: '3',
-      name: 'Client Report - Acme Corp',
-      type: 'Client',
-      generatedAt: '2025-01-08T09:45:00Z',
-      status: 'failed',
-      size: '0 MB'
+  const [reports, setReports] = useState<GeneratedReport[]>([])
+  const [loadingReports, setLoadingReports] = useState(true)
+
+  const fetchReports = async () => {
+    try {
+      const response = await fetch('/api/reports', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      
+      if (result.success) {
+        setReports(result.data)
+      } else {
+        throw new Error(result.error || 'Failed to fetch reports')
+      }
+    } catch (error) {
+      console.error('Error fetching reports:', error)
+      // Keep empty array if API fails
+      setReports([])
+    } finally {
+      setLoadingReports(false)
     }
-  ])
+  }
+
+  useEffect(() => {
+    if (session?.user) {
+      fetchReports()
+    }
+  }, [session])
 
   const handleReportGenerated = (newReport: any) => {
     setReports(prev => [newReport, ...prev])

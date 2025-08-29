@@ -2,7 +2,8 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { usePredictionsData } from '@/lib/hooks/use-predictions-data'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -39,38 +40,11 @@ interface PredictionResult {
 export default function PredictionsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [predictions, setPredictions] = useState<PredictionResult[]>([
-    {
-      id: '1',
-      type: 'Volume Forecast',
-      forecast: 1456,
-      confidence: 87,
-      period: 'next-month',
-      generatedAt: '2025-01-15T10:30:00Z',
-      accuracy: 89
-    },
-    {
-      id: '2',
-      type: 'Seasonal Analysis',
-      forecast: 1234,
-      confidence: 92,
-      period: 'next-quarter',
-      generatedAt: '2025-01-10T14:15:00Z',
-      accuracy: 91
-    },
-    {
-      id: '3',
-      type: 'Scenario Analysis',
-      forecast: 1678,
-      confidence: 78,
-      period: 'optimistic',
-      generatedAt: '2025-01-08T09:45:00Z',
-      accuracy: 85
-    }
-  ])
+  const { data: predictionsData, loading, error, refetch, generatePrediction } = usePredictionsData()
 
-  const handlePredictionGenerated = (newPrediction: PredictionResult) => {
-    setPredictions(prev => [newPrediction, ...prev])
+  const handlePredictionGenerated = async (newPrediction: any) => {
+    // The hook will automatically refresh the data
+    refetch()
   }
 
   const getConfidenceColor = (confidence: number) => {
@@ -113,7 +87,7 @@ export default function PredictionsPage() {
     }
   }, [session, status, router])
 
-  if (status === 'loading') {
+  if (status === 'loading' || loading) {
     return (
       <MainLayout>
         <div className="container mx-auto py-8 px-4">
@@ -131,17 +105,11 @@ export default function PredictionsPage() {
     )
   }
 
-  if (!session?.user || session.user.role === 'viewer') {
+  if (!session?.user || session.user.role === 'viewer' || !predictionsData) {
     return null
   }
 
-  const avgConfidence = predictions.length > 0 
-    ? Math.round(predictions.reduce((sum, p) => sum + p.confidence, 0) / predictions.length)
-    : 0
-
-  const avgAccuracy = predictions.filter(p => p.accuracy).length > 0
-    ? Math.round(predictions.filter(p => p.accuracy).reduce((sum, p) => sum + (p.accuracy || 0), 0) / predictions.filter(p => p.accuracy).length)
-    : 0
+  const { totalPredictions, avgConfidence, avgAccuracy, predictions } = predictionsData
 
   return (
     <MainLayout>
@@ -161,7 +129,7 @@ export default function PredictionsPage() {
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{predictions.length}</div>
+              <div className="text-2xl font-bold">{totalPredictions}</div>
               <p className="text-xs text-muted-foreground">
                 Generated this month
               </p>

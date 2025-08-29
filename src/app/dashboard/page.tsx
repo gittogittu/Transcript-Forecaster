@@ -2,7 +2,8 @@
 
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { useDashboardData } from '@/lib/hooks/use-dashboard-data'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -53,64 +54,10 @@ interface DashboardData {
 export default function DashboardPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
+  const { data: dashboardData, loading, error, refetch } = useDashboardData()
 
-  const fetchDashboardData = async () => {
-    try {
-      // Simulate API call - replace with actual API endpoint
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      const mockData: DashboardData = {
-        totalTranscripts: 12847 + Math.floor(Math.random() * 100),
-        thisMonth: 1234 + Math.floor(Math.random() * 50),
-        avgHandlingTime: 8.5 + (Math.random() - 0.5) * 2,
-        activeClients: 23 + Math.floor(Math.random() * 5),
-        lastSync: '2 minutes ago',
-        syncStatus: Math.random() > 0.8 ? 'warning' : 'success',
-        monthlyGrowth: 12.5 + (Math.random() - 0.5) * 10,
-        predictions: {
-          nextMonth: 1456 + Math.floor(Math.random() * 100),
-          confidence: 85 + Math.floor(Math.random() * 10)
-        },
-        recentActivity: [
-          {
-            id: '1',
-            type: 'import',
-            description: 'Imported 45 transcripts from Google Sheets',
-            timestamp: '2 hours ago',
-            status: 'success'
-          },
-          {
-            id: '2',
-            type: 'prediction',
-            description: 'Generated volume forecast for next month',
-            timestamp: '4 hours ago',
-            status: 'success'
-          },
-          {
-            id: '3',
-            type: 'sync',
-            description: 'Synchronized with Google Sheets',
-            timestamp: '6 hours ago',
-            status: 'warning'
-          }
-        ]
-      }
-      
-      setDashboardData(mockData)
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error)
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
-  }
-
-  const handleRefresh = async () => {
-    setRefreshing(true)
-    await fetchDashboardData()
+  const handleRefresh = () => {
+    refetch()
   }
 
   useEffect(() => {
@@ -120,8 +67,6 @@ export default function DashboardPage() {
       router.push('/auth/signin')
       return
     }
-
-    fetchDashboardData()
   }, [session, status, router])
 
   if (status === 'loading' || loading) {
@@ -174,11 +119,11 @@ export default function DashboardPage() {
           </div>
           <Button 
             onClick={handleRefresh} 
-            disabled={refreshing}
+            disabled={loading}
             variant="outline"
             size="sm"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>

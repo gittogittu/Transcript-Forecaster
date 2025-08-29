@@ -52,7 +52,7 @@ export function PredictionTools({ onPredictionGenerated }: PredictionToolsProps)
     setProgress(0)
 
     try {
-      // Simulate ML model processing
+      // Show progress animation
       const progressInterval = setInterval(() => {
         setProgress(prev => {
           if (prev >= 90) {
@@ -63,20 +63,32 @@ export function PredictionTools({ onPredictionGenerated }: PredictionToolsProps)
         })
       }, 250)
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2500))
+      // Call actual API
+      const response = await fetch('/api/analytics/predictions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: predictionType,
+          period: config.period || 'next-month',
+          config
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate prediction')
+      }
       
       setProgress(100)
       
-      const prediction: PredictionResult = {
-        id: Date.now().toString(),
-        type: predictionType,
-        forecast: Math.floor(Math.random() * 2000) + 1000,
-        confidence: Math.floor(Math.random() * 20) + 80,
-        period: config.period || 'next-month',
-        generatedAt: new Date().toISOString(),
-        accuracy: Math.floor(Math.random() * 10) + 85
-      }
+      const prediction = result.data
       
       toast({
         title: "Prediction Generated",
@@ -91,9 +103,10 @@ export function PredictionTools({ onPredictionGenerated }: PredictionToolsProps)
       setSettingsDialogOpen(false)
       
     } catch (error) {
+      console.error('Error generating prediction:', error)
       toast({
         title: "Prediction Failed",
-        description: "Failed to generate prediction. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to generate prediction. Please try again.",
         variant: "destructive"
       })
     } finally {

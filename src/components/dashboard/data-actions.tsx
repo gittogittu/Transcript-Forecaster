@@ -42,7 +42,7 @@ export function DataActions({ onDataChange }: DataActionsProps) {
     setUploadProgress(0)
 
     try {
-      // Simulate upload progress
+      // Progress tracking for UI feedback
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
           if (prev >= 90) {
@@ -53,22 +53,36 @@ export function DataActions({ onDataChange }: DataActionsProps) {
         })
       }, 200)
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      setUploadProgress(100)
-      
-      toast({
-        title: "Import Successful",
-        description: "Successfully imported 45 transcript records",
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        body: formData
       })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
       
-      setImportDialogOpen(false)
-      onDataChange?.()
+      if (result.success) {
+        setUploadProgress(100)
+        
+        toast({
+          title: "Import Successful",
+          description: result.message || `Successfully imported ${result.result?.successCount || 0} transcript records`,
+        })
+        
+        setImportDialogOpen(false)
+        onDataChange?.()
+      } else {
+        throw new Error(result.error || 'Failed to import data')
+      }
+      
     } catch (error) {
+      console.error('Error importing data:', error)
       toast({
         title: "Import Failed",
-        description: "Failed to import data. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to import data. Please try again.",
         variant: "destructive"
       })
     } finally {
@@ -81,19 +95,44 @@ export function DataActions({ onDataChange }: DataActionsProps) {
     setExporting(true)
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500))
-      
-      toast({
-        title: "Export Successful",
-        description: `Data exported to ${format.toUpperCase()} format`,
+      const response = await fetch(`/api/export/${format}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          dateRange,
+          format
+        })
       })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
       
-      setExportDialogOpen(false)
+      if (result.success) {
+        toast({
+          title: "Export Successful",
+          description: `Data exported to ${format.toUpperCase()} format`,
+        })
+        
+        // If there's a download URL, trigger download
+        if (result.downloadUrl) {
+          window.open(result.downloadUrl, '_blank')
+        }
+        
+        setExportDialogOpen(false)
+      } else {
+        throw new Error(result.error || 'Failed to export data')
+      }
+      
     } catch (error) {
+      console.error('Error exporting data:', error)
       toast({
         title: "Export Failed",
-        description: "Failed to export data. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to export data. Please try again.",
         variant: "destructive"
       })
     } finally {
@@ -103,20 +142,45 @@ export function DataActions({ onDataChange }: DataActionsProps) {
 
   const handleAddEntry = async (formData: FormData) => {
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      toast({
-        title: "Entry Added",
-        description: "New transcript entry has been added successfully",
+      const entryData = {
+        clientName: formData.get('clientName') as string,
+        date: formData.get('date') as string,
+        transcriptCount: parseInt(formData.get('count') as string),
+        transcriptType: formData.get('type') as string,
+        notes: formData.get('notes') as string || undefined
+      }
+
+      const response = await fetch('/api/transcripts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(entryData)
       })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
       
-      setAddEntryDialogOpen(false)
-      onDataChange?.()
+      if (result.success) {
+        toast({
+          title: "Entry Added",
+          description: result.message || "New transcript entry has been added successfully",
+        })
+        
+        setAddEntryDialogOpen(false)
+        onDataChange?.()
+      } else {
+        throw new Error(result.error || 'Failed to add entry')
+      }
+      
     } catch (error) {
+      console.error('Error adding entry:', error)
       toast({
         title: "Failed to Add Entry",
-        description: "Could not add the entry. Please try again.",
+        description: error instanceof Error ? error.message : "Could not add the entry. Please try again.",
         variant: "destructive"
       })
     }
@@ -126,19 +190,35 @@ export function DataActions({ onDataChange }: DataActionsProps) {
     setSyncing(true)
     
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      toast({
-        title: "Sync Completed",
-        description: "Successfully synchronized with Google Sheets",
+      const response = await fetch('/api/sheets/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
       })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
       
-      onDataChange?.()
+      if (result.success) {
+        toast({
+          title: "Sync Completed",
+          description: result.message || "Successfully synchronized with Google Sheets",
+        })
+        
+        onDataChange?.()
+      } else {
+        throw new Error(result.error || 'Failed to sync with Google Sheets')
+      }
+      
     } catch (error) {
+      console.error('Error syncing data:', error)
       toast({
         title: "Sync Failed",
-        description: "Failed to sync with Google Sheets. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to sync with Google Sheets. Please try again.",
         variant: "destructive"
       })
     } finally {

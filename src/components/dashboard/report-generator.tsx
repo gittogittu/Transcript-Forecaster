@@ -51,7 +51,7 @@ export function ReportGenerator({ onReportGenerated }: ReportGeneratorProps) {
     setProgress(0)
 
     try {
-      // Simulate report generation progress
+      // Progress tracking for UI feedback
       const progressInterval = setInterval(() => {
         setProgress(prev => {
           if (prev >= 90) {
@@ -62,38 +62,51 @@ export function ReportGenerator({ onReportGenerated }: ReportGeneratorProps) {
         })
       }, 300)
 
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Map UI report type to API type
+      const apiType = reportType.toLowerCase().replace(' report', '').replace(' ', '-')
       
-      setProgress(100)
+      const response = await fetch('/api/reports', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: apiType,
+          ...config
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const result = await response.json()
       
-      const report: GeneratedReport = {
-        id: Date.now().toString(),
-        name: `${reportType} Report - ${new Date().toLocaleDateString()}`,
-        type: reportType,
-        generatedAt: new Date().toISOString(),
-        status: 'completed',
-        downloadUrl: `/api/reports/${Date.now()}/download`
+      if (result.success) {
+        setProgress(100)
+        
+        toast({
+          title: "Report Generated",
+          description: `${reportType} report has been generated successfully`,
+        })
+        
+        onReportGenerated?.(result.data)
+        
+        // Close dialogs
+        setAnalyticsDialogOpen(false)
+        setAhtDialogOpen(false)
+        setMonthlyDialogOpen(false)
+        setClientDialogOpen(false)
+        setCustomDialogOpen(false)
+      } else {
+        throw new Error(result.error || 'Failed to generate report')
       }
       
-      toast({
-        title: "Report Generated",
-        description: `${reportType} report has been generated successfully`,
-      })
-      
-      onReportGenerated?.(report)
-      
-      // Close dialogs
-      setAnalyticsDialogOpen(false)
-      setAhtDialogOpen(false)
-      setMonthlyDialogOpen(false)
-      setClientDialogOpen(false)
-      setCustomDialogOpen(false)
-      
     } catch (error) {
+      console.error('Error generating report:', error)
       toast({
         title: "Report Generation Failed",
-        description: "Failed to generate report. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to generate report. Please try again.",
         variant: "destructive"
       })
     } finally {
