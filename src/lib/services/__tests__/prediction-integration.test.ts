@@ -5,40 +5,49 @@
 import { PredictionService } from '../prediction-service'
 import { TranscriptData, PredictionRequest } from '@/types/transcript'
 
-// Mock TensorFlow.js with working implementation
-jest.mock('@tensorflow/tfjs', () => ({
-  setBackend: jest.fn().mockResolvedValue(undefined),
-  ready: jest.fn().mockResolvedValue(undefined),
-  getBackend: jest.fn().mockReturnValue('webgl'),
-  sequential: jest.fn().mockReturnValue({
-    compile: jest.fn(),
-    fit: jest.fn().mockResolvedValue({ history: {} }),
-    predict: jest.fn().mockReturnValue({
-      data: jest.fn().mockResolvedValue([0.5]),
-      dispose: jest.fn()
-    }),
-    dispose: jest.fn()
-  }),
-  layers: {
-    dense: jest.fn().mockReturnValue({}),
-    dropout: jest.fn().mockReturnValue({})
-  },
-  train: {
-    adam: jest.fn().mockReturnValue({})
-  },
-  regularizers: {
-    l2: jest.fn().mockReturnValue({})
-  },
-  tensor2d: jest.fn().mockReturnValue({
-    dispose: jest.fn(),
-    shape: [5, 3]
-  }),
-  tensor1d: jest.fn().mockReturnValue({
-    dispose: jest.fn(),
-    data: jest.fn().mockResolvedValue([0.1, 0.2, 0.3, 0.4, 0.5])
-  }),
-  memory: jest.fn().mockReturnValue({ numTensors: 0, numBytes: 0 })
-}))
+// Mock Google Generative AI
+jest.mock('@google/generative-ai', () => ({
+  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
+    getGenerativeModel: jest.fn().mockReturnValue({
+      generateContent: jest.fn().mockResolvedValue({
+        response: {
+          text: jest.fn().mockReturnValue(`[
+            {
+              "date": "2023-07-01",
+              "predictedCount": 135,
+              "confidenceInterval": {
+                "lower": 125,
+                "upper": 145
+              },
+              "reasoning": "Continuing upward trend"
+            },
+            {
+              "date": "2023-08-01",
+              "predictedCount": 140,
+              "confidenceInterval": {
+                "lower": 128,
+                "upper": 152
+              },
+              "reasoning": "Seasonal adjustment"
+            },
+            {
+              "date": "2023-09-01",
+              "predictedCount": 145,
+              "confidenceInterval": {
+                "lower": 130,
+                "upper": 160
+              },
+              "reasoning": "Growth projection"
+            }
+          ]`)
+        }
+      })
+    })
+  }))
+}));
+
+// Mock environment variables
+process.env.NEXT_PUBLIC_GEMINI_API_KEY = 'test-api-key';
 
 // Mock data preprocessing functions with working implementations
 jest.mock('@/lib/utils/data-preprocessing', () => ({

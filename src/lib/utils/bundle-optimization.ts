@@ -41,8 +41,10 @@ export const optimizedImports = {
     Area: () => import('recharts').then(mod => mod.Area),
   },
   
-  // Optimized TensorFlow.js imports (commented out until TensorFlow is reinstalled)
-  // tensorflow: {
+  // Optimized Gemini AI imports
+  gemini: {
+    '@google/generative-ai': ['GoogleGenerativeAI']
+  },
   //   core: () => import('@tensorflow/tfjs-core'),
   //   layers: () => import('@tensorflow/tfjs-layers'),
   //   converter: () => import('@tensorflow/tfjs-converter'),

@@ -246,4 +246,4 @@ export async function deleteUser(id: string): Promise<boolean> {
 }
 
 // Re-export role utilities for backward compatibility
-export { hasRole, canAccessResource } from '../utils/role-utils'
+export { hasRole } from '../utils/role-utils'

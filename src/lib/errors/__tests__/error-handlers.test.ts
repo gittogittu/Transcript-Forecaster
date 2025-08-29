@@ -271,8 +271,8 @@ describe('handlePredictionError', () => {
     expect(result.suggestedAction).toBe('Try using a simpler model or reduce the prediction period')
   })
 
-  it('should provide suggestions for TensorFlow errors', () => {
-    const error = new Error('tensorflow model loading failed')
+  it('should provide suggestions for Gemini API errors', () => {
+    const error = new Error('gemini api request failed')
     
     const result = handlePredictionError(error, 'arima', 50)
     

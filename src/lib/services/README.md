@@ -1,6 +1,6 @@
-# TensorFlow.js Prediction Engine
+# Gemini AI Prediction Engine
 
-This module implements a comprehensive machine learning prediction engine using TensorFlow.js for browser and server-side execution. It provides multiple prediction models for transcript volume forecasting with data preprocessing, validation, and performance monitoring.
+This module implements a comprehensive machine learning prediction engine using Google's Gemini AI for intelligent transcript volume forecasting. It provides multiple prediction approaches with data preprocessing, validation, and performance monitoring.
 
 ## Features
 
@@ -269,12 +269,12 @@ See `src/components/analytics/prediction-demo.tsx` for a complete React componen
 
 ## Dependencies
 
-- `@tensorflow/tfjs`: Core TensorFlow.js library
+- `@google/generative-ai`: Google Generative AI SDK
 - `@tanstack/react-query`: Data fetching and caching (for React hook)
 - Custom types from `@/types/transcript`
 
-## Browser Compatibility
+## API Requirements
 
-- Modern browsers with WebGL support (recommended)
-- Fallback to CPU backend for older browsers
+- Valid Gemini API key from Google AI Studio
+- Internet connection for API requests
 - Node.js environment supported for server-side usage

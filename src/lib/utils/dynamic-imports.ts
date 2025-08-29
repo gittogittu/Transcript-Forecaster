@@ -2,8 +2,8 @@ import { ComponentType } from 'react'
 
 // Dynamic import utilities for better code splitting
 export const dynamicImports = {
-  // TensorFlow.js - heavy ML library (commented out until reinstalled)
-  // tensorflow: () => import('@tensorflow/tfjs'),
+  // Google Generative AI - ML library
+  gemini: () => import('@google/generative-ai'),
   
   // Chart libraries
   recharts: () => import('recharts'),
@@ -21,8 +21,8 @@ export const dynamicImports = {
 // Utility function to preload critical modules
 export async function preloadCriticalModules() {
   try {
-    // TensorFlow.js temporarily disabled
-    console.log('Critical modules preloaded successfully (TensorFlow.js disabled)')
+    // Gemini AI enabled
+    console.log('Critical modules preloaded successfully (Gemini AI enabled)')
   } catch (error) {
     console.warn('Failed to preload critical modules:', error)
   }
@@ -69,7 +69,7 @@ export const bundleSplitConfig = {
   vendor: ['react', 'react-dom', 'next'],
   
   // Analytics chunks
-  analytics: ['recharts'], // '@tensorflow/tfjs' removed temporarily
+  analytics: ['recharts', '@google/generative-ai'],
   
   // UI chunks
   ui: ['framer-motion', '@radix-ui/react-*'],

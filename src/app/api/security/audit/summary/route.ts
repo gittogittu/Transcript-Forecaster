@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withSecurityAndContext } from '@/lib/middleware/security-middleware'
+import { withSecurity } from '@/lib/middleware/security-middleware'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { AuditLogger } from '@/lib/security/audit-logger'
 import { Pool } from 'pg'
 import { z } from 'zod'
@@ -19,10 +21,11 @@ const SummaryQuerySchema = z.object({
 /**
  * GET /api/security/audit/summary - Get audit summary statistics (admin only)
  */
-export const GET = withSecurityAndContext(async function(request: NextRequest, context) {
+export const GET = withSecurity(async function(request: NextRequest) {
   try {
-    // Only admins can access audit summaries
-    if (context.userRole !== 'admin') {
+    // Check authentication and admin role
+    const session = await getServerSession(authOptions)
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Access denied. Admin privileges required.' },
         { status: 403 }

@@ -321,7 +321,7 @@ describe('PredictionErrorBoundary', () => {
 
     rerender(
       <PredictionErrorBoundary>
-        <ThrowError shouldThrow={true} errorMessage="tensorflow model loading failed" />
+        <ThrowError shouldThrow={true} errorMessage="gemini api request failed" />
       </PredictionErrorBoundary>
     )
 

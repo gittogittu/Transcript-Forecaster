@@ -63,8 +63,8 @@ export class PredictionErrorBoundary extends Component<Props, State> {
       return 'Insufficient data for accurate predictions. Please add more historical data.'
     }
     
-    if (error.message.includes('model') || error.message.includes('tensorflow')) {
-      return 'Machine learning model error. Trying alternative prediction method.'
+    if (error.message.includes('model') || error.message.includes('gemini') || error.message.includes('api')) {
+      return 'AI prediction service error. Trying alternative prediction method.'
     }
     
     if (error.message.includes('memory') || error.message.includes('performance')) {

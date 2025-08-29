@@ -172,7 +172,7 @@ function PredictionErrorExample() {
       } else if (modelType === 'complex' && dataSize > 100) {
         errorMessage = 'memory allocation failed during model training'
       } else if (modelType === 'complex') {
-        errorMessage = 'tensorflow model initialization failed'
+        errorMessage = 'gemini api initialization failed'
       }
 
       if (errorMessage) {
@@ -212,7 +212,7 @@ function PredictionErrorExample() {
             Memory Error
           </Button>
           <Button onClick={() => runPrediction('complex', 50)} disabled={isRetrying} variant="outline">
-            TensorFlow Error
+            Gemini API Error
           </Button>
         </div>
 
@@ -259,7 +259,7 @@ function ErrorBoundaryExample() {
       case 'data':
         throw new Error('Database connection failed')
       case 'prediction':
-        throw new Error('TensorFlow model loading failed')
+        throw new Error('Gemini API request failed')
       default:
         throw new Error('Generic application error')
     }

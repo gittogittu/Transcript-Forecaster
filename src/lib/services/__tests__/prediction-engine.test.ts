@@ -1,43 +1,55 @@
 import { PredictionEngine, PredictionOptions } from '../prediction-engine';
 import { TranscriptData } from '@/types/transcript';
 
-// Mock TensorFlow.js
-jest.mock('@tensorflow/tfjs', () => ({
-  setBackend: jest.fn().mockResolvedValue(undefined),
-  tensor1d: jest.fn().mockReturnValue({
-    dispose: jest.fn()
-  }),
-  tensor2d: jest.fn().mockReturnValue({
-    dispose: jest.fn()
-  }),
-  tensor3d: jest.fn().mockReturnValue({
-    dispose: jest.fn()
-  }),
-  sequential: jest.fn().mockReturnValue({
-    compile: jest.fn(),
-    fit: jest.fn().mockResolvedValue({}),
-    predict: jest.fn().mockReturnValue({
-      data: jest.fn().mockResolvedValue([10, 15, 20]),
-      dispose: jest.fn()
-    }),
-    dispose: jest.fn()
-  }),
-  layers: {
-    dense: jest.fn().mockReturnValue({}),
-    lstm: jest.fn().mockReturnValue({}),
-    dropout: jest.fn().mockReturnValue({})
-  },
-  train: {
-    adam: jest.fn().mockReturnValue({})
-  },
-  memory: jest.fn().mockReturnValue({ numTensors: 0, numBytes: 0 })
+// Mock Google Generative AI
+const mockGenerateContent = jest.fn();
+
+jest.mock('@google/generative-ai', () => ({
+  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
+    getGenerativeModel: jest.fn().mockReturnValue({
+      generateContent: mockGenerateContent
+    })
+  }))
 }));
+
+// Mock environment variables
+process.env.NEXT_PUBLIC_GEMINI_API_KEY = 'test-api-key';
+
+// Helper function to generate mock predictions based on periodsAhead
+const generateMockPredictions = (periodsAhead: number) => {
+  const predictions = [];
+  for (let i = 1; i <= periodsAhead; i++) {
+    predictions.push({
+      date: `2024-01-${5 + i}`,
+      predictedCount: 20 + i * 2,
+      confidenceInterval: {
+        lower: 18 + i * 2,
+        upper: 22 + i * 2
+      },
+      reasoning: `Prediction ${i}`
+    });
+  }
+  return JSON.stringify(predictions);
+};
 
 describe('PredictionEngine', () => {
   let engine: PredictionEngine;
   let mockData: TranscriptData[];
 
   beforeEach(() => {
+    // Reset mock before each test
+    mockGenerateContent.mockImplementation((prompt) => {
+      // Extract periodsAhead from the prompt
+      const periodsMatch = prompt.match(/Generate (\d+)/);
+      const periodsAhead = periodsMatch ? parseInt(periodsMatch[1]) : 3;
+      
+      return Promise.resolve({
+        response: {
+          text: () => generateMockPredictions(periodsAhead)
+        }
+      });
+    });
+    
     engine = new PredictionEngine();
     
     // Create mock data
@@ -158,11 +170,13 @@ describe('PredictionEngine', () => {
       expect(result.values[0]).toBe(75); // Sum of 10+12+15+18+20
     });
 
-    it('should create sequences for time series', () => {
+    it('should sort data by date', () => {
       const result = engine.preprocessData(mockData, 'daily', 'Client A');
       
-      expect(result.processedData).toBeDefined();
-      expect(result.processedData.length).toBeGreaterThan(0);
+      // Check that dates are in ascending order
+      for (let i = 1; i < result.dates.length; i++) {
+        expect(result.dates[i].getTime()).toBeGreaterThanOrEqual(result.dates[i-1].getTime());
+      }
     });
   });
 
@@ -280,7 +294,7 @@ describe('PredictionEngine', () => {
         .rejects.toThrow();
     });
 
-    it('should handle insufficient data for ARIMA', async () => {
+    it('should handle small datasets', async () => {
       const smallData = mockData.slice(0, 2);
       const options: PredictionOptions = {
         predictionType: 'daily',
@@ -289,8 +303,8 @@ describe('PredictionEngine', () => {
         confidenceLevel: 0.95
       };
 
-      await expect(engine.generatePredictions(smallData, options))
-        .rejects.toThrow('Insufficient data for ARIMA model');
+      const result = await engine.generatePredictions(smallData, options);
+      expect(result.predictions).toHaveLength(1);
     });
 
     it('should handle single client data', async () => {

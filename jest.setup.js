@@ -70,8 +70,18 @@ jest.mock('next/image', () => ({
   },
 }))
 
-// Mock TensorFlow.js (will be added in task 8)
-// jest.mock('@tensorflow/tfjs', () => ({ ... }))
+// Mock Google Generative AI for tests
+jest.mock('@google/generative-ai', () => ({
+  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
+    getGenerativeModel: jest.fn().mockReturnValue({
+      generateContent: jest.fn().mockResolvedValue({
+        response: {
+          text: jest.fn().mockReturnValue('[]')
+        }
+      })
+    })
+  }))
+}));
 
 // Mock Framer Motion
 jest.mock('framer-motion', () => ({

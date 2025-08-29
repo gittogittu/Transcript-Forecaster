@@ -12,7 +12,7 @@
 - **Forms**: React Hook Form + Zod validation
 - **Animation**: Framer Motion
 - **Charts**: Recharts
-- **Machine Learning**: TensorFlow.js
+- **Machine Learning**: Google Gemini AI
 - **Testing**: Jest + Playwright + Testing Library
 
 ## Key Libraries

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { withSecurityAndContext } from '@/lib/middleware/security-middleware'
+import { withSecurity } from '@/lib/middleware/security-middleware'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import { AuditLogger } from '@/lib/security/audit-logger'
 import { Pool } from 'pg'
 import { z } from 'zod'
@@ -25,10 +27,11 @@ const AuditQuerySchema = z.object({
 /**
  * GET /api/security/audit - Get audit logs (admin only)
  */
-export const GET = withSecurityAndContext(async function(request: NextRequest, context) {
+export const GET = withSecurity(async function(request: NextRequest) {
   try {
-    // Only admins can access audit logs
-    if (context.userRole !== 'admin') {
+    // Check authentication and admin role
+    const session = await getServerSession(authOptions)
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Access denied. Admin privileges required.' },
         { status: 403 }
@@ -93,10 +96,11 @@ export const GET = withSecurityAndContext(async function(request: NextRequest, c
 /**
  * POST /api/security/audit - Create manual audit log entry (admin only)
  */
-export const POST = withSecurityAndContext(async function(request: NextRequest, context) {
+export const POST = withSecurity(async function(request: NextRequest) {
   try {
-    // Only admins can create manual audit entries
-    if (context.userRole !== 'admin') {
+    // Check authentication and admin role
+    const session = await getServerSession(authOptions)
+    if (!session?.user || session.user.role !== 'admin') {
       return NextResponse.json(
         { error: 'Access denied. Admin privileges required.' },
         { status: 403 }

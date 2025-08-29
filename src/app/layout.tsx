@@ -4,6 +4,7 @@ import './globals.css'
 import { SessionProvider } from '@/components/auth/session-provider'
 import { QueryProvider } from '@/components/providers/query-provider'
 import { GlobalErrorBoundary } from '@/components/error-boundaries'
+import { Toaster } from 'sonner'
 // import { PerformanceProvider } from '@/components/providers/performance-provider'
 
 const geistSans = Geist({
@@ -58,6 +59,7 @@ export default function RootLayout({
           <SessionProvider>
             <QueryProvider>
               {children}
+              <Toaster />
             </QueryProvider>
           </SessionProvider>
         </GlobalErrorBoundary>

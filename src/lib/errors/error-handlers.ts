@@ -275,8 +275,8 @@ export function handlePredictionError(
     suggestedAction = 'Add more historical data (at least 30 data points recommended)'
   } else if (error.message.includes('memory')) {
     suggestedAction = 'Try using a simpler model or reduce the prediction period'
-  } else if (error.message.includes('tensorflow')) {
-    suggestedAction = 'Try refreshing the page or use the linear model as fallback'
+  } else if (error.message.includes('gemini') || error.message.includes('api')) {
+    suggestedAction = 'Check your Gemini API key or try again later'
   }
 
   predictionError = new PredictionError(

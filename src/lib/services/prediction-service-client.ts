@@ -25,7 +25,7 @@ export class ClientPredictionService {
     }
 
     try {
-      // For now, use mock service until TensorFlow.js SSR issues are resolved
+      // For now, use mock service until Gemini API is properly configured
       this.predictionService = mockPredictionService
       this.isInitialized = true
       console.log('Using mock prediction service')
