@@ -1,48 +1,50 @@
-OTHING;DO Nersion) (vFLICT e')
-ON CON codlicationatch appema to mtable schnscripts  'Update traa',pts_schemscrite_tran('003_updaUES 
-on) VALcriptideson, ns (versi migratioNSERT INTO
-Iordion recratInsert mig- by);
+-- Migration: 003_update_transcripts_schema
+-- Description: Update transcripts table schema to match application interfaces
+-- Version: 003
+-- Date: 2025-01-08
 
--ted_ripts(creascON trancreated_by ranscripts_idx_t EXISTS  NOTE INDEX IFEATCRpe);
-_typtpts(transcricritransN  Ocripts_typeS idx_transOT EXISTIF NNDEX 
-CREATE I date);id,(client_ptscriON transe _datntliecripts_cransx_tidTS OT EXISE INDEX IF N
-CREATdate);s(pttranscripts_date ON dx_transcriNOT EXISTS i IF  INDEXREATEth;
-Cent_moncripts_cliransS idx_tSTDEX IF EXIOP INmonth;
-DRanscripts_STS idx_trNDEX IF EXIDROP Ite indexes
- Upda);
+-- Add new columns to transcripts table
+ALTER TABLE transcripts 
+ADD COLUMN IF NOT EXISTS date DATE,
+ADD COLUMN IF NOT EXISTS transcript_count INTEGER,
+ADD COLUMN IF NOT EXISTS transcript_type VARCHAR(100),
+ADD COLUMN IF NOT EXISTS created_by UUID;
 
---dateclient_id, E(IQU_key UNient_id_dates_cltranscript CONSTRAINT ipts ADD transcrBLEALTER TAey;
-h_kient_id_montts_clranscripS tXISTTRAINT IF Ets DROP CONScripransABLE tER Tstraint
-ALTunique conate t;
+-- Copy data from old columns to new columns
+UPDATE transcripts 
+SET date = month,
+    transcript_count = count
+WHERE date IS NULL OR transcript_count IS NULL;
 
--- UpdEXISTS counOLUMN IF  Cpts DROPanscriBLE trTER TA ALh;
--- montIF EXISTSUMN  DROP COLptsBLE transcriER TA
--- ALTon)a migrati datverifying after entcommety - un for safented outmns (commcolu- Drop old  >= 0);
+-- Make new columns NOT NULL after data migration
+ALTER TABLE transcripts 
+ALTER COLUMN date SET NOT NULL,
+ALTER COLUMN transcript_count SET NOT NULL;
 
--countcript_ns (traCK
-CHEve itit_count_posnscripk_traT checD CONSTRAINripts 
-ADABLE transcALTER Tunt
-anscript_coraint for trck constAdd che
+-- Add check constraint for transcript count
+ALTER TABLE transcripts 
+ADD CONSTRAINT chk_transcript_count_positive 
+CHECK (transcript_count >= 0);
 
---  NOT NULL;_count SETnscriptR COLUMN tra,
-ALTESET NOT NULLe LUMN dat
-ALTER COtranscripts BLE LTER TAmigration
-Aer data ULL afts NOT Nolumn Make new c
---IS NULL;
-t_count  transcrip IS NULL ORte da
-WHEREnt = countcript_couansnth,
-  tr date = mo
- pts 
-SET transcriATE olumns
-UPDs to new cold columnfrom  data pyD;
+-- Drop old unique constraint
+ALTER TABLE transcripts 
+DROP CONSTRAINT IF EXISTS transcripts_client_id_month_key;
 
--- CoUIted_by UISTS creaMN IF NOT EXD COLU(100),
-ADe VARCHARtypranscript_STS tT EXIF NOOLUMN IADD Ct INTEGER,
-ript_counTS transc IF NOT EXISADD COLUMN,
-e DATES datT EXIST NOMN IF COLUts 
-ADDcripBLE trans
-ALTER TAw columns- Add neaces
+-- Add new unique constraint
+ALTER TABLE transcripts 
+ADD CONSTRAINT transcripts_client_id_date_key 
+UNIQUE (client_id, date);
 
--erfcript intmatch TypeScolumns to s table ipttranscre n: Updatriptio
--- DescVersion: 003- de
--n coioh applicattcto maable schema  ttranscriptspdate igration: U-- M
+-- Update indexes
+DROP INDEX IF EXISTS idx_transcripts_month;
+DROP INDEX IF EXISTS idx_transcripts_client_month;
+
+CREATE INDEX IF NOT EXISTS idx_transcripts_date ON transcripts(date);
+CREATE INDEX IF NOT EXISTS idx_transcripts_client_date ON transcripts(client_id, date);
+CREATE INDEX IF NOT EXISTS idx_transcripts_type ON transcripts(transcript_type);
+CREATE INDEX IF NOT EXISTS idx_transcripts_created_by ON transcripts(created_by);
+
+-- Insert migration record
+INSERT INTO migrations (version, description) VALUES 
+('003_update_transcripts_schema', 'Update transcripts table schema to match application interfaces')
+ON CONFLICT (version) DO NOTHING;

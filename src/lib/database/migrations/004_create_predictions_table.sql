@@ -1,19 +1,13 @@
--- Create predictions table
-CREATE TABLE IF NOT EXISTS predictions (
-    id VARCHAR(255) PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
-    prediction_type VARCHAR(100) NOT NULL,
-    forecast_value INTEGER NOT NULL,
-    confidence_level INTEGER NOT NULL CHECK (confidence_level >= 0 AND confidence_level <= 100),
-    forecast_period VARCHAR(100) NOT NULL,
-    accuracy_score INTEGER CHECK (accuracy_score >= 0 AND accuracy_score <= 100),
-    metadata JSONB,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
+-- Update existing predictions table structure
+ALTER TABLE predictions 
+ADD COLUMN IF NOT EXISTS forecast_value INTEGER,
+ADD COLUMN IF NOT EXISTS confidence_level INTEGER CHECK (confidence_level >= 0 AND confidence_level <= 100),
+ADD COLUMN IF NOT EXISTS forecast_period VARCHAR(100),
+ADD COLUMN IF NOT EXISTS accuracy_score INTEGER CHECK (accuracy_score >= 0 AND accuracy_score <= 100),
+ADD COLUMN IF NOT EXISTS metadata JSONB,
+ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 
--- Create index for user queries
-CREATE INDEX IF NOT EXISTS idx_predictions_user_id ON predictions(user_id);
+-- Create indexes for predictions table
 CREATE INDEX IF NOT EXISTS idx_predictions_created_at ON predictions(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_predictions_type ON predictions(prediction_type);
 

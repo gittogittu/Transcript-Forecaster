@@ -1,11 +1,17 @@
 #!/usr/bin/env node
 
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables from .env.local
+dotenv.config({ path: path.join(process.cwd(), '.env.local') });
+
 import { MigrationUtilities } from './migration-utilities';
 import { MigrationRunner } from '@/lib/database/migration-runner';
 import { getDatabasePool } from '@/lib/database/connection';
 import { program } from 'commander';
 import fs from 'fs/promises';
-import path from 'path';
+// import path from 'path';
 
 async function ensureDirectoryExists(dirPath: string): Promise<void> {
   try {
