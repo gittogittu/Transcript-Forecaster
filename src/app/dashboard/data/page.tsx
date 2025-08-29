@@ -6,6 +6,7 @@ import { useEffect } from 'react'
 import { useDataSummary } from '@/lib/hooks/use-data-summary'
 import { MainLayout } from '@/components/layout/main-layout'
 import { DataActions } from '@/components/dashboard/data-actions'
+import { CSVImport } from '@/components/data/csv-import'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -160,6 +161,11 @@ export default function DataPage() {
               </p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* CSV Import */}
+        <div className="mb-8">
+          <CSVImport onImportComplete={handleDataChange} />
         </div>
 
         {/* Data Actions */}

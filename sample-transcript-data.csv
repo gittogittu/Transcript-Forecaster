@@ -1,0 +1,6 @@
+client_name,date,transcript_count,transcript_type,notes
+Acme Corp,2024-01-15,25,call,Monthly review call transcripts
+TechStart Inc,2024-01-16,18,meeting,Team standup meetings
+Global Solutions,2024-01-17,32,interview,Customer interview sessions
+Acme Corp,2024-01-18,22,call,Follow-up calls with clients
+TechStart Inc,2024-01-19,15,meeting,Sprint planning meetings

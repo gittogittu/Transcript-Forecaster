@@ -54,8 +54,7 @@ async function handleGET(request: NextRequest) {
             COUNT(*) as transcript_count,
             AVG(transcript_count) as avg_daily_count
           FROM transcripts
-          WHERE deleted_at IS NULL
-          AND date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '12 months'
+          WHERE date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '12 months'
           GROUP BY DATE_TRUNC('month', date)
           ORDER BY month
         `
@@ -213,8 +212,7 @@ async function handlePOST(request: NextRequest) {
             DATE_TRUNC('${period === 'next-week' ? 'day' : 'month'}', date) as period,
             COUNT(*) as transcript_count
           FROM transcripts
-          WHERE deleted_at IS NULL
-          AND date >= CURRENT_DATE - INTERVAL '${period === 'next-week' ? '8 weeks' : '12 months'}'
+          WHERE date >= CURRENT_DATE - INTERVAL '${period === 'next-week' ? '8 weeks' : '12 months'}'
           GROUP BY DATE_TRUNC('${period === 'next-week' ? 'day' : 'month'}', date)
           ORDER BY period
         `

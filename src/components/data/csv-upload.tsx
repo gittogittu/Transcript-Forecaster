@@ -8,12 +8,15 @@ import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Upload, FileText, CheckCircle, AlertCircle, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { useToast } from '@/hooks/use-toast'
 
 interface CSVUploadProps {
   onUpload?: (data: any[]) => void
+  onImportComplete?: (result: any) => void
   acceptedFileTypes?: string[]
   maxFileSize?: number
   className?: string
+  autoImport?: boolean
 }
 
 interface UploadedFile {
@@ -26,12 +29,16 @@ interface UploadedFile {
 
 export function CSVUpload({ 
   onUpload, 
+  onImportComplete,
   acceptedFileTypes = ['.csv', '.xlsx', '.xls'],
   maxFileSize = 10 * 1024 * 1024, // 10MB
-  className 
+  className,
+  autoImport = false
 }: CSVUploadProps) {
+  const { toast } = useToast()
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isImporting, setIsImporting] = useState(false)
 
   const processCSV = useCallback(async (file: File): Promise<any[]> => {
     return new Promise((resolve, reject) => {
@@ -64,6 +71,90 @@ export function CSVUpload({
       reader.readAsText(file)
     })
   }, [])
+
+  const importToDatabase = useCallback(async (data: any[], fileName: string) => {
+    setIsImporting(true)
+    
+    try {
+      // Create column mapping based on CSV headers
+      const columnMapping: Record<string, string> = {}
+      if (data.length > 0) {
+        const headers = Object.keys(data[0])
+        
+        // Map common column names to expected fields
+        headers.forEach(header => {
+          const lowerHeader = header.toLowerCase().trim()
+          if (lowerHeader.includes('client') || lowerHeader.includes('name')) {
+            columnMapping[header] = 'clientName'
+          } else if (lowerHeader.includes('date')) {
+            columnMapping[header] = 'date'
+          } else if (lowerHeader.includes('count') || lowerHeader.includes('transcript')) {
+            columnMapping[header] = 'transcriptCount'
+          } else if (lowerHeader.includes('type')) {
+            columnMapping[header] = 'transcriptType'
+          } else if (lowerHeader.includes('note')) {
+            columnMapping[header] = 'notes'
+          }
+        })
+      }
+
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          data,
+          columnMapping,
+          conflictResolution: 'merge',
+          fileName
+        })
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        toast({
+          title: "Import Successful",
+          description: `Successfully imported ${result.result?.successCount || 0} records from ${fileName}`,
+        })
+        
+        if (onImportComplete) {
+          onImportComplete(result)
+        }
+        
+        // Update file status to show import success
+        setUploadedFiles(prev => 
+          prev.map(f => 
+            f.file.name === fileName 
+              ? { ...f, status: 'success', data: [...(f.data || []), { imported: true, count: result.result?.successCount }] }
+              : f
+          )
+        )
+      } else {
+        throw new Error(result.error || 'Import failed')
+      }
+    } catch (error) {
+      console.error('Import error:', error)
+      
+      toast({
+        title: "Import Failed",
+        description: error instanceof Error ? error.message : "Failed to import data to database",
+        variant: "destructive"
+      })
+      
+      // Update file status to show import error
+      setUploadedFiles(prev => 
+        prev.map(f => 
+          f.file.name === fileName 
+            ? { ...f, error: `Import failed: ${error instanceof Error ? error.message : 'Unknown error'}` }
+            : f
+        )
+      )
+    } finally {
+      setIsImporting(false)
+    }
+  }, [onImportComplete])
 
   const handleFileUpload = useCallback(async (files: File[]) => {
     setIsProcessing(true)
@@ -103,6 +194,11 @@ export function CSVUpload({
 
         if (onUpload) {
           onUpload(data)
+        }
+
+        // Auto-import to database if enabled
+        if (autoImport && data.length > 0) {
+          await importToDatabase(data, file.name)
         }
       } catch (error) {
         setUploadedFiles(prev => 
@@ -228,14 +324,27 @@ export function CSVUpload({
                       </Alert>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeFile(index)}
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {!autoImport && uploadedFile.status === 'success' && uploadedFile.data && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => importToDatabase(uploadedFile.data!, uploadedFile.file.name)}
+                        disabled={isImporting}
+                        className="text-xs"
+                      >
+                        {isImporting ? 'Importing...' : 'Import to DB'}
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeFile(index)}
+                      className="text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>

@@ -51,7 +51,6 @@ async function handleGET(request: NextRequest) {
         const totalRecordsQuery = `
           SELECT COUNT(*) as total_records
           FROM transcripts
-          WHERE deleted_at IS NULL
         `
         const totalRecordsResult = await client.query(totalRecordsQuery)
         const totalRecords = parseInt(totalRecordsResult.rows[0]?.total_records || '0')
@@ -60,7 +59,6 @@ async function handleGET(request: NextRequest) {
         const lastUpdatedQuery = `
           SELECT MAX(updated_at) as last_updated
           FROM transcripts
-          WHERE deleted_at IS NULL
         `
         const lastUpdatedResult = await client.query(lastUpdatedQuery)
         const lastUpdated = lastUpdatedResult.rows[0]?.last_updated
@@ -70,11 +68,11 @@ async function handleGET(request: NextRequest) {
         const dataQualityQuery = `
           SELECT 
             COUNT(*) as total,
-            COUNT(CASE WHEN client_name IS NOT NULL AND client_name != '' THEN 1 END) as has_client,
-            COUNT(CASE WHEN transcript_count > 0 THEN 1 END) as has_count,
-            COUNT(CASE WHEN date IS NOT NULL THEN 1 END) as has_date
-          FROM transcripts
-          WHERE deleted_at IS NULL
+            COUNT(CASE WHEN c.name IS NOT NULL AND c.name != '' THEN 1 END) as has_client,
+            COUNT(CASE WHEN t.transcript_count > 0 THEN 1 END) as has_count,
+            COUNT(CASE WHEN t.date IS NOT NULL THEN 1 END) as has_date
+          FROM transcripts t
+          JOIN clients c ON t.client_id = c.id
         `
         const dataQualityResult = await client.query(dataQualityQuery)
         const qualityData = dataQualityResult.rows[0]
@@ -84,10 +82,10 @@ async function handleGET(request: NextRequest) {
 
         // Get active clients
         const activeClientsQuery = `
-          SELECT COUNT(DISTINCT client_name) as active_clients
-          FROM transcripts
-          WHERE deleted_at IS NULL
-          AND date >= CURRENT_DATE - INTERVAL '30 days'
+          SELECT COUNT(DISTINCT c.name) as active_clients
+          FROM transcripts t
+          JOIN clients c ON t.client_id = c.id
+          WHERE t.date >= CURRENT_DATE - INTERVAL '30 days'
         `
         const activeClientsResult = await client.query(activeClientsQuery)
         const activeClients = parseInt(activeClientsResult.rows[0]?.active_clients || '0')
@@ -96,8 +94,7 @@ async function handleGET(request: NextRequest) {
         const thisMonthEntriesQuery = `
           SELECT COUNT(*) as this_month_entries
           FROM transcripts
-          WHERE deleted_at IS NULL
-          AND created_at >= DATE_TRUNC('month', CURRENT_DATE)
+          WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE)
           AND created_at < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
         `
         const thisMonthEntriesResult = await client.query(thisMonthEntriesQuery)
@@ -106,15 +103,15 @@ async function handleGET(request: NextRequest) {
         // Get recent entries
         const recentEntriesQuery = `
           SELECT 
-            id,
-            client_name,
-            date,
-            transcript_count,
-            transcript_type,
-            created_at
-          FROM transcripts
-          WHERE deleted_at IS NULL
-          ORDER BY created_at DESC
+            t.id,
+            c.name as client_name,
+            t.date,
+            t.transcript_count,
+            t.transcript_type,
+            t.created_at
+          FROM transcripts t
+          JOIN clients c ON t.client_id = c.id
+          ORDER BY t.created_at DESC
           LIMIT 10
         `
         const recentEntriesResult = await client.query(recentEntriesQuery)

@@ -1,5 +1,8 @@
 import type { NextConfig } from 'next'
 
+// Check if we're using Turbopack (Next.js sets this internally)
+const isTurbopack = process.env.TURBOPACK === '1' || process.env.__NEXT_PRIVATE_TURBOPACK === '1'
+
 const nextConfig: NextConfig = {
   // ESLint configuration for build
   eslint: {
@@ -30,48 +33,41 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Bundle optimization
-  webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
-    // Handle client-side fallbacks for various Node.js modules
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      fs: false,
-      path: false,
-      crypto: false,
-      stream: false,
-      buffer: false,
-      util: false,
-    }
+  // Only include webpack config when not using Turbopack
+  ...(isTurbopack ? {} : {
+    webpack: (config, { buildId, dev, isServer, defaultLoaders, webpack }) => {
+      // Handle client-side fallbacks for various Node.js modules
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        crypto: false,
+        stream: false,
+        buffer: false,
+        util: false,
+      }
 
-    // Exclude client-only libraries from server bundle
-    if (isServer) {
-      config.externals = config.externals || []
-      config.externals.push({
-        'framer-motion': 'framer-motion',
-        'recharts': 'recharts'
-      })
-    }
-
-    // Add global polyfills for client-side libraries
-    if (!isServer) {
-      config.plugins.push(
-        new webpack.DefinePlugin({
-          'global.self': 'self',
+      // Exclude client-only libraries from server bundle
+      if (isServer) {
+        config.externals = config.externals || []
+        config.externals.push({
+          'framer-motion': 'framer-motion',
+          'recharts': 'recharts'
         })
-      )
-    }
-    // Simplified optimization to avoid SSR issues
-    config.optimization = {
-      ...config.optimization,
-      usedExports: true,
-      sideEffects: false,
-    }
+      }
 
-    // Bundle analyzer in development
-    if (!dev && !isServer) {
-      const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
-      
-      if (process.env.ANALYZE === 'true') {
+      // Add global polyfills for client-side libraries
+      if (!isServer) {
+        config.plugins.push(
+          new webpack.DefinePlugin({
+            'global.self': 'self',
+          })
+        )
+      }
+
+      // Bundle analyzer for production
+      if (!dev && process.env.ANALYZE === 'true') {
+        const { BundleAnalyzerPlugin } = require('webpack-bundle-analyzer')
         config.plugins.push(
           new BundleAnalyzerPlugin({
             analyzerMode: 'static',
@@ -80,17 +76,16 @@ const nextConfig: NextConfig = {
           })
         )
       }
-    }
 
-    // Optimize imports
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      // Use ES modules for better tree shaking
-      'lodash': 'lodash-es',
-    }
+      // Optimize imports
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'lodash': 'lodash-es',
+      }
 
-    return config
-  },
+      return config
+    },
+  }),
 
   // Compression and optimization
   compress: true,

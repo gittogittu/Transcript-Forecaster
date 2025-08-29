@@ -19,7 +19,7 @@ async function handleGET(request: NextRequest) {
   return performanceMiddleware(request, async () => {
     try {
       const user = await getCurrentUser(request)
-      
+
       if (!user) {
         return NextResponse.json(
           { error: 'Authentication required' },
@@ -30,14 +30,14 @@ async function handleGET(request: NextRequest) {
       // Try database first, fallback to mock service
       let client
       let useMockData = false
-      
+
       try {
         client = await pool.connect()
       } catch (dbError) {
         console.warn('Database connection failed, using mock data:', dbError)
         useMockData = true
       }
-      
+
       if (useMockData) {
         const dashboardData = await mockDataService.getDashboardData()
         return NextResponse.json({
@@ -45,23 +45,21 @@ async function handleGET(request: NextRequest) {
           data: dashboardData
         })
       }
-      
+
       try {
         // Get total transcripts
         const totalTranscriptsQuery = `
           SELECT COUNT(*) as total_transcripts
           FROM transcripts
-          WHERE deleted_at IS NULL
         `
         const totalTranscriptsResult = await client.query(totalTranscriptsQuery)
         const totalTranscripts = parseInt(totalTranscriptsResult.rows[0]?.total_transcripts || '0')
 
         // Get this month's transcripts
         const thisMonthQuery = `
-          SELECT COUNT(*) as this_month
+          SELECT COALESCE(SUM(transcript_count), 0) as this_month
           FROM transcripts
-          WHERE deleted_at IS NULL
-          AND date >= DATE_TRUNC('month', CURRENT_DATE)
+          WHERE date >= DATE_TRUNC('month', CURRENT_DATE)
           AND date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
         `
         const thisMonthResult = await client.query(thisMonthQuery)
@@ -69,10 +67,9 @@ async function handleGET(request: NextRequest) {
 
         // Get last month's transcripts for growth calculation
         const lastMonthQuery = `
-          SELECT COUNT(*) as last_month
+          SELECT COALESCE(SUM(transcript_count), 0) as last_month
           FROM transcripts
-          WHERE deleted_at IS NULL
-          AND date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month'
+          WHERE date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month'
           AND date < DATE_TRUNC('month', CURRENT_DATE)
         `
         const lastMonthResult = await client.query(lastMonthQuery)
@@ -83,10 +80,10 @@ async function handleGET(request: NextRequest) {
 
         // Get active clients (clients with transcripts in last 30 days)
         const activeClientsQuery = `
-          SELECT COUNT(DISTINCT client_name) as active_clients
-          FROM transcripts
-          WHERE deleted_at IS NULL
-          AND date >= CURRENT_DATE - INTERVAL '30 days'
+          SELECT COUNT(DISTINCT c.name) as active_clients
+          FROM transcripts t
+          JOIN clients c ON t.client_id = c.id
+          WHERE t.date >= CURRENT_DATE - INTERVAL '30 days'
         `
         const activeClientsResult = await client.query(activeClientsQuery)
         const activeClients = parseInt(activeClientsResult.rows[0]?.active_clients || '0')
@@ -95,8 +92,7 @@ async function handleGET(request: NextRequest) {
         const avgHandlingTimeQuery = `
           SELECT AVG(handling_time_minutes) as avg_handling_time
           FROM transcripts
-          WHERE deleted_at IS NULL
-          AND handling_time_minutes IS NOT NULL
+          WHERE handling_time_minutes IS NOT NULL
           AND date >= CURRENT_DATE - INTERVAL '30 days'
         `
         const avgHandlingTimeResult = await client.query(avgHandlingTimeQuery)
@@ -106,12 +102,12 @@ async function handleGET(request: NextRequest) {
         const recentActivityQuery = `
           SELECT 
             'transcript' as type,
-            'Added ' || transcript_count || ' transcripts for ' || client_name as description,
-            created_at as timestamp,
+            'Added ' || t.transcript_count || ' transcripts for ' || c.name as description,
+            t.created_at as timestamp,
             'success' as status
-          FROM transcripts
-          WHERE deleted_at IS NULL
-          ORDER BY created_at DESC
+          FROM transcripts t
+          JOIN clients c ON t.client_id = c.id
+          ORDER BY t.created_at DESC
           LIMIT 5
         `
         const recentActivityResult = await client.query(recentActivityQuery)
@@ -127,7 +123,6 @@ async function handleGET(request: NextRequest) {
         const lastSyncQuery = `
           SELECT MAX(updated_at) as last_sync
           FROM transcripts
-          WHERE deleted_at IS NULL
         `
         const lastSyncResult = await client.query(lastSyncQuery)
         const lastSync = lastSyncResult.rows[0]?.last_sync
@@ -137,25 +132,24 @@ async function handleGET(request: NextRequest) {
         const predictionQuery = `
           SELECT 
             DATE_TRUNC('month', date) as month,
-            COUNT(*) as count
+            SUM(transcript_count) as count
           FROM transcripts
-          WHERE deleted_at IS NULL
-          AND date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '3 months'
+          WHERE date >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '3 months'
           GROUP BY DATE_TRUNC('month', date)
           ORDER BY month
         `
         const predictionResult = await client.query(predictionQuery)
         const monthlyData = predictionResult.rows.map(row => parseInt(row.count))
-        
+
         // Simple prediction: average of last 3 months with trend
         let nextMonthPrediction = thisMonth
         let confidence = 75
-        
+
         if (monthlyData.length >= 2) {
           const avg = monthlyData.reduce((sum, val) => sum + val, 0) / monthlyData.length
-          const trend = monthlyData.length >= 3 ? 
+          const trend = monthlyData.length >= 3 ?
             (monthlyData[monthlyData.length - 1] - monthlyData[0]) / (monthlyData.length - 1) : 0
-          
+
           nextMonthPrediction = Math.round(avg + trend)
           confidence = Math.min(95, Math.max(60, 75 + (monthlyData.length * 5)))
         }
@@ -200,12 +194,12 @@ async function handleGET(request: NextRequest) {
 function formatTimeAgo(date: Date): string {
   const now = new Date()
   const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-  
+
   if (diffInSeconds < 60) return 'Just now'
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`
   if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`
-  
+
   return date.toLocaleDateString()
 }
 
