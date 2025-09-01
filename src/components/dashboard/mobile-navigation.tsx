@@ -117,6 +117,16 @@ export function MobileNavigation() {
   const pathname = usePathname()
   const { data: session } = useSession() as { data: ExtendedSession | null }
   
+  // Prevent build-time issues
+  if (typeof window === 'undefined') {
+    return (
+      <Button variant="ghost" size="icon" className="md:hidden">
+        <Menu className="h-5 w-5" />
+        <span className="sr-only">Toggle navigation menu</span>
+      </Button>
+    )
+  }
+  
   const userRole = session?.user?.role || 'viewer'
   
   // Filter navigation items based on user role

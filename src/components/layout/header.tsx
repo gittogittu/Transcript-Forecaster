@@ -34,6 +34,21 @@ export function Header() {
   const router = useRouter()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
 
+  // Prevent build-time issues
+  if (typeof window === 'undefined') {
+    return (
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-14 items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 animate-pulse" />
+            <div className="h-4 w-32 bg-muted animate-pulse rounded" />
+          </div>
+          <div className="h-8 w-8 rounded-full bg-muted animate-pulse" />
+        </div>
+      </header>
+    )
+  }
+
   const handleSignOut = async () => {
     setIsLoggingOut(true)
     try {

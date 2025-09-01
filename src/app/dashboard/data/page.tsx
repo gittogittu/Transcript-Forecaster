@@ -7,6 +7,7 @@ import { useDataSummary } from '@/lib/hooks/use-data-summary'
 import { MainLayout } from '@/components/layout/main-layout'
 import { DataActions } from '@/components/dashboard/data-actions'
 import { CSVImport } from '@/components/data/csv-import'
+import { TestAPI } from '@/components/data/test-api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -161,6 +162,11 @@ export default function DataPage() {
               </p>
             </CardContent>
           </Card>
+        </div>
+
+        {/* API Test */}
+        <div className="mb-8">
+          <TestAPI />
         </div>
 
         {/* CSV Import */}

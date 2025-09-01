@@ -104,6 +104,11 @@ export function DashboardNavigation() {
   const pathname = usePathname()
   const { data: session } = useSession() as { data: ExtendedSession | null }
   
+  // Prevent build-time issues
+  if (typeof window === 'undefined') {
+    return null
+  }
+  
   const userRole = session?.user?.role || 'viewer'
   
   // Filter navigation items based on user role

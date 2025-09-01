@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
+import { useSession } from 'next-auth/react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -36,6 +37,7 @@ export function CSVUpload({
   autoImport = false
 }: CSVUploadProps) {
   const { toast } = useToast()
+  const { data: session } = useSession()
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [isImporting, setIsImporting] = useState(false)
@@ -73,50 +75,58 @@ export function CSVUpload({
   }, [])
 
   const importToDatabase = useCallback(async (data: any[], fileName: string) => {
+    if (!session?.user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to import data",
+        variant: "destructive"
+      })
+      return
+    }
+
     setIsImporting(true)
     
     try {
-      // Create column mapping based on CSV headers
-      const columnMapping: Record<string, string> = {}
-      if (data.length > 0) {
-        const headers = Object.keys(data[0])
-        
-        // Map common column names to expected fields
-        headers.forEach(header => {
-          const lowerHeader = header.toLowerCase().trim()
-          if (lowerHeader.includes('client') || lowerHeader.includes('name')) {
-            columnMapping[header] = 'clientName'
-          } else if (lowerHeader.includes('date')) {
-            columnMapping[header] = 'date'
-          } else if (lowerHeader.includes('count') || lowerHeader.includes('transcript')) {
-            columnMapping[header] = 'transcriptCount'
-          } else if (lowerHeader.includes('type')) {
-            columnMapping[header] = 'transcriptType'
-          } else if (lowerHeader.includes('note')) {
-            columnMapping[header] = 'notes'
-          }
-        })
+      // Transform CSV data to transcript format
+      const transcripts = data.map(row => {
+        // Map CSV columns to transcript fields
+        const clientName = row.client_name || row['Client Name'] || row.client || row.name || ''
+        const date = row.date || row.Date || ''
+        const transcriptCount = parseInt(row.transcript_count || row['Transcript Count'] || row.count || '0')
+        const transcriptType = row.transcript_type || row['Transcript Type'] || row.type || 'call'
+        const notes = row.notes || row.Notes || row.comments || ''
+
+        return {
+          clientName: clientName.toString().trim(),
+          date: date.toString().trim(),
+          transcriptCount: isNaN(transcriptCount) ? 0 : transcriptCount,
+          transcriptType: transcriptType.toString().trim() || 'call',
+          notes: notes.toString().trim() || undefined
+        }
+      }).filter(transcript => transcript.clientName && transcript.date && transcript.transcriptCount >= 0)
+
+      if (transcripts.length === 0) {
+        throw new Error('No valid transcript data found in CSV file')
       }
 
-      const response = await fetch('/api/import', {
+      // Use the transcripts API for bulk creation
+      const response = await fetch('/api/transcripts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          data,
-          columnMapping,
-          conflictResolution: 'merge',
-          fileName
-        })
+        credentials: 'include',
+        body: JSON.stringify(transcripts)
       })
 
       const result = await response.json()
       
       if (result.success) {
+        const importedCount = Array.isArray(result.data) ? result.data.length : 1
+        
         toast({
           title: "Import Successful",
-          description: `Successfully imported ${result.result?.successCount || 0} records from ${fileName}`,
+          description: `Successfully imported ${importedCount} records from ${fileName}`,
         })
         
         if (onImportComplete) {
@@ -127,7 +137,7 @@ export function CSVUpload({
         setUploadedFiles(prev => 
           prev.map(f => 
             f.file.name === fileName 
-              ? { ...f, status: 'success', data: [...(f.data || []), { imported: true, count: result.result?.successCount }] }
+              ? { ...f, status: 'success', data: [...(f.data || []), { imported: true, count: importedCount }] }
               : f
           )
         )
@@ -154,7 +164,7 @@ export function CSVUpload({
     } finally {
       setIsImporting(false)
     }
-  }, [onImportComplete])
+  }, [onImportComplete, session, toast])
 
   const handleFileUpload = useCallback(async (files: File[]) => {
     setIsProcessing(true)

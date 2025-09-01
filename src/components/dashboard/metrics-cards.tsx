@@ -258,6 +258,17 @@ export function MetricsCards({ metrics = defaultMetrics, loading = false }: Metr
   const { data: session } = useSession() as { data: ExtendedSession | null }
   const userRole = session?.user?.role || 'viewer'
   
+  // Prevent build-time issues
+  if (typeof window === 'undefined') {
+    return (
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <MetricCardSkeleton key={index} index={index} />
+        ))}
+      </div>
+    )
+  }
+  
   // Filter metrics based on user role
   const accessibleMetrics = metrics.filter(metric => hasAccess(userRole, metric))
   
