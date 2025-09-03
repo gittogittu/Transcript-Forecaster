@@ -1,6 +1,6 @@
 "use client"
 
-import { CSVUpload } from './csv-upload'
+import { CSVUpload } from './csv-upload-fixed'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Database } from 'lucide-react'
 

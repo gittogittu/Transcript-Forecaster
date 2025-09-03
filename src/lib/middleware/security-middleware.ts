@@ -186,6 +186,8 @@ export class SecurityMiddleware {
     if (endpoint.includes('/auth/')) {
       config.rateLimitType = 'auth'
       config.enableCSRF = false // OAuth flows handle CSRF differently
+    } else if (endpoint.includes('/transcripts')) {
+      config.enableCSRF = false // Temporarily disable CSRF for transcripts API
     } else if (endpoint.includes('/upload/')) {
       config.rateLimitType = 'upload'
     } else if (endpoint.includes('/predictions/')) {

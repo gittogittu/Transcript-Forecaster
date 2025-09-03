@@ -7,7 +7,11 @@ import { useDataSummary } from '@/lib/hooks/use-data-summary'
 import { MainLayout } from '@/components/layout/main-layout'
 import { DataActions } from '@/components/dashboard/data-actions'
 import { CSVImport } from '@/components/data/csv-import'
+import { FileDebug } from '@/components/data/file-debug'
 import { TestAPI } from '@/components/data/test-api'
+import { CSRFDebug } from '@/components/data/csrf-debug'
+import { SimpleUpload } from '@/components/data/simple-upload'
+import { BasicTest } from '@/components/data/basic-test'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -167,6 +171,26 @@ export default function DataPage() {
         {/* API Test */}
         <div className="mb-8">
           <TestAPI />
+        </div>
+
+        {/* Basic API Test */}
+        <div className="mb-8">
+          <BasicTest />
+        </div>
+
+        {/* Simple Upload Test */}
+        <div className="mb-8">
+          <SimpleUpload />
+        </div>
+
+        {/* CSRF Debug Tool */}
+        <div className="mb-8">
+          <CSRFDebug />
+        </div>
+
+        {/* File Debug Tool */}
+        <div className="mb-8">
+          <FileDebug />
         </div>
 
         {/* CSV Import */}

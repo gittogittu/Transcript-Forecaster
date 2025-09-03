@@ -11,7 +11,6 @@ import { Upload, FileText, CheckCircle, AlertCircle, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import { getCSRFHeaders } from '@/lib/utils/csrf'
-import * as XLSX from 'xlsx'
 
 interface CSVUploadProps {
   onUpload?: (data: any[]) => void
@@ -45,41 +44,30 @@ export function CSVUpload({
   const [isImporting, setIsImporting] = useState(false)
 
   const processFile = useCallback(async (file: File): Promise<any[]> => {
-    return new Promise((resolve, reject) => {
-      const fileExtension = file.name.toLowerCase().split('.').pop()
-      
-      if (fileExtension === 'csv') {
-        // Handle CSV files
+    const fileExtension = file.name.toLowerCase().split('.').pop()
+    
+    if (fileExtension === 'csv') {
+      // Handle CSV files
+      return new Promise((resolve, reject) => {
         const reader = new FileReader()
         
         reader.onload = (e) => {
           try {
             const text = e.target?.result as string
-            console.log('Raw CSV text (first 500 chars):', text.substring(0, 500))
-            console.log('Full text length:', text.length)
+            console.log('Processing CSV file:', file.name)
             
             const allLines = text.split('\n')
-            console.log('Total lines found:', allLines.length)
             
-            // Find the first line that has meaningful content (headers)
+            // Find header row
             let headerLineIndex = -1
             let headers: string[] = []
             
             for (let i = 0; i < allLines.length; i++) {
               const line = allLines[i].trim()
-              if (!line) continue // Skip empty lines
+              if (!line) continue
               
-              // Handle different CSV formats - some might use semicolons or tabs
-              let delimiter = ','
-              if (line.includes(';') && !line.includes(',')) {
-                delimiter = ';'
-              } else if (line.includes('\t')) {
-                delimiter = '\t'
-              }
+              const potentialHeaders = line.split(',').map(h => h.trim().replace(/"/g, ''))
               
-              const potentialHeaders = line.split(delimiter).map(h => h.trim().replace(/"/g, ''))
-              
-              // Check if this looks like a header row
               const hasValidHeaders = potentialHeaders.some(h => 
                 h && (
                   h.toLowerCase().includes('client') ||
@@ -89,219 +77,162 @@ export function CSVUpload({
                   ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].includes(h)
                 )
               )
-              
-              console.log(`Line ${i + 1}: "${line.substring(0, 100)}..."`)
-              console.log(`Potential headers:`, potentialHeaders)
-              console.log(`Has valid headers:`, hasValidHeaders)
               
               if (hasValidHeaders && potentialHeaders.filter(h => h.trim()).length > 1) {
                 headerLineIndex = i
                 headers = potentialHeaders
-                console.log(`Found headers at line ${i + 1}:`, headers)
                 break
               }
             }
             
-            if (headerLineIndex === -1 || headers.length === 0) {
+            if (headerLineIndex === -1) {
               reject(new Error('Could not find valid headers in CSV file'))
               return
             }
             
-            // Determine delimiter from header line
-            const headerLine = allLines[headerLineIndex]
-            let delimiter = ','
-            if (headerLine.includes(';') && !headerLine.includes(',')) {
-              delimiter = ';'
-            } else if (headerLine.includes('\t')) {
-              delimiter = '\t'
-            }
-            
-            console.log('Using delimiter:', delimiter === '\t' ? 'TAB' : delimiter)
-
-            // Parse data rows starting after the header line
+            // Parse data rows
             const data = allLines.slice(headerLineIndex + 1)
-              .filter(line => line.trim()) // Remove empty lines
-              .map((line, index) => {
-                const values = line.split(delimiter).map(v => v.trim().replace(/"/g, ''))
+              .filter(line => line.trim())
+              .map(line => {
+                const values = line.split(',').map(v => v.trim().replace(/"/g, ''))
                 const row: any = {}
                 headers.forEach((header, headerIndex) => {
                   row[header] = values[headerIndex] || ''
                 })
-                
-                // Log first few rows for debugging
-                if (index < 3) {
-                  console.log(`Data row ${index + 1}:`, row)
-                }
-                
                 return row
               })
               .filter(row => {
-                // Filter out rows that are completely empty or just contain commas
-                const hasData = Object.values(row).some(value => 
-                  value && value.toString().trim() && value.toString().trim() !== ','
-                )
-                return hasData
-              })
-
-            console.log('Parsed data rows:', data.length)
-            resolve(data)
-          } catch (error) {
-            console.error('CSV parsing error:', error)
-            reject(new Error(`Failed to parse CSV file: ${error instanceof Error ? error.message : 'Unknown error'}`))
-          }
-        }
-
-        reader.onerror = () => reject(new Error('Failed to read file'))
-        reader.readAsText(file)
-      } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
-        // Handle Excel files
-        const reader = new FileReader()
-        
-        reader.onload = async (e) => {
-          try {
-            const arrayBuffer = e.target?.result as ArrayBuffer
-            console.log('Excel file size:', arrayBuffer.byteLength)
-            
-            // Use the imported XLSX library
-            
-            // Parse the Excel file
-            const workbook = XLSX.read(arrayBuffer, { type: 'array' })
-            console.log('Excel sheets found:', workbook.SheetNames)
-            
-            // Get the first sheet (or you could let user choose)
-            const firstSheetName = workbook.SheetNames[0]
-            const worksheet = workbook.Sheets[firstSheetName]
-            
-            // Convert to JSON
-            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
-            console.log('Raw Excel data rows:', jsonData.length)
-            console.log('First few rows:', jsonData.slice(0, 5))
-            
-            // Find header row and convert to object format
-            let headerRowIndex = -1
-            let headers: string[] = []
-            
-            for (let i = 0; i < jsonData.length; i++) {
-              const row = jsonData[i] as any[]
-              if (!row || row.length === 0) continue
-              
-              const potentialHeaders = row.map(cell => cell ? cell.toString().trim() : '')
-              
-              // Check if this looks like a header row
-              const hasValidHeaders = potentialHeaders.some(h => 
-                h && (
-                  h.toLowerCase().includes('client') ||
-                  h.toLowerCase().includes('total') ||
-                  h.toLowerCase().includes('count') ||
-                  h.toLowerCase().includes('aht') ||
-                  ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].includes(h)
-                )
-              )
-              
-              if (hasValidHeaders && potentialHeaders.filter(h => h.trim()).length > 1) {
-                headerRowIndex = i
-                headers = potentialHeaders
-                console.log(`Found headers at row ${i + 1}:`, headers)
-                break
-              }
-            }
-            
-            if (headerRowIndex === -1 || headers.length === 0) {
-              reject(new Error('Could not find valid headers in Excel file'))
-              return
-            }
-            
-            // Convert remaining rows to objects
-            const data = jsonData.slice(headerRowIndex + 1)
-              .filter((row: any) => row && row.length > 0)
-              .map((row: any[], index) => {
-                const rowObj: any = {}
-                headers.forEach((header, headerIndex) => {
-                  const cellValue = row[headerIndex]
-                  rowObj[header] = cellValue ? cellValue.toString().trim() : ''
-                })
-                
-                // Log first few rows for debugging
-                if (index < 3) {
-                  console.log(`Excel data row ${index + 1}:`, rowObj)
-                }
-                
-                return rowObj
-              })
-              .filter(row => {
-                // Filter out rows that are completely empty
                 const hasData = Object.values(row).some(value => 
                   value && value.toString().trim()
                 )
                 return hasData
               })
 
-            console.log('Parsed Excel data rows:', data.length)
+            console.log('Parsed CSV data rows:', data.length)
             resolve(data)
           } catch (error) {
-            console.error('Excel parsing error:', error)
-            reject(new Error(`Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`))
+            console.error('CSV parsing error:', error)
+            reject(new Error('Failed to parse CSV file'))
           }
         }
 
-        reader.onerror = () => reject(new Error('Failed to read Excel file'))
-        reader.readAsArrayBuffer(file)
-      } else {
-        reject(new Error('Unsupported file format. Please use CSV, XLS, or XLSX files.'))
-      }
-    })
+        reader.onerror = () => reject(new Error('Failed to read file'))
+        reader.readAsText(file)
+      })
+    } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+      // Handle Excel files
+      return new Promise(async (resolve, reject) => {
+        try {
+          const arrayBuffer = await file.arrayBuffer()
+          console.log('Processing Excel file:', file.name)
+          
+          // Import xlsx library dynamically
+          const XLSX = await import('xlsx')
+          
+          // Parse the Excel file
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' })
+          const firstSheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[firstSheetName]
+          
+          // Convert to JSON
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+          
+          // Find header row
+          let headerRowIndex = -1
+          let headers: string[] = []
+          
+          for (let i = 0; i < jsonData.length; i++) {
+            const row = jsonData[i] as any[]
+            if (!row || row.length === 0) continue
+            
+            const potentialHeaders = row.map(cell => cell ? cell.toString().trim() : '')
+            
+            const hasValidHeaders = potentialHeaders.some(h => 
+              h && (
+                h.toLowerCase().includes('client') ||
+                h.toLowerCase().includes('total') ||
+                h.toLowerCase().includes('count') ||
+                h.toLowerCase().includes('aht') ||
+                ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].includes(h)
+              )
+            )
+            
+            if (hasValidHeaders && potentialHeaders.filter(h => h.trim()).length > 1) {
+              headerRowIndex = i
+              headers = potentialHeaders
+              break
+            }
+          }
+          
+          if (headerRowIndex === -1) {
+            reject(new Error('Could not find valid headers in Excel file'))
+            return
+          }
+          
+          // Convert remaining rows to objects
+          const data = jsonData.slice(headerRowIndex + 1)
+            .filter((row: any) => row && row.length > 0)
+            .map((row: any[]) => {
+              const rowObj: any = {}
+              headers.forEach((header, headerIndex) => {
+                const cellValue = row[headerIndex]
+                rowObj[header] = cellValue ? cellValue.toString().trim() : ''
+              })
+              return rowObj
+            })
+            .filter(row => {
+              const hasData = Object.values(row).some(value => 
+                value && value.toString().trim()
+              )
+              return hasData
+            })
+
+          console.log('Parsed Excel data rows:', data.length)
+          resolve(data)
+        } catch (error) {
+          console.error('Excel parsing error:', error)
+          reject(new Error('Failed to parse Excel file'))
+        }
+      })
+    } else {
+      throw new Error('Unsupported file format. Please use CSV, XLS, or XLSX files.')
+    }
   }, [])
 
   const detectFileFormat = useCallback((data: any[]) => {
-    if (data.length === 0) {
-      console.log('No data to detect format from')
-      return 'unknown'
-    }
+    if (data.length === 0) return 'unknown'
 
     const headers = Object.keys(data[0])
-    console.log('Detecting format from headers:', headers)
 
     // Check for client breakdown format
     const monthColumns = headers.filter(h => ['Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May'].includes(h))
     const hasClientColumn = headers.includes('Client') || headers.includes('client') || headers.some(h => h.toLowerCase().includes('client'))
-
-    console.log('Month columns found:', monthColumns)
-    console.log('Has client column:', hasClientColumn)
-
+    const hasAHTColumns = headers.some(h => h.toLowerCase().includes('aht'))
+    
     if (hasClientColumn && monthColumns.length > 0) {
-      console.log('Detected: client-breakdown format')
       return 'client-breakdown'
     }
 
     // Check for monthly totals format
-    const monthlyTotalColumns = headers.filter(h =>
-      h.includes('Monthly Total Count') ||
-      h.includes('Total Files Uploaded') ||
-      h.includes('Total Files Processed') ||
-      h.toLowerCase().includes('total')
+    const monthlyTotalColumns = headers.filter(h => 
+      h === 'Monthly Total Count' || 
+      h === 'Total Files Uploaded' || 
+      h === 'Total Files Processed' ||
+      (h.toLowerCase().includes('total') && h.toLowerCase().includes('count'))
     )
-
-    console.log('Monthly total columns found:', monthlyTotalColumns)
-
+    
     if (monthlyTotalColumns.length > 0) {
-      console.log('Detected: monthly-totals format')
       return 'monthly-totals'
     }
 
     // Check for standard transcript format
     const clientNameColumns = headers.filter(h => ['client_name', 'Client Name', 'client', 'name'].includes(h))
     const dateColumns = headers.filter(h => ['date', 'Date'].includes(h))
-
-    console.log('Client name columns found:', clientNameColumns)
-    console.log('Date columns found:', dateColumns)
-
+    
     if (clientNameColumns.length > 0 && dateColumns.length > 0) {
-      console.log('Detected: standard format')
       return 'standard'
     }
 
-    console.log('Format detection failed - returning unknown')
-    console.log('All headers found:', headers)
     return 'unknown'
   }, [])
 
@@ -310,17 +241,10 @@ export function CSVUpload({
     const currentYear = new Date().getFullYear()
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-    console.log('Transforming client breakdown data, rows:', data.length)
-    console.log('Sample row:', data[0])
-
     data.forEach((row, rowIndex) => {
-      // Get the client name from the "Client" column
       const clientValue = row['Client'] || row['client'] || ''
 
-      console.log(`Row ${rowIndex + 1} - Client: "${clientValue}"`)
-
       if (!clientValue || clientValue.toString().trim() === '' || clientValue.toString().trim() === 'Grand Total') {
-        console.log(`Skipping row ${rowIndex + 1} - no client name or grand total row`)
         return
       }
 
@@ -337,34 +261,19 @@ export function CSVUpload({
 
       // Process each month column that exists in the data
       const availableMonths = Object.keys(row).filter(key => monthNames.includes(key))
-      console.log(`Row ${rowIndex + 1} - Available months:`, availableMonths)
 
       availableMonths.forEach(month => {
         const countStr = row[month] || '0'
-        // Handle numbers with commas (like "1,152")
         const cleanCountStr = countStr.toString().replace(/[,"]/g, '')
         const count = parseInt(cleanCountStr)
-
-        console.log(`Row ${rowIndex + 1} - ${month}: "${countStr}" -> ${count}`)
 
         if (!isNaN(count) && count > 0) {
           const monthIndex = monthNames.indexOf(month)
           let year = currentYear
 
           // Handle year logic based on the position in your CSV
-          // Your CSV shows 2024 months first (Jun-Dec), then 2025 months (Jan-Jun)
-          // So if we're processing Jan-May, it's likely 2025
           if (['Jan', 'Feb', 'Mar', 'Apr', 'May'].includes(month)) {
             year = currentYear + 1
-          } else if (month === 'Jun') {
-            // For June, we need to check position - first Jun is 2024, second Jun is 2025
-            // This is a simplified approach - you might need to adjust based on your data structure
-            const junColumns = availableMonths.filter(m => m === 'Jun')
-            if (junColumns.length > 1) {
-              // If there are multiple Jun columns, assume first is current year, second is next year
-              // This is a limitation of the current approach
-              year = currentYear
-            }
           }
 
           const date = new Date(year, monthIndex, 1)
@@ -380,35 +289,24 @@ export function CSVUpload({
       })
     })
 
-    console.log('Client breakdown transformation complete. Generated transcripts:', transcripts.length)
     return transcripts
   }, [])
 
   const transformMonthlyTotalsData = useCallback((data: any[]) => {
     const transcripts: any[] = []
 
-    console.log('Transforming monthly totals data, rows:', data.length)
-    console.log('Sample row:', data[0])
-
     data.forEach((row, index) => {
-      console.log(`Row ${index + 1}:`, row)
-
-      // Get the date from the first column (Monthly Total Count)
       const dateStr = row['Monthly Total Count'] || ''
       const totalFilesUploaded = parseInt((row['Total Files Uploaded'] || '0').toString().replace(/[^0-9]/g, ''))
       const totalFilesProcessed = parseInt((row['Total Files Processed'] || '0').toString().replace(/[^0-9]/g, ''))
 
-      console.log(`Row ${index + 1} - Date: "${dateStr}", Uploaded: ${totalFilesUploaded}, Processed: ${totalFilesProcessed}`)
-
       if (!dateStr || (!totalFilesUploaded && !totalFilesProcessed)) {
-        console.log(`Skipping row ${index + 1} - missing date or counts`)
         return
       }
 
       // Parse the date string (format: "Jan 2024", "Feb 2024", etc.)
       let date: Date
       try {
-        // Handle formats like "Jan 2024"
         const dateParts = dateStr.toString().trim().split(' ')
         if (dateParts.length === 2) {
           const monthStr = dateParts[0]
@@ -426,7 +324,6 @@ export function CSVUpload({
           throw new Error('Unexpected date format')
         }
       } catch (error) {
-        console.log(`Row ${index + 1} - Could not parse date "${dateStr}", using fallback`)
         date = new Date(2024, index, 1) // Fallback
       }
 
@@ -452,7 +349,6 @@ export function CSVUpload({
       }
     })
 
-    console.log('Monthly totals transformation complete. Generated transcripts:', transcripts.length)
     return transcripts
   }, [])
 
@@ -485,7 +381,7 @@ export function CSVUpload({
     }
 
     setIsImporting(true)
-
+    
     try {
       // Detect file format and transform data accordingly
       const format = detectFileFormat(data)
@@ -494,7 +390,6 @@ export function CSVUpload({
       console.log(`Detected file format: ${format}`)
       console.log('Sample data row:', data[0])
       console.log('Total data rows received:', data.length)
-      console.log('All data rows:', data)
 
       try {
         switch (format) {
@@ -616,7 +511,7 @@ export function CSVUpload({
     } finally {
       setIsImporting(false)
     }
-  }, [onImportComplete, session, toast])
+  }, [detectFileFormat, transformClientBreakdownData, transformMonthlyTotalsData, transformStandardData, onImportComplete, session, toast])
 
   const handleFileUpload = useCallback(async (files: File[]) => {
     setIsProcessing(true)
@@ -679,7 +574,7 @@ export function CSVUpload({
     }
 
     setIsProcessing(false)
-  }, [uploadedFiles.length, processCSV, onUpload])
+  }, [uploadedFiles.length, processFile, onUpload, autoImport, importToDatabase])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: handleFileUpload,

@@ -100,7 +100,7 @@ export default withAuth(
       await csrfProtection.setCSRFCookie(response, csrfToken)
       
       // Add CSRF token to response headers for client-side access
-      response.headers.set('X-CSRF-Token', csrfToken)
+      response.headers.set('x-csrf-token', csrfToken)
       
       return response
     }

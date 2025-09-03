@@ -19,8 +19,8 @@ export interface CellEditorProps {
   autoFocus?: boolean
   className?: string
 }
-
 export interface SelectCellEditorProps extends CellEditorProps {
+
   options: Array<{ value: string; label: string }>
   placeholder?: string
 }
@@ -68,7 +68,7 @@ export const TextCellEditor = forwardRef<HTMLInputElement, TextCellEditorProps>(
         event.preventDefault()
         onComplete(true)
       }
-      
+
       onKeyDown?.(event)
     }
 
@@ -160,7 +160,7 @@ export const NumberCellEditor = forwardRef<HTMLInputElement, NumberCellEditorPro
             handleChange(String(newValue))
           }
         }
-        
+
         onKeyDown?.(event)
         return
       }
@@ -239,7 +239,7 @@ export const DateCellEditor = forwardRef<HTMLInputElement, DateCellEditorProps>(
         event.preventDefault()
         onComplete(true)
       }
-      
+
       onKeyDown?.(event)
     }
 
@@ -262,7 +262,7 @@ export const DateCellEditor = forwardRef<HTMLInputElement, DateCellEditorProps>(
           autoFocus={autoFocus}
           className={cn("h-8 border-0 p-1 focus:ring-2 focus:ring-blue-500 flex-1", className)}
         />
-        
+
         <Popover open={isOpen} onOpenChange={setIsOpen}>
           <PopoverTrigger asChild>
             <Button
@@ -323,7 +323,7 @@ export const SelectCellEditor = forwardRef<HTMLButtonElement, SelectCellEditorPr
         setIsOpen(false)
         onComplete(true)
       }
-      
+
       onKeyDown?.(event)
     }
 
