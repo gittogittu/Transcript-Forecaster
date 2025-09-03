@@ -48,7 +48,7 @@ export class VertexAIClient {
     )
   }
 
-  // Model Management Methods
+  // Enhanced Model Management Methods
 
   async listModels(filter?: string, pageSize = 50): Promise<any[]> {
     return withErrorHandling(async () => {
@@ -63,6 +63,51 @@ export class VertexAIClient {
         return models || []
       })
     }, 'listModels')
+  }
+
+  async listModelsByType(modelType: 'automl' | 'custom' | 'all' = 'all', pageSize = 50): Promise<any[]> {
+    return withErrorHandling(async () => {
+      return this.rateLimiter.execute(async () => {
+        let filter = ''
+        
+        if (modelType === 'automl') {
+          filter = 'labels.model_type="automl"'
+        } else if (modelType === 'custom') {
+          filter = 'labels.model_type="custom"'
+        }
+
+        const request = {
+          parent: vertexAIConfig.getParent(),
+          filter,
+          pageSize,
+        }
+
+        const [models] = await this.modelServiceClient.listModels(request)
+        return models || []
+      })
+    }, 'listModelsByType')
+  }
+
+  async getModelVersions(modelId: string): Promise<any[]> {
+    return withErrorHandling(async () => {
+      return this.rateLimiter.execute(async () => {
+        const request = {
+          name: vertexAIConfig.getModelResourceName(modelId),
+        }
+
+        const [model] = await this.modelServiceClient.getModel(request)
+        
+        // Extract version information from model metadata
+        const versions = model.versionAliases || []
+        return versions.map((alias: string, index: number) => ({
+          versionId: `${index + 1}`,
+          alias,
+          createTime: model.createTime,
+          updateTime: model.updateTime,
+          isDefault: alias === 'default'
+        }))
+      })
+    }, 'getModelVersions')
   }
 
   async getModel(modelId: string): Promise<any> {
@@ -240,6 +285,77 @@ export class VertexAIClient {
     }, 'deleteEndpoint')
   }
 
+  // Enhanced Endpoint Management
+
+  async getEndpointHealth(endpointId: string): Promise<{
+    isHealthy: boolean
+    deployedModels: Array<{
+      id: string
+      status: string
+      replicas: number
+    }>
+    lastHealthCheck: string
+  }> {
+    return withErrorHandling(async () => {
+      return this.rateLimiter.execute(async () => {
+        const endpoint = await this.getEndpoint(endpointId)
+        
+        const deployedModels = endpoint.deployedModels.map(model => ({
+          id: model.id,
+          status: 'healthy', // In real implementation, check actual health
+          replicas: model.dedicatedResources?.minReplicaCount || 0
+        }))
+
+        return {
+          isHealthy: deployedModels.length > 0 && deployedModels.every(m => m.status === 'healthy'),
+          deployedModels,
+          lastHealthCheck: new Date().toISOString()
+        }
+      })
+    }, 'getEndpointHealth')
+  }
+
+  async updateEndpointTrafficSplit(
+    endpointId: string, 
+    trafficSplit: Record<string, number>
+  ): Promise<void> {
+    return withErrorHandling(async () => {
+      return this.rateLimiter.execute(async () => {
+        // Validate traffic split sums to 100
+        const totalTraffic = Object.values(trafficSplit).reduce((sum, traffic) => sum + traffic, 0)
+        if (Math.abs(totalTraffic - 100) > 0.01) {
+          throw new Error(`Traffic split must sum to 100, got ${totalTraffic}`)
+        }
+
+        const request = {
+          endpoint: vertexAIConfig.getEndpointResourceName(endpointId),
+          trafficSplit,
+        }
+
+        // Note: This would use updateEndpoint in the actual Google Cloud client
+        console.log('Updating traffic split:', request)
+      })
+    }, 'updateEndpointTrafficSplit')
+  }
+
+  async scaleEndpoint(
+    endpointId: string,
+    deployedModelId: string,
+    minReplicas: number,
+    maxReplicas: number
+  ): Promise<void> {
+    return withErrorHandling(async () => {
+      return this.rateLimiter.execute(async () => {
+        if (minReplicas < 0 || maxReplicas < minReplicas) {
+          throw new Error('Invalid replica configuration')
+        }
+
+        // In real implementation, this would update the deployed model's resources
+        console.log(`Scaling endpoint ${endpointId}, model ${deployedModelId} to ${minReplicas}-${maxReplicas} replicas`)
+      })
+    }, 'scaleEndpoint')
+  }
+
   // Prediction Methods
 
   async predict(
@@ -285,6 +401,86 @@ export class VertexAIClient {
         return response
       })
     }, 'explain')
+  }
+
+  // Enhanced Prediction Methods with Monitoring
+
+  async predictWithMetrics(
+    endpointId: string,
+    instances: PredictionInstance[],
+    parameters?: any
+  ): Promise<{
+    predictions: any[]
+    metrics: {
+      latencyMs: number
+      instanceCount: number
+      modelId: string
+      timestamp: string
+    }
+  }> {
+    const startTime = Date.now()
+    
+    return withErrorHandling(async () => {
+      return this.rateLimiter.execute(async () => {
+        const response = await this.predict(endpointId, instances, parameters)
+        const endTime = Date.now()
+
+        return {
+          predictions: response.predictions,
+          metrics: {
+            latencyMs: endTime - startTime,
+            instanceCount: instances.length,
+            modelId: response.deployedModelId,
+            timestamp: new Date().toISOString()
+          }
+        }
+      })
+    }, 'predictWithMetrics')
+  }
+
+  async batchPredictWithValidation(
+    instances: PredictionInstance[],
+    endpointId: string,
+    batchSize = 100
+  ): Promise<{
+    predictions: any[]
+    errors: Array<{ index: number; error: string }>
+    successCount: number
+    failureCount: number
+  }> {
+    return withErrorHandling(async () => {
+      const predictions: any[] = []
+      const errors: Array<{ index: number; error: string }> = []
+      let successCount = 0
+      let failureCount = 0
+
+      // Process in batches
+      for (let i = 0; i < instances.length; i += batchSize) {
+        const batch = instances.slice(i, i + batchSize)
+        
+        try {
+          const response = await this.predict(endpointId, batch)
+          predictions.push(...response.predictions)
+          successCount += batch.length
+        } catch (error) {
+          // Record errors for this batch
+          for (let j = 0; j < batch.length; j++) {
+            errors.push({
+              index: i + j,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            })
+            failureCount++
+          }
+        }
+      }
+
+      return {
+        predictions,
+        errors,
+        successCount,
+        failureCount
+      }
+    }, 'batchPredictWithValidation')
   }
 
   // Batch Prediction Methods

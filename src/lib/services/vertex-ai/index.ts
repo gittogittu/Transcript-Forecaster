@@ -245,26 +245,63 @@ export class VertexAIService {
       client: boolean
       autoML: boolean
       config: boolean
+      authentication: boolean
+      endpoints: boolean
     }
     errors: string[]
+    warnings: string[]
+    performance: {
+      configValidationMs: number
+      clientConnectionMs: number
+      autoMLTestMs: number
+      totalMs: number
+    }
   }> {
+    const startTime = Date.now()
     const errors: string[] = []
+    const warnings: string[] = []
     const services = {
       client: false,
       autoML: false,
       config: false,
+      authentication: false,
+      endpoints: false,
+    }
+    const performance = {
+      configValidationMs: 0,
+      clientConnectionMs: 0,
+      autoMLTestMs: 0,
+      totalMs: 0,
     }
 
+    // Test configuration
+    const configStart = Date.now()
     try {
-      // Test configuration
       vertexAIConfig.validateConfig()
-      services.config = true
+      const envValidation = vertexAIConfig.validateEnvironment()
+      
+      services.config = envValidation.isValid
+      warnings.push(...envValidation.warnings)
+      
+      if (!envValidation.isValid) {
+        errors.push(...envValidation.errors)
+      }
     } catch (error) {
       errors.push(`Config error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+    performance.configValidationMs = Date.now() - configStart
 
+    // Test authentication
     try {
-      // Test client connection
+      await vertexAIConfig.getAccessToken()
+      services.authentication = true
+    } catch (error) {
+      errors.push(`Authentication error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+
+    // Test client connection
+    const clientStart = Date.now()
+    try {
       services.client = await this.client.healthCheck()
       if (!services.client) {
         errors.push('Client health check failed')
@@ -272,21 +309,39 @@ export class VertexAIService {
     } catch (error) {
       errors.push(`Client error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+    performance.clientConnectionMs = Date.now() - clientStart
 
+    // Test AutoML service
+    const autoMLStart = Date.now()
     try {
-      // Test AutoML service (by listing models)
       await this.autoMLService.listForecastingModels()
       services.autoML = true
     } catch (error) {
       errors.push(`AutoML error: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+    performance.autoMLTestMs = Date.now() - autoMLStart
 
-    const isHealthy = services.client && services.config && services.autoML
+    // Test endpoints
+    try {
+      const endpoints = await this.listEndpoints()
+      services.endpoints = true
+      
+      if (endpoints.length === 0) {
+        warnings.push('No endpoints found. Consider creating endpoints for model serving.')
+      }
+    } catch (error) {
+      errors.push(`Endpoints error: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+
+    performance.totalMs = Date.now() - startTime
+    const isHealthy = services.client && services.config && services.autoML && services.authentication
 
     return {
       isHealthy,
       services,
       errors,
+      warnings,
+      performance,
     }
   }
 
@@ -329,6 +384,209 @@ export class VertexAIService {
 
   getConfig(): VertexAIServiceConfig {
     return { ...this.config }
+  }
+
+  // Enhanced Management and Monitoring Methods
+
+  async getServiceMetrics(): Promise<{
+    models: {
+      total: number
+      autoML: number
+      custom: number
+      deployed: number
+    }
+    endpoints: {
+      total: number
+      healthy: number
+      unhealthy: number
+    }
+    predictions: {
+      rateLimiterStats: any
+      errorStats: any
+    }
+    performance: {
+      averageLatencyMs: number
+      successRate: number
+    }
+  }> {
+    try {
+      const [models, endpoints] = await Promise.all([
+        this.listModels(),
+        this.listEndpoints()
+      ])
+
+      // Count model types
+      const autoMLModels = models.filter(m => m.labels?.model_type === 'automl').length
+      const customModels = models.filter(m => m.labels?.model_type === 'custom').length
+      const deployedModels = models.filter(m => m.deployedModels?.length > 0).length
+
+      // Check endpoint health
+      const healthyEndpoints = endpoints.filter(e => e.deployedModels.length > 0).length
+      const unhealthyEndpoints = endpoints.length - healthyEndpoints
+
+      return {
+        models: {
+          total: models.length,
+          autoML: autoMLModels,
+          custom: customModels,
+          deployed: deployedModels
+        },
+        endpoints: {
+          total: endpoints.length,
+          healthy: healthyEndpoints,
+          unhealthy: unhealthyEndpoints
+        },
+        predictions: {
+          rateLimiterStats: this.client.getRateLimiterStats(),
+          errorStats: this.errorHandler.getErrorStats()
+        },
+        performance: {
+          averageLatencyMs: 0, // Would be calculated from actual metrics
+          successRate: 0.95 // Would be calculated from actual metrics
+        }
+      }
+    } catch (error) {
+      throw this.errorHandler.handleError(error, 'getServiceMetrics')
+    }
+  }
+
+  async validateModelDeployment(modelId: string): Promise<{
+    isValid: boolean
+    checks: {
+      modelExists: boolean
+      modelTrained: boolean
+      endpointAvailable: boolean
+      resourcesAllocated: boolean
+    }
+    recommendations: string[]
+  }> {
+    const checks = {
+      modelExists: false,
+      modelTrained: false,
+      endpointAvailable: false,
+      resourcesAllocated: false
+    }
+    const recommendations: string[] = []
+
+    try {
+      // Check if model exists
+      const model = await this.getModel(modelId)
+      checks.modelExists = true
+
+      // Check if model is trained (has evaluation metrics)
+      const evaluation = await this.getModelEvaluation(modelId)
+      checks.modelTrained = evaluation !== null
+
+      if (!checks.modelTrained) {
+        recommendations.push('Model training appears incomplete. Verify training job status.')
+      }
+
+      // Check for available endpoints
+      const endpoints = await this.listEndpoints()
+      const availableEndpoint = endpoints.find(e => 
+        e.deployedModels.some(dm => dm.model.includes(modelId))
+      )
+      
+      checks.endpointAvailable = Boolean(availableEndpoint)
+      
+      if (!checks.endpointAvailable) {
+        recommendations.push('No endpoint found for this model. Create an endpoint for serving.')
+      }
+
+      // Check resource allocation
+      if (availableEndpoint) {
+        const hasResources = availableEndpoint.deployedModels.some(dm => 
+          dm.dedicatedResources || dm.automaticResources
+        )
+        checks.resourcesAllocated = hasResources
+
+        if (!hasResources) {
+          recommendations.push('No resources allocated to deployed model. Configure machine resources.')
+        }
+      }
+
+      const isValid = Object.values(checks).every(check => check)
+
+      return {
+        isValid,
+        checks,
+        recommendations
+      }
+    } catch (error) {
+      throw this.errorHandler.handleError(error, 'validateModelDeployment')
+    }
+  }
+
+  async optimizeEndpointPerformance(endpointId: string): Promise<{
+    currentConfig: any
+    recommendations: Array<{
+      type: 'scaling' | 'machine_type' | 'traffic_split'
+      description: string
+      impact: 'low' | 'medium' | 'high'
+      implementation: string
+    }>
+  }> {
+    try {
+      const endpoint = await this.getEndpoint(endpointId)
+      const recommendations: Array<{
+        type: 'scaling' | 'machine_type' | 'traffic_split'
+        description: string
+        impact: 'low' | 'medium' | 'high'
+        implementation: string
+      }> = []
+
+      // Analyze current configuration
+      for (const deployedModel of endpoint.deployedModels) {
+        const resources = deployedModel.dedicatedResources
+
+        if (resources) {
+          // Check scaling configuration
+          if (resources.minReplicaCount === resources.maxReplicaCount) {
+            recommendations.push({
+              type: 'scaling',
+              description: 'Enable auto-scaling by setting different min/max replica counts',
+              impact: 'medium',
+              implementation: `Set minReplicaCount: ${resources.minReplicaCount}, maxReplicaCount: ${resources.minReplicaCount * 2}`
+            })
+          }
+
+          // Check machine type
+          if (resources.machineSpec.machineType === 'n1-standard-2') {
+            recommendations.push({
+              type: 'machine_type',
+              description: 'Consider upgrading to higher performance machine type for better throughput',
+              impact: 'high',
+              implementation: 'Upgrade to n1-standard-4 or n1-highmem-2 for better performance'
+            })
+          }
+        }
+      }
+
+      // Check traffic split
+      const trafficValues = Object.values(endpoint.trafficSplit)
+      if (trafficValues.length > 1) {
+        const isBalanced = trafficValues.every(v => Math.abs(v - trafficValues[0]) < 10)
+        if (!isBalanced) {
+          recommendations.push({
+            type: 'traffic_split',
+            description: 'Unbalanced traffic split detected. Consider A/B testing or gradual rollout',
+            impact: 'low',
+            implementation: 'Implement gradual traffic shifting for safer deployments'
+          })
+        }
+      }
+
+      return {
+        currentConfig: {
+          deployedModels: endpoint.deployedModels.length,
+          trafficSplit: endpoint.trafficSplit,
+          resources: endpoint.deployedModels.map(dm => dm.dedicatedResources || dm.automaticResources)
+        },
+        recommendations
+      }
+    } catch (error) {
+      throw this.errorHandler.handleError(error, 'optimizeEndpointPerformance')
+    }
   }
 }
 

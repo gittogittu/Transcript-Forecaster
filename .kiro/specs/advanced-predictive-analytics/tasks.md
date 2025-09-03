@@ -17,6 +17,11 @@
 
 
 
+
+
+
+
+
 - [ ] 2. Implement Vertex AI integration foundation
 
   - Set up Google Cloud authentication and Vertex AI client configuration

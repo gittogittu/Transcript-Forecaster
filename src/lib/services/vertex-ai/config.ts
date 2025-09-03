@@ -3,6 +3,14 @@
 import { GoogleAuth } from 'google-auth-library'
 import type { VertexAIConfig, VertexAIClientOptions, RateLimitConfig } from '@/types/vertex-ai'
 
+// Enhanced configuration validation
+interface VertexAIEnvironmentValidation {
+  isValid: boolean
+  errors: string[]
+  warnings: string[]
+  recommendations: string[]
+}
+
 export class VertexAIConfigManager {
   private static instance: VertexAIConfigManager
   private config: VertexAIConfig
@@ -119,6 +127,57 @@ export class VertexAIConfigManager {
         'No explicit credentials provided. Falling back to default application credentials. ' +
         'Ensure you have run "gcloud auth application-default login" or set GOOGLE_APPLICATION_CREDENTIALS.'
       )
+    }
+  }
+
+  public validateEnvironment(): VertexAIEnvironmentValidation {
+    const errors: string[] = []
+    const warnings: string[] = []
+    const recommendations: string[] = []
+
+    // Required environment variables
+    if (!process.env.GOOGLE_CLOUD_PROJECT_ID) {
+      errors.push('GOOGLE_CLOUD_PROJECT_ID environment variable is required')
+    }
+
+    // Authentication validation
+    if (!process.env.GOOGLE_APPLICATION_CREDENTIALS && !this.config.credentials) {
+      warnings.push('No explicit credentials configured. Using default application credentials.')
+      recommendations.push('Set GOOGLE_APPLICATION_CREDENTIALS or configure service account credentials for production')
+    }
+
+    // Location validation
+    const validLocations = [
+      'us-central1', 'us-east1', 'us-west1', 'us-west2', 'us-west4',
+      'europe-west1', 'europe-west2', 'europe-west3', 'europe-west4',
+      'asia-east1', 'asia-northeast1', 'asia-southeast1'
+    ]
+    
+    if (!validLocations.includes(this.config.location)) {
+      warnings.push(`Location '${this.config.location}' may not support all Vertex AI features`)
+      recommendations.push(`Consider using a primary region like 'us-central1' or 'europe-west1'`)
+    }
+
+    // Rate limiting configuration
+    const rateLimitConfig = this.getRateLimitConfig()
+    if (rateLimitConfig.maxRequestsPerMinute > 300) {
+      warnings.push('High rate limit configured. Monitor for quota exceeded errors.')
+    }
+
+    if (rateLimitConfig.maxConcurrentRequests > 50) {
+      warnings.push('High concurrent request limit. Monitor resource usage.')
+    }
+
+    // Feature Store configuration
+    if (!process.env.VERTEX_AI_FEATURE_STORE_ID) {
+      recommendations.push('Configure VERTEX_AI_FEATURE_STORE_ID for feature store integration')
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+      recommendations
     }
   }
 
