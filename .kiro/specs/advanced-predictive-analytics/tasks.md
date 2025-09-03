@@ -52,7 +52,8 @@
   - _Requirements: 1.1, 1.2, 2.1, 2.2_
 
 
-- [ ] 5. Build feature engineering pipeline with Vertex AI Feature Store
+- [x] 5. Build feature engineering pipeline with Vertex AI Feature Store
+
 
   - Create time-based feature extraction (lags, rolling averages, seasonal indicators)
   - Implement statistical feature generation (autocorrelations, stationarity tests)
@@ -62,6 +63,7 @@
   - _Requirements: 11.1, 11.2, 11.3, 11.4_
 
 - [ ] 6. Implement intelligent forecasting engine with multiple algorithms
+
   - Create Vertex AI AutoML forecasting integration
   - Implement custom model training for specialized scenarios
   - Build ensemble method combining multiple Vertex AI models

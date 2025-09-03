@@ -262,6 +262,14 @@ export interface FeatureQuery {
       ids: string[]
     }
   }
+  featureGroupId?: string
+  featureNames?: string[]
+}
+
+export interface FeatureServingResult {
+  entityId: string
+  features: Record<string, number | string>
+  timestamp: Date
 }
 
 export interface FeatureVector {

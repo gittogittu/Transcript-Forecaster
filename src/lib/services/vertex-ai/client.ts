@@ -436,6 +436,61 @@ export class VertexAIClient {
     }, 'cancelTrainingPipeline')
   }
 
+  // Feature Store Methods
+
+  async createFeatureGroup(parent: string, featureGroup: any): Promise<any> {
+    return withErrorHandling(async () => {
+      return this.rateLimiter.execute(async () => {
+        // Simulate Feature Store API call
+        // In a real implementation, this would use the Feature Store client
+        return {
+          name: `${parent}/featureGroups/${featureGroup.name}`,
+          ...featureGroup,
+          createTime: new Date().toISOString(),
+          updateTime: new Date().toISOString()
+        }
+      })
+    }, 'createFeatureGroup')
+  }
+
+  async ingestFeatureBatch(featureGroupName: string, features: any[]): Promise<any> {
+    return withErrorHandling(async () => {
+      return this.rateLimiter.execute(async () => {
+        // Simulate feature ingestion
+        // In a real implementation, this would use the Feature Store client
+        return {
+          ingestionRunId: `ingestion-${Date.now()}`,
+          state: 'SUCCEEDED',
+          ingestedFeatureCount: features.length,
+          createTime: new Date().toISOString()
+        }
+      })
+    }, 'ingestFeatureBatch')
+  }
+
+  async readFeatureValues(request: any): Promise<any> {
+    return withErrorHandling(async () => {
+      return this.rateLimiter.execute(async () => {
+        // Simulate feature serving
+        // In a real implementation, this would use the Feature Store client
+        const features: Record<string, number> = {}
+        
+        // Generate mock feature values
+        if (request.featureSelector?.idMatcher?.ids) {
+          for (const featureId of request.featureSelector.idMatcher.ids) {
+            features[featureId] = Math.random() * 100
+          }
+        }
+        
+        return {
+          features,
+          entityId: request.entityIds?.[0] || 'unknown',
+          timestamp: new Date().toISOString()
+        }
+      })
+    }, 'readFeatureValues')
+  }
+
   // Utility Methods
 
   async healthCheck(): Promise<boolean> {
