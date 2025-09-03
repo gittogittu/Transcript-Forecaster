@@ -1,452 +1,332 @@
-# Database Setup Guide
+# Advanced Predictive Analytics Database Setup
 
-This guide explains how to set up and configure the database for the Transcript Analytics Platform, including migration from Google Sheets.
+This document describes the enhanced database setup for the Advanced Predictive Analytics system with pgvector support.
 
-## Recent Improvements
+## Overview
 
-The database connection system has been enhanced with:
-- **Neon DB Connection String Support**: Preferred method using `DATABASE_URL` for simplified setup
-- **Flexible Configuration**: Automatic fallback to individual parameters if connection string not provided
-- **Optimized Connection Pooling**: Improved timeout settings (20s connection, 10s idle) for better performance
-- **Enhanced SSL Support**: Proper SSL configuration for cloud databases with certificate handling
+The database has been enhanced with:
+- **pgvector extension** for vector similarity search
+- **Enhanced schema** with ML-focused tables
+- **Vector indexes** for performance optimization
+- **Migration system** for schema management
+- **Health monitoring** for system reliability
 
-## Prerequisites
+## Database Schema
 
-- PostgreSQL 12 or higher
-- Node.js 18 or higher
-- Access to your Google Sheets data (for migration)
+### Core Tables
 
-## Environment Variables
+#### Vector-Enhanced Tables
 
-Add the following environment variables to your `.env.local` file:
+1. **transcript_embeddings**
+   - Stores 768-dimensional embeddings for transcript data
+   - Enables similarity search and pattern matching
+   - Uses ivfflat index for fast cosine similarity queries
 
-### Data Source Configuration
+2. **vertex_ai_models**
+   - Tracks Vertex AI model metadata and configurations
+   - Stores training parameters and evaluation metrics
+   - Links to model endpoints and deployment status
 
-```env
-# Data source type: 'google-sheets' or 'database'
-DATA_SOURCE_TYPE=database
+3. **vertex_ai_predictions**
+   - Stores prediction results with confidence intervals
+   - Includes prediction embeddings for pattern similarity
+   - Links to specific models and clients
 
-# Google Sheets Configuration (if using google-sheets)
-GOOGLE_SHEETS_SPREADSHEET_ID=your_spreadsheet_id
-GOOGLE_SHEETS_SHEET_NAME=Transcript Data
-GOOGLE_SHEETS_CREDENTIALS_PATH=path/to/credentials.json
+4. **feature_store**
+   - Centralized feature storage for ML models
+   - Supports both structured and vector features
+   - Enables feature versioning and serving
 
-# Neon Database Configuration (Recommended - using connection string)
-DATABASE_URL=postgresql://username:password@ep-example-123456.us-east-1.aws.neon.tech/neondb?sslmode=require
-DATABASE_SSL=true
+#### Analytics Tables
 
-# Alternative Database Configuration (individual parameters)
-DATABASE_HOST=localhost
-DATABASE_PORT=5432
-DATABASE_NAME=transcript_analytics
-DATABASE_USER=your_username
-DATABASE_PASSWORD=your_password
-DATABASE_SSL=false
+5. **anomalies**
+   - Real-time anomaly detection results
+   - Classification by type and severity
+   - Tracks resolution status and explanations
 
-# Optional Database Pool Configuration
-DATABASE_MAX_CONNECTIONS=20
-DATABASE_POOL_TIMEOUT=20000
-DATABASE_IDLE_TIMEOUT=10000
+6. **business_insights**
+   - Generated insights with confidence scores
+   - Supporting data and visualizations
+   - Impact assessment and time ranges
+
+7. **recommendations**
+   - Actionable recommendations from insights
+   - Priority and effort estimation
+   - Implementation tracking
+
+8. **pattern_similarities**
+   - Vector-based pattern matching results
+   - Cross-client similarity analysis
+   - Time-based pattern comparisons
+
+9. **external_factors**
+   - External data for correlation analysis
+   - Holiday calendars and seasonal factors
+   - Economic and weather data integration
+
+10. **vertex_ai_model_performance**
+    - Model performance tracking over time
+    - Accuracy metrics and drift detection
+    - Endpoint latency monitoring
+
+## Vector Operations
+
+### Supported Distance Functions
+
+- **L2 Distance** (`<->`) - Euclidean distance
+- **Inner Product** (`<#>`) - Dot product similarity  
+- **Cosine Distance** (`<=>`) - Cosine similarity (recommended)
+
+### Vector Indexes
+
+All vector columns use `ivfflat` indexes with cosine distance:
+
+```sql
+CREATE INDEX idx_table_vector 
+ON table_name USING ivfflat (vector_column vector_cosine_ops) 
+WITH (lists = 100);
 ```
 
-## Database Setup
+### Custom Functions
 
-### Quick Setup (Recommended)
+- `calculate_cosine_similarity(vec1, vec2)` - Calculate similarity score
+- `find_similar_patterns(embedding, type, threshold, limit)` - Pattern matching
 
-For first-time setup, use the automated setup script:
+## Migration System
 
-```bash
-# Automated database setup
-npm run setup
-```
-
-This script will:
-- Test your database connection using the `DATABASE_URL` from `.env.local`
-- Create the users table if it doesn't exist
-- Set up necessary indexes for optimal performance
-- Create a default admin user (`admin@example.com`) if no admin exists
-- Provide helpful troubleshooting tips if connection fails
-
-### Manual Setup Options
-
-#### Option 1: Neon Database (Recommended)
-
-1. **Create a Neon account** at [neon.tech](https://neon.tech)
-2. **Create a new project** and database
-3. **Copy the connection string** from the Neon console
-4. **Add to your `.env.local`**:
-   ```env
-   DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
-   DATABASE_SSL=true
-   ```
-5. **Run the setup script**:
-   ```bash
-   npm run setup
-   ```
-
-#### Option 2: Local PostgreSQL
-
-1. **Create Database**:
-   ```sql
-   CREATE DATABASE transcript_analytics;
-   CREATE USER your_username WITH PASSWORD 'your_password';
-   GRANT ALL PRIVILEGES ON DATABASE transcript_analytics TO your_username;
-   ```
-
-2. **Configure individual parameters**:
-   ```env
-   DATABASE_HOST=localhost
-   DATABASE_PORT=5432
-   DATABASE_NAME=transcript_analytics
-   DATABASE_USER=your_username
-   DATABASE_PASSWORD=your_password
-   DATABASE_SSL=false
-   ```
-
-3. **Run the setup script**:
-   ```bash
-   npm run setup
-   ```
-
-### Advanced Setup
-
-#### Manual Migration Commands
+### Commands
 
 ```bash
 # Check migration status
 npm run db:status
 
-# Run all pending migrations
+# Run pending migrations  
+npm run db:migrate
+
+# Create new migration
+tsx src/lib/migration/migration-cli.ts create migration_name
+```
+
+### Migration Files
+
+Located in `src/lib/database/migrations/` with timestamp prefixes:
+- `20250103120000_setup_pgvector_and_enhanced_schema.sql`
+
+## Database Connection
+
+### Configuration
+
+Environment variables in `.env.local`:
+
+```env
+# Primary connection string (recommended)
+DATABASE_URL=postgresql://user:pass@host:5432/dbname?sslmode=require
+
+# Connection pool settings
+DB_POOL_MAX=20
+DB_CONNECTION_TIMEOUT=10000
+DB_IDLE_TIMEOUT=30000
+```
+
+### Connection Features
+
+- **Connection pooling** with configurable limits
+- **SSL support** for production environments
+- **Vector operations** with enhanced pool methods
+- **Health monitoring** with automatic reconnection
+
+## Vector Utilities
+
+### VectorDatabaseUtils Class
+
+```typescript
+import { vectorUtils } from '@/lib/database/vector-utils'
+
+// Similarity search
+const results = await vectorUtils.vectorSearch({
+  table: 'transcript_embeddings',
+  vectorColumn: 'embedding', 
+  embedding: [0.1, 0.2, ...], // 768-dimensional array
+  limit: 10,
+  threshold: 0.7
+})
+
+// Insert embedding
+await vectorUtils.insertEmbedding(
+  'transcript_embeddings',
+  { transcript_id: 'uuid', embedding_model: 'text-embedding-004' },
+  'embedding',
+  embeddingArray
+)
+
+// Find similar patterns
+const patterns = await vectorUtils.findSimilarPatterns(
+  embeddingArray,
+  'seasonal', // pattern type
+  0.8,        // similarity threshold
+  5           // limit
+)
+```
+
+### Vector Operations
+
+```typescript
+// Convert between formats
+const vectorString = VectorUtils.arrayToVector([1, 2, 3])
+const vectorArray = VectorUtils.vectorToArray('[1,2,3]')
+
+// Calculate similarity
+const similarity = VectorUtils.cosineSimilarity(vec1, vec2)
+
+// Normalize vectors
+const normalized = VectorUtils.normalizeVector(vector)
+```
+
+## Health Monitoring
+
+### Health Check Endpoint
+
+```bash
+# Quick health check
+curl http://localhost:3000/api/health/database
+
+# Detailed health check
+curl http://localhost:3000/api/health/database?detailed=true
+```
+
+### Health Check Components
+
+1. **Database Connection** - Basic connectivity test
+2. **pgvector Extension** - Vector operations validation
+3. **Migration Status** - Schema version verification
+4. **Vector Indexes** - Index performance monitoring
+5. **Performance Metrics** - Query timing and resource usage
+
+### Health Status Levels
+
+- **Healthy** - All systems operational
+- **Degraded** - Minor issues detected (warnings)
+- **Unhealthy** - Critical failures requiring attention
+
+## Performance Optimization
+
+### Vector Search Optimization
+
+```sql
+-- Update table statistics
+ANALYZE table_name;
+
+-- Optimize work memory for vector operations
+SET work_mem = '256MB';
+
+-- Set cache size for better performance
+SET effective_cache_size = '4GB';
+```
+
+### Index Tuning
+
+- **Lists parameter** - Controls index build time vs query speed
+- **Probes parameter** - Runtime search accuracy vs speed tradeoff
+- **Concurrent indexing** - Non-blocking index creation
+
+### Batch Operations
+
+Use `batchInsertEmbeddings()` for bulk vector insertions:
+
+```typescript
+await vectorUtils.batchInsertEmbeddings(
+  'transcript_embeddings',
+  records, // Array of {data, embedding} objects
+  'embedding',
+  100 // batch size
+)
+```
+
+## Testing
+
+### Database Setup Test
+
+```bash
+node test-db-setup.js
+```
+
+Tests all components:
+- Database connectivity
+- pgvector functionality  
+- Schema validation
+- Vector operations
+- Index performance
+- Sample data operations
+
+### Migration Testing
+
+```bash
+# Test migration status
+npm run db:status
+
+# Test migration execution
 npm run db:migrate
 ```
 
-#### Verify Setup
-
-```bash
-# Check if database is properly configured
-npm run migrate db:status
-```
-
-## Migration from Google Sheets
-
-### Option 1: Direct Migration
-
-Migrate data directly from Google Sheets to the database:
-
-```bash
-# Migrate all data with validation
-npm run migrate migrate --validate --skip-duplicates
-```
-
-### Option 2: Export/Import Process
-
-For more control over the migration process:
-
-```bash
-# 1. Export data from Google Sheets
-npm run migrate export --format json --output ./exports/transcript-data.json --metadata
-
-# 2. Import data to database
-npm run migrate import --format json --input ./exports/transcript-data.json --validate --skip-duplicates
-
-# 3. Validate migration
-npm run migrate validate
-```
-
-## User Management Commands
-
-### User Role Management
-
-```bash
-# Create admin users or update user roles
-node update-user-role.js
-```
-
-The user role management script provides:
-- **Admin User Creation**: Creates new admin users if they don't exist
-- **Role Updates**: Updates existing user roles to admin
-- **Database Verification**: Checks user existence and final status
-- **SSL Support**: Works with cloud databases like Neon
-- **Error Handling**: Comprehensive error reporting and troubleshooting
-
-To customize the user being managed, edit the `email` variable in `update-user-role.js`.
-
-## Migration CLI Commands
-
-### Export Commands
-
-```bash
-# Export to JSON with metadata
-npm run migrate export --format json --metadata
-
-# Export to CSV
-npm run migrate export --format csv --output ./exports/data.csv
-```
-
-### Import Commands
-
-```bash
-# Import from JSON with validation
-npm run migrate import --format json --input ./data.json --validate
-
-# Import from CSV, skip duplicates
-npm run migrate import --format csv --input ./data.csv --skip-duplicates
-```
-
-### Migration Commands
-
-```bash
-# Direct migration from Google Sheets to Database
-npm run migrate migrate --validate --skip-duplicates
-
-# Validate migration integrity
-npm run migrate validate
-```
-
-### Database Schema Commands
-
-```bash
-# Check migration status
-npm run migrate db:status
-
-# Run pending migrations
-npm run migrate db:migrate
-```
-
-## Configuration Switching
-
-### Switch from Google Sheets to Database
-
-1. Set up the database as described above
-2. Run the migration:
-   ```bash
-   npm run migrate migrate --validate --skip-duplicates
-   ```
-3. Update your environment variables:
-   ```env
-   DATA_SOURCE_TYPE=database
-   ```
-4. Restart your application
-
-### Switch from Database to Google Sheets
-
-1. Update your environment variables:
-   ```env
-   DATA_SOURCE_TYPE=google-sheets
-   ```
-2. Ensure Google Sheets credentials are properly configured
-3. Restart your application
-
-## Error Handling
-
-The database integration includes comprehensive error handling with structured error types:
-
-```typescript
-// Database-specific errors
-interface DatabaseError extends AppError {
-  name: 'DatabaseError'
-  code: 'DB_ERROR'
-  query?: string
-  constraint?: string
-}
-
-// Migration-specific errors
-interface MigrationError extends AppError {
-  name: 'MigrationError'
-  code: 'MIGRATION_ERROR'
-  migrationFile?: string
-  step?: string
-}
-```
-
-All database operations return consistent error structures with:
-- Detailed error messages with context
-- Error codes for programmatic handling
-- Timestamps for debugging
-- Query information when applicable
-
-## Setup Script Details
-
-The automated setup script (`setup-database.js`) performs the following operations:
-
-### What the Script Does
-
-The main setup script (`npm run setup`) performs the following operations:
-
-1. **Connection Testing**: Validates database connectivity using your `DATABASE_URL`
-2. **Table Creation**: Creates the `users` table with proper schema if it doesn't exist:
-   ```sql
-   CREATE TABLE users (
-     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-     email VARCHAR(255) NOT NULL UNIQUE,
-     name VARCHAR(255) NOT NULL,
-     image TEXT,
-     role VARCHAR(20) NOT NULL DEFAULT 'viewer' CHECK (role IN ('admin', 'analyst', 'viewer')),
-     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-     last_login TIMESTAMP WITH TIME ZONE
-   );
-   ```
-3. **Index Creation**: Sets up performance indexes:
-   - `idx_users_email` on the email column
-   - `idx_users_role` on the role column
-4. **Admin User Creation**: Creates a default admin user if none exists:
-   - Email: `admin@example.com`
-   - Name: `Admin User`
-   - Role: `admin`
-
-### User Role Management Script
-
-For managing specific user roles after initial setup, use the dedicated user role script:
-
-```bash
-# Create or update user roles
-node update-user-role.js
-```
-
-This script is particularly useful for:
-- **Creating Real Admin Users**: Replace the default admin with your actual admin email
-- **Promoting Users**: Upgrade existing users to admin or analyst roles
-- **Production Setup**: Safely manage user roles in production environments
-
-The script includes:
-- User existence checking before creation or updates
-- Comprehensive error handling and logging
-- SSL support for cloud databases
-- Final verification of user status
-
-### Alternative Setup Script
-
-There's also a comprehensive setup script at `scripts/setup-database.js` that includes:
-- Environment validation
-- Migration running
-- Development server testing
-- Health endpoint verification
-
-You can run it directly with:
-```bash
-node scripts/setup-database.js
-```
-
-### SSL Configuration
-
-The script automatically handles SSL configuration for cloud databases:
-- Uses `rejectUnauthorized: false` for Neon compatibility
-- Supports both SSL and non-SSL connections based on your configuration
-
-### Error Handling
-
-The script provides detailed error messages and troubleshooting guidance:
-- Connection refused errors include specific troubleshooting steps
-- SSL certificate issues are handled gracefully
-- Database permission errors are clearly identified
-
 ## Troubleshooting
 
-### Connection Issues
+### Common Issues
 
-1. **Database connection fails:**
-   - Run `npm run setup` to get detailed connection diagnostics
-   - Verify PostgreSQL is running
-   - Check connection parameters in `.env.local`
-   - Ensure user has proper permissions
-   - For Neon databases, verify your IP is whitelisted in the dashboard
-   - Review structured error logs for specific connection details
+1. **pgvector not found**
+   ```sql
+   CREATE EXTENSION IF NOT EXISTS vector;
+   ```
 
-2. **Setup script troubleshooting:**
-   The setup script provides specific troubleshooting tips:
-   - Validates `DATABASE_URL` format and connectivity
-   - Checks if your IP is whitelisted (for Neon databases)
-   - Verifies SSL configuration
-   - Tests database permissions
+2. **Vector dimension mismatch**
+   - Ensure all vectors have consistent dimensions (768 for embeddings)
+   - Check embedding model output dimensions
 
-2. **Migration fails:**
-   - Check database logs for specific errors
-   - Verify migration files are not corrupted
-   - Ensure sufficient disk space
-   - Use structured error reporting to identify specific migration steps
+3. **Slow vector queries**
+   - Verify vector indexes exist
+   - Update table statistics with `ANALYZE`
+   - Adjust `lists` parameter for indexes
 
-### Data Issues
+4. **Connection pool exhaustion**
+   - Increase `DB_POOL_MAX` setting
+   - Check for connection leaks
+   - Monitor active connections
 
-1. **Validation errors during migration:**
-   - Review structured ValidationErrorData for field-specific issues
-   - Clean up data in Google Sheets before migration
-   - Use `--skip-duplicates` flag if appropriate
-   - Check validation warnings for potential data quality issues
+### Performance Monitoring
 
-2. **Missing data after migration:**
-   - Run `npm run migrate validate` to check data integrity
-   - Compare record counts between sources
-   - Check for data transformation issues
-   - Review migration logs with structured error context
+```sql
+-- Check vector index usage
+SELECT schemaname, tablename, indexname, idx_tup_read, idx_tup_fetch
+FROM pg_stat_user_indexes 
+WHERE indexname LIKE '%vector%';
 
-### Performance Issues
-
-1. **Slow migration:**
-   - Increase `DATABASE_MAX_CONNECTIONS` if needed
-   - Consider migrating in smaller batches
-   - Monitor database performance during migration
-
-2. **Application performance:**
-   - Ensure database indexes are created (handled by migrations)
-   - Monitor query performance
-   - Consider connection pooling adjustments
-
-## Production Deployment
-
-### Database Setup
-
-1. Create production database with appropriate security settings
-2. Set up SSL connections if required
-3. Configure backup and monitoring
-
-### Environment Configuration
-
-```env
-# Production database settings (Neon recommended)
-DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
-DATABASE_SSL=true
-DATABASE_MAX_CONNECTIONS=50
-DATABASE_POOL_TIMEOUT=30000
-DATABASE_IDLE_TIMEOUT=15000
+-- Monitor query performance
+SELECT query, mean_exec_time, calls
+FROM pg_stat_statements 
+WHERE query LIKE '%vector%'
+ORDER BY mean_exec_time DESC;
 ```
-
-### Migration Process
-
-1. Test migration in staging environment first
-2. Schedule migration during low-traffic periods
-3. Have rollback plan ready
-4. Monitor application after migration
-
-## Monitoring and Maintenance
-
-### Regular Tasks
-
-1. **Database backups:** Set up automated backups
-2. **Performance monitoring:** Monitor query performance and connection usage
-3. **Data validation:** Periodically validate data integrity
-4. **Index maintenance:** Monitor and maintain database indexes
-
-### Health Checks
-
-The application includes health check endpoints:
-
-- Database connectivity: Built into the DataService
-- Migration status: Available via CLI commands
-- Data integrity: Use validation commands
 
 ## Security Considerations
 
-1. **Database access:** Use dedicated database user with minimal required permissions
-2. **Connection security:** Use SSL in production
-3. **Credential management:** Store credentials securely, never in code
-4. **Network security:** Restrict database access to application servers only
+- **SSL connections** required in production
+- **Connection string security** - use environment variables
+- **Access control** - limit database user permissions
+- **Vector data privacy** - consider embedding encryption for sensitive data
+
+## Next Steps
+
+After database setup completion:
+
+1. **Configure Vertex AI** - Set up Google Cloud credentials
+2. **Implement ML Pipeline** - Build prediction and training workflows  
+3. **Create Analytics UI** - Build dashboard components
+4. **Set up Monitoring** - Configure alerts and logging
+5. **Performance Testing** - Validate under load
 
 ## Support
 
-For issues with database setup or migration:
-
-1. Check the troubleshooting section above
-2. Review application logs for specific error messages
-3. Verify environment configuration
-4. Test database connectivity independently
+For issues or questions:
+- Check health endpoint: `/api/health/database?detailed=true`
+- Review migration logs: `npm run db:status`
+- Test setup: `node test-db-setup.js`
+- Monitor performance: Database query statistics

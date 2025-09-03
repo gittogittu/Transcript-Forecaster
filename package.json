@@ -43,6 +43,8 @@
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.9.0",
+    "@google-cloud/aiplatform": "^5.6.0",
+    "@google-cloud/storage": "^7.17.0",
     "@google/generative-ai": "^0.21.0",
     "@hookform/resolvers": "^5.2.1",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -69,6 +71,7 @@
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.1",
     "framer-motion": "^12.23.12",
+    "google-auth-library": "^10.3.0",
     "googleapis": "^155.0.0",
     "isomorphic-dompurify": "^2.26.0",
     "jspdf": "^3.0.2",
