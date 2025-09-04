@@ -8,7 +8,7 @@
  */
 
 // Core services
-export { textEmbeddingService, TextEmbeddingService } from './text-embedding'
+export { TextEmbeddingService } from './text-embedding-demo'
 export { transcriptVectorizationService, TranscriptVectorizationService } from './transcript-vectorization'
 export { similaritySearchService, SimilaritySearchService } from './similarity-search'
 

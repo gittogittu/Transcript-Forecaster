@@ -5,7 +5,8 @@
  * text-embedding-004 and text-embedding-gecko models for transcript data vectorization.
  */
 
-import { VertexAI } from '@google-cloud/vertexai'
+// import { VertexAI } from '@google-cloud/vertexai'
+// For demo purposes, we'll mock the Vertex AI functionality
 import { vertexAIConfig } from '../vertex-ai/config'
 import { withErrorHandling } from '../vertex-ai/errors'
 
