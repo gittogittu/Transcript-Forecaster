@@ -227,16 +227,19 @@ export class VertexAIMonitor {
       const now = new Date()
       const oneHourAgo = new Date(now.getTime() - 3600000)
 
+      const averageLatency = Math.random() * 500 + 100
+      const p95Latency = averageLatency + Math.random() * 300 + 100
+      const p99Latency = p95Latency + Math.random() * 400 + 100
+
       return {
         endpointId,
         timeRange: { start: oneHourAgo, end: now },
         requestCount: Math.floor(Math.random() * 1000) + 100,
         errorCount: Math.floor(Math.random() * 50),
-        averageLatency: Math.random() * 500 + 100,
-        p95Latency: Math.random() * 800 + 200,
-        p99Latency: Math.random() * 1200 + 400,
-        throughput: Math.random() * 100 + 10
-      }
+        averageLatency,
+        p95Latency,
+        p99Latency,
+        throughput: Math.rand
     } catch (error) {
       console.error(`Failed to get traffic metrics for endpoint ${endpointId}:`, error)
       throw error
