@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { performanceMonitoringService } from '@/lib/services/performance-monitoring'
+import { createPerformanceMonitor, performanceMonitoringService } from '@/lib/services/performance-monitoring'
 
 export async function GET(request: NextRequest) {
   try {
@@ -59,17 +59,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Record custom metrics
-    const performanceMetrics = {
+    // Record custom metrics via monitor
+    const monitor = createPerformanceMonitor()
+    await monitor.recordMetrics({
       id: `custom_${modelId}_${Date.now()}`,
       timestamp: new Date(),
       modelId,
       ...metrics
-    }
+    })
 
-    // This would typically be handled by the monitoring service
-    console.log('Recording custom metrics:', performanceMetrics)
-    
     return NextResponse.json({
       success: true,
       message: 'Metrics recorded successfully'

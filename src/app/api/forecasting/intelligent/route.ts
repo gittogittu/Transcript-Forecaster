@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { intelligentForecastingEngine } from '@/lib/services/forecasting/intelligent-forecasting-engine'
 import type { ForecastingRequest, TimeSeriesData } from '@/lib/services/forecasting/intelligent-forecasting-engine'
+import { createPerformanceMonitor } from '@/lib/services/performance-monitoring'
 
 export async function POST(request: NextRequest) {
   try {
@@ -15,8 +16,45 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const monitor = createPerformanceMonitor()
+    const startTime = Date.now()
+
     // Generate forecast using intelligent engine
     const result = await intelligentForecastingEngine.generateForecast(data, forecastRequest)
+
+    const latencyMs = Date.now() - startTime
+    const memoryUsageMb = Math.round((process.memoryUsage?.().rss || 0) / (1024 * 1024))
+    const cpuUsagePercent = 0 // Not reliably measurable per-request; placeholder
+    const throughput = latencyMs > 0 ? Number((1000 / latencyMs).toFixed(3)) : 0
+
+    const modelId = forecastRequest.clientId || 'intelligent_engine'
+
+    await monitor.recordMetrics({
+      id: `forecast_${modelId}_${Date.now()}`,
+      timestamp: new Date(),
+      modelId,
+      clientId: forecastRequest.clientId,
+      predictionLatency: latencyMs,
+      memoryUsage: memoryUsageMb,
+      cpuUsage: cpuUsagePercent,
+      throughput,
+      accuracy: {
+        mae: result.accuracy.mae,
+        rmse: result.accuracy.rmse,
+        mape: result.accuracy.mape,
+        r2Score: result.accuracy.r2Score,
+        accuracyScore: result.accuracy.r2Score,
+        confidenceScore: forecastRequest.confidenceLevel
+      },
+      resourceUtilization: {
+        vertexAIEndpointLatency: 0,
+        neonDBQueryTime: 0,
+        vectorSearchTime: 0,
+        cacheHitRate: 0,
+        errorRate: 0,
+        concurrentRequests: 1
+      }
+    })
 
     return NextResponse.json({
       success: true,

@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import { InteractiveDashboard } from '@/components/analytics/dashboard/InteractiveDashboard'
+import { PerformanceMonitoringDashboard } from '@/components/analytics/PerformanceMonitoringDashboard'
 import { DashboardLayout } from '@/components/analytics/dashboard/types'
 
 export const metadata: Metadata = {
@@ -116,6 +117,10 @@ export default function AnalyticsDashboardPage() {
         onLayoutChange={handleLayoutChange}
         className="h-full"
       />
+      <div className="p-6">
+        <h2 className="text-xl font-semibold mb-4">Model Performance Monitoring</h2>
+        <PerformanceMonitoringDashboard modelId="intelligent_engine" refreshInterval={30000} />
+      </div>
     </div>
   )
 }
