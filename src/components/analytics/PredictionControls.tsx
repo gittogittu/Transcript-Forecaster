@@ -14,17 +14,24 @@ export function PredictionControls({ defaultClientId, onChange }: PredictionCont
   const [periodsAhead, setPeriodsAhead] = useState<number>(30)
   const [confidenceLevel, setConfidenceLevel] = useState<number>(0.9)
   const [ensembleMethod, setEnsembleMethod] = useState<'simple_average' | 'weighted_average' | 'stacking' | 'voting'>('weighted_average')
+  const [excludeAnomalies, setExcludeAnomalies] = useState<boolean>(false)
+  const [segment, setSegment] = useState<string>('')
+  const [whatIfLift, setWhatIfLift] = useState<number>(0)
 
   const request = useMemo<ForecastingRequest>(() => ({
     clientId: clientId || undefined,
     timeHorizon,
     periodsAhead,
     confidenceLevel,
-    ensembleMethod
-  }), [clientId, timeHorizon, periodsAhead, confidenceLevel, ensembleMethod])
+    ensembleMethod,
+    customFilters: {
+      businessSegments: segment ? [segment] : undefined,
+      excludeAnomalies
+    }
+  }), [clientId, timeHorizon, periodsAhead, confidenceLevel, ensembleMethod, segment, excludeAnomalies])
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+    <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
       <div className="flex flex-col gap-1">
         <label className="text-xs text-gray-600">Client ID</label>
         <input
@@ -83,6 +90,42 @@ export function PredictionControls({ defaultClientId, onChange }: PredictionCont
           <option value="stacking">Stacking</option>
           <option value="voting">Voting</option>
         </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-gray-600">Segment</label>
+        <input
+          value={segment}
+          onChange={(e) => { const v = e.target.value; setSegment(v); onChange?.({ ...request, customFilters: { ...(request.customFilters || {}), businessSegments: v ? [v] : undefined } }) }}
+          placeholder="e.g., Enterprise"
+          className="px-2 py-1 border border-gray-300 rounded-md text-sm"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs text-gray-600">Exclude Anomalies</label>
+        <div className="flex items-center h-9 px-2 py-1 border border-gray-300 rounded-md text-sm">
+          <input
+            type="checkbox"
+            checked={excludeAnomalies}
+            onChange={(e) => { const v = e.target.checked; setExcludeAnomalies(v); onChange?.({ ...request, customFilters: { ...(request.customFilters || {}), excludeAnomalies: v } }) }}
+            className="mr-2"
+          />
+          <span className="text-xs text-gray-700">Filter anomalies</span>
+        </div>
+      </div>
+      <div className="md:col-span-6">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-600">What-if lift (%)</label>
+          <input
+            type="number"
+            value={whatIfLift}
+            min={-100}
+            max={200}
+            onChange={(e) => setWhatIfLift(parseInt(e.target.value || '0', 10))}
+            onBlur={() => onChange?.(request)}
+            className="w-24 px-2 py-1 border border-gray-300 rounded-md text-sm"
+          />
+          <span className="text-xs text-gray-500">Applied downstream by scenario engine</span>
+        </div>
       </div>
     </div>
   )

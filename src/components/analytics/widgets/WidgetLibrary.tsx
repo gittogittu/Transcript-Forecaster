@@ -37,6 +37,38 @@ interface WidgetLibraryProps {
 
 const widgetTemplates: WidgetTemplate[] = [
   {
+    id: 'pattern-similarity',
+    type: 'chart',
+    title: 'Pattern Similarity',
+    description: 'Overlay similar historical patterns to compare trajectories',
+    icon: <Search className="w-5 h-5" />,
+    defaultConfig: {
+      chartType: 'line',
+      dataSource: 'pattern-similarity',
+      visualization: {
+        animations: true
+      }
+    },
+    category: 'analytics',
+    tags: ['similarity', 'patterns', 'embeddings']
+  },
+  {
+    id: 'multi-dimensional-forecast',
+    type: 'chart',
+    title: 'Multi-dimensional Forecast',
+    description: 'Drill down through hierarchy and compare aggregated forecasts',
+    icon: <Database className="w-5 h-5" />,
+    defaultConfig: {
+      chartType: 'area',
+      dataSource: 'multi-dimensional-forecast',
+      visualization: {
+        animations: true
+      }
+    },
+    category: 'predictions',
+    tags: ['hierarchy', 'segments', 'drilldown']
+  },
+  {
     id: 'prediction-chart',
     type: 'chart',
     title: 'Prediction Chart',

@@ -123,6 +123,18 @@ export function InsightCard({ insight, onViewDetails }: InsightCardProps) {
           </div>
         )}
 
+        {/* Optional Recommendations (if present in supportingData.metadata or visualizations config) */}
+        {Array.isArray((insight as any).recommendations) && (insight as any).recommendations.length > 0 && (
+          <div className="space-y-2">
+            <span className="text-sm font-medium">Recommendations</span>
+            <ul className="list-disc pl-5 space-y-1 text-xs text-gray-700">
+              {(insight as any).recommendations.slice(0, 3).map((rec: string, idx: number) => (
+                <li key={idx}>{rec}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* Type Badge */}
         <div className="flex justify-between items-center">
           <Badge variant="outline" className="text-xs">

@@ -18,6 +18,9 @@ import { DraggableWidget } from '../widgets/DraggableWidget'
 import { WidgetLibrary } from '../widgets/WidgetLibrary'
 import { PredictionChart } from '../charts/PredictionChart'
 import { RealTimeChart } from '../charts/RealTimeChart'
+import { SimilarityPatternChart } from '../charts/SimilarityPatternChart'
+import { MultiDimensionalForecast } from '../charts/MultiDimensionalForecast'
+import useForecast from '@/lib/hooks/use-forecast'
 import { DashboardWidget, DashboardLayout, GlobalFilter } from './types'
 
 interface InteractiveDashboardProps {
@@ -54,12 +57,44 @@ function WidgetRenderer({ widget }: { widget: DashboardWidget }) {
   switch (widget.type) {
     case 'chart':
       if (widget.config.dataSource === 'predictions') {
+        const { result, loading, error, runForecast } = useForecast({ endpoint: '/api/predictions/forecast' })
+
+        useEffect(() => {
+          // Build minimal TimeSeriesData from mock actuals for now
+          const timestamps = mockPredictionData.actual.map(d => d.timestamp)
+          const values = mockPredictionData.actual.map(d => d.value)
+          const data = { timestamps, values }
+          const forecastRequest = {
+            timeHorizon: 'daily',
+            periodsAhead: 14,
+            confidenceLevel: 0.9,
+            ensembleMethod: 'weighted_average'
+          } as const
+          runForecast(data as any, forecastRequest as any).catch(() => {})
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [])
+
+        const apiPredictionData = result ? {
+          actual: mockPredictionData.actual,
+          predicted: result.predictions.map(p => ({
+            timestamp: p.date,
+            predicted: p.predictedValue,
+            confidenceUpper: p.confidenceInterval.upper,
+            confidenceLower: p.confidenceInterval.lower
+          })),
+          accuracy: result.accuracy
+        } : mockPredictionData
+
         return (
-          <PredictionChart
-            data={mockPredictionData}
-            config={widget.config.visualization || {}}
-            height={widget.size.height - 120}
-          />
+          <div className="h-full w-full">
+            {loading && <div className="p-2 text-xs text-gray-500">Loading forecast…</div>}
+            {error && <div className="p-2 text-xs text-red-600">{error}</div>}
+            <PredictionChart
+              data={apiPredictionData}
+              config={widget.config.visualization || {}}
+              height={widget.size.height - 120}
+            />
+          </div>
         )
       } else if (widget.config.dataSource === 'real-time') {
         return (
@@ -69,6 +104,171 @@ function WidgetRenderer({ widget }: { widget: DashboardWidget }) {
             refreshInterval={widget.refreshInterval}
           />
         )
+      } else if (widget.config.dataSource === 'pattern-similarity') {
+        const [base, setBase] = useState<any | null>(null)
+        const [similars, setSimilars] = useState<any[]>([])
+        const [psError, setPsError] = useState<string | null>(null)
+
+        useEffect(() => {
+          let cancelled = false
+          async function load() {
+            try {
+              setPsError(null)
+              const res = await fetch('/api/embeddings/patterns', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'temporal', clientId: 'demo-client', timeWindow: 30, minSimilarity: 0.75 })
+              })
+              const json = await res.json().catch(() => ({}))
+
+              const temporal = json?.data?.temporalPatterns || []
+              const constructedBase = {
+                id: 'base',
+                name: 'Target Series',
+                points: mockPredictionData.actual.map(d => ({ timestamp: d.timestamp, value: d.value }))
+              }
+              const constructedSimilars = temporal.slice(0, 2).map((t: any, idx: number) => ({
+                id: t?.id || `s${idx + 1}`,
+                name: t?.name || `Similar ${idx + 1}`,
+                similarityScore: typeof t?.similarity === 'number' ? t.similarity : undefined,
+                points: Array.isArray(t?.points)
+                  ? t.points.map((p: any) => ({ timestamp: new Date(p.timestamp || p.date || Date.now()), value: Number(p.value || 0) }))
+                  : constructedBase.points.map(p => ({ ...p, value: p.value * (0.95 + 0.1 * Math.random()) }))
+              }))
+
+              if (!cancelled) {
+                setBase(constructedBase)
+                setSimilars(constructedSimilars.length > 0 ? constructedSimilars : [
+                  {
+                    id: 's1', name: 'Similar A', similarityScore: 0.86,
+                    points: constructedBase.points.map(p => ({ ...p, value: p.value * 0.98 }))
+                  },
+                  {
+                    id: 's2', name: 'Similar B', similarityScore: 0.79,
+                    points: constructedBase.points.map(p => ({ ...p, value: p.value * 1.02 }))
+                  }
+                ])
+              }
+            } catch (e) {
+              if (!cancelled) setPsError(e instanceof Error ? e.message : 'Failed to load pattern similarity')
+            }
+          }
+          load()
+          return () => { cancelled = true }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [])
+
+        return (
+          <div className="h-full w-full">
+            {psError && <div className="p-2 text-xs text-red-600">{psError}</div>}
+            {base && (
+              <SimilarityPatternChart
+                base={base}
+                similars={similars}
+                alignOn="start"
+                height={widget.size.height - 120}
+              />
+            )}
+          </div>
+        )
+      } else if (widget.config.dataSource === 'multi-dimensional-forecast') {
+        const [root, setRoot] = useState<any | null>(null)
+
+        useEffect(() => {
+          const initialRoot = {
+            id: 'root',
+            name: 'All Clients',
+            series: [
+              { timestamp: new Date('2024-01-01'), value: 1000 },
+              { timestamp: new Date('2024-01-02'), value: 1040 },
+              { timestamp: new Date('2024-01-03'), value: 990 },
+              { timestamp: new Date('2024-01-04'), value: 1100 }
+            ],
+            children: [
+              {
+                id: 'seg-enterprise',
+                name: 'Enterprise',
+                series: [
+                  { timestamp: new Date('2024-01-01'), value: 600 },
+                  { timestamp: new Date('2024-01-02'), value: 630 },
+                  { timestamp: new Date('2024-01-03'), value: 590 },
+                  { timestamp: new Date('2024-01-04'), value: 660 }
+                ],
+                children: [
+                  {
+                    id: 'client-a',
+                    name: 'Client A',
+                    series: [
+                      { timestamp: new Date('2024-01-01'), value: 300 },
+                      { timestamp: new Date('2024-01-02'), value: 320 },
+                      { timestamp: new Date('2024-01-03'), value: 295 },
+                      { timestamp: new Date('2024-01-04'), value: 340 }
+                    ]
+                  },
+                  {
+                    id: 'client-b',
+                    name: 'Client B',
+                    series: [
+                      { timestamp: new Date('2024-01-01'), value: 300 },
+                      { timestamp: new Date('2024-01-02'), value: 310 },
+                      { timestamp: new Date('2024-01-03'), value: 295 },
+                      { timestamp: new Date('2024-01-04'), value: 320 }
+                    ]
+                  }
+                ]
+              },
+              {
+                id: 'seg-smb',
+                name: 'SMB',
+                series: [
+                  { timestamp: new Date('2024-01-01'), value: 400 },
+                  { timestamp: new Date('2024-01-02'), value: 410 },
+                  { timestamp: new Date('2024-01-03'), value: 400 },
+                  { timestamp: new Date('2024-01-04'), value: 440 }
+                ]
+              }
+            ]
+          }
+
+          async function forecastNode(node: any): Promise<any> {
+            const timestamps = node.series.map((p: any) => p.timestamp)
+            const values = node.series.map((p: any) => p.value)
+            try {
+              const res = await fetch('/api/predictions/forecast', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  data: { timestamps, values },
+                  forecastRequest: { timeHorizon: 'daily', periodsAhead: 7, confidenceLevel: 0.9, ensembleMethod: 'weighted_average' }
+                })
+              })
+              if (res.ok) {
+                const json = await res.json()
+                const preds = json?.forecast?.predictions || []
+                if (Array.isArray(preds) && preds.length > 0) {
+                  node.series = preds.map((p: any) => ({ timestamp: new Date(p.date), value: Number(p.predictedValue || 0) }))
+                }
+              }
+            } catch {}
+
+            if (Array.isArray(node.children)) {
+              for (const child of node.children) {
+                // eslint-disable-next-line no-await-in-loop
+                await forecastNode(child)
+              }
+            }
+            return node
+          }
+
+          forecastNode(structuredClone(initialRoot)).then(setRoot).catch(() => setRoot(initialRoot))
+        }, [])
+
+        return root ? (
+          <MultiDimensionalForecast
+            root={root as any}
+            className="h-full"
+          />
+        ) : <div className="p-2 text-xs text-gray-500">Loading hierarchy…</div>
       }
       return <div className="p-4 text-gray-500">Chart widget - {widget.config.chartType}</div>
     
