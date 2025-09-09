@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import { InteractiveDashboard } from '@/components/analytics/dashboard/InteractiveDashboard'
+import ForecastPanel from './ForecastPanel'
 import { PerformanceMonitoringDashboard } from '@/components/analytics/PerformanceMonitoringDashboard'
 import { DashboardLayout } from '@/components/analytics/dashboard/types'
 
@@ -112,6 +113,9 @@ export default function AnalyticsDashboardPage() {
 
   return (
     <div className="h-screen bg-gray-50">
+      <div className="p-6">
+        <ForecastPanel className="mb-4" />
+      </div>
       <InteractiveDashboard
         initialLayout={defaultLayout}
         onLayoutChange={handleLayoutChange}
