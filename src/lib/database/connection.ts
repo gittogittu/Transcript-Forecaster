@@ -46,6 +46,7 @@ class DatabaseConnection {
       max: parseInt(process.env.DB_POOL_MAX || '20'),
       idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT || '30000'),
       connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT || '10000'),
+      application_name: process.env.DB_APP_NAME || 'transcript-forecaster',
     }
 
     if (!config.connectionString) {
@@ -58,6 +59,21 @@ class DatabaseConnection {
   public async getPool(): Promise<VectorDatabasePool> {
     if (!this.pool) {
       this.pool = new Pool(this.config)
+      // Apply per-connection settings for performance and safety
+      this.pool.on('connect', async (client: PoolClient) => {
+        try {
+          await client.query(`SET application_name = $1`, [this.config.application_name || 'transcript-forecaster'])
+          if (process.env.DB_STATEMENT_TIMEOUT_MS) {
+            await client.query(`SET statement_timeout = $1`, [process.env.DB_STATEMENT_TIMEOUT_MS])
+          }
+          if (process.env.DB_IDLE_IN_TRANSACTION_TIMEOUT_MS) {
+            await client.query(`SET idle_in_transaction_session_timeout = $1`, [process.env.DB_IDLE_IN_TRANSACTION_TIMEOUT_MS])
+          }
+        } catch (e) {
+          // Non-fatal
+          console.warn('Failed to apply connection session settings', e)
+        }
+      })
       
       // Test connection and ensure pgvector extension is available
       await this.initializeVectorSupport()

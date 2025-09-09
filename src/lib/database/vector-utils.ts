@@ -306,6 +306,22 @@ export class VectorDatabaseUtils {
       // Set optimal effective_cache_size
       await pool.query('SET effective_cache_size = \'4GB\'')
       
+      // Ensure ivfflat index exists with recommended lists if using cosine ops
+      await pool.query(`DO $$
+      DECLARE
+        idx_count INTEGER;
+      BEGIN
+        SELECT COUNT(1) INTO idx_count
+        FROM pg_indexes 
+        WHERE schemaname = ANY(current_schemas(false))
+          AND tablename = $1
+          AND indexname LIKE ('idx_' || $1 || '_' || $2 || '_vector%');
+        IF idx_count = 0 THEN
+          EXECUTE format('CREATE INDEX CONCURRENTLY IF NOT EXISTS %I ON %I USING ivfflat (%I vector_cosine_ops) WITH (lists = 100)',
+                         'idx_' || $1 || '_' || $2 || '_vector', $1, $2);
+        END IF;
+      END $$ LANGUAGE plpgsql;`, [table, vectorColumn])
+
       console.log(`✅ Vector search optimized for ${table}.${vectorColumn}`)
     } catch (error) {
       console.error('Optimize vector search failed:', error)

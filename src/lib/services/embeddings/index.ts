@@ -11,6 +11,7 @@
 export { TextEmbeddingService } from './text-embedding-demo'
 export { transcriptVectorizationService, TranscriptVectorizationService } from './transcript-vectorization'
 export { similaritySearchService, SimilaritySearchService } from './similarity-search'
+export { patternMatchingService, PatternMatchingService } from './pattern-matching'
 
 // Types for text embedding
 export type {
@@ -232,6 +233,19 @@ export class EmbeddingService {
     dryRun?: boolean
   } = {}) {
     return transcriptVectorizationService.cleanupEmbeddings(options)
+  }
+
+  /**
+   * Generate and store a time-series pattern embedding
+   */
+  static async generatePatternEmbedding(options: {
+    clientId: string
+    timeWindow: { startDate: Date, endDate: Date }
+    patternType?: 'seasonal' | 'trend' | 'anomaly' | 'volume' | 'cyclical' | 'growth'
+    embeddingModel?: string
+    forceRegenerate?: boolean
+  }) {
+    return patternMatchingService.generatePatternEmbedding(options)
   }
 }
 

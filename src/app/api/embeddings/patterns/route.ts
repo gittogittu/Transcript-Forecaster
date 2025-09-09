@@ -12,7 +12,7 @@ import { EmbeddingService } from '@/lib/services/embeddings'
 import { z } from 'zod'
 
 const PatternDiscoveryRequestSchema = z.object({
-  action: z.enum(['discover', 'cluster', 'temporal']),
+  action: z.enum(['discover', 'cluster', 'temporal', 'embed']),
   patternType: z.enum(['seasonal', 'trend', 'anomaly', 'volume']).optional(),
   clientId: z.string().optional(),
   clientIds: z.array(z.string()).optional(),
@@ -123,6 +123,31 @@ export async function POST(request: NextRequest) {
           },
           message: `Found ${results.length} temporal pattern matches`
         })
+
+      case 'embed':
+        if (!clientId) {
+          return NextResponse.json({
+            success: false,
+            error: 'clientId is required for embed action'
+          }, { status: 400 })
+        }
+        {
+          const now = new Date()
+          const startDate = new Date(now.getTime() - timeWindow * 24 * 3600 * 1000)
+          const result = await EmbeddingService.generatePatternEmbedding({
+            clientId,
+            timeWindow: { startDate, endDate: now },
+            patternType: patternType || 'volume',
+            embeddingModel: 'text-embedding-004',
+            forceRegenerate: true
+          })
+
+          return NextResponse.json({
+            success: result.success,
+            data: result,
+            message: result.success ? 'Pattern embedding generated' : `Embedding failed: ${result.error}`
+          })
+        }
 
       default:
         return NextResponse.json({

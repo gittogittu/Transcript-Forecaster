@@ -9,7 +9,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { data, forecastRequest }: { data: TimeSeriesData; forecastRequest: ForecastingRequest } = body
 
-    // Validate input
     if (!data || !forecastRequest) {
       return NextResponse.json(
         { error: 'Missing required data or forecast request' },
@@ -20,7 +19,6 @@ export async function POST(request: NextRequest) {
     const monitor = createPerformanceMonitor()
     const startTime = Date.now()
 
-    // Caching: try exact/similar reuse
     const cache = getPredictionCache()
     const cacheKey = {
       clientId: forecastRequest.clientId,
@@ -74,15 +72,13 @@ export async function POST(request: NextRequest) {
       return res
     }
 
-    // Generate forecast using intelligent engine
     const result = await intelligentForecastingEngine.generateForecast(data, forecastRequest)
 
-    // Store in cache (gzip compressed)
     cache.set(cacheKey, data.values, result)
 
     const latencyMs = Date.now() - startTime
     const memoryUsageMb = Math.round((process.memoryUsage?.().rss || 0) / (1024 * 1024))
-    const cpuUsagePercent = 0 // Not reliably measurable per-request; placeholder
+    const cpuUsagePercent = 0
     const throughput = latencyMs > 0 ? Number((1000 / latencyMs).toFixed(3)) : 0
 
     const modelId = forecastRequest.clientId || 'intelligent_engine'
@@ -123,11 +119,10 @@ export async function POST(request: NextRequest) {
     res.headers.set('X-Cache', 'MISS')
     return res
   } catch (error) {
-    console.error('Error in intelligent forecasting API:', error)
-    
+    console.error('Error in forecast API:', error)
     return NextResponse.json(
-      { 
-        error: 'Failed to generate intelligent forecast',
+      {
+        error: 'Failed to generate forecast',
         details: error instanceof Error ? error.message : 'Unknown error'
       },
       { status: 500 }
@@ -139,88 +134,25 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const clientId = searchParams.get('clientId')
-    
-    // Return available forecasting algorithms and their capabilities
+
     const capabilities = {
       algorithms: [
-        {
-          type: 'automl_forecasting',
-          description: 'Google Vertex AI AutoML time-series forecasting',
-          bestFor: 'Large datasets with complex patterns',
-          accuracy: 'High',
-          trainingTime: 'Long'
-        },
-        {
-          type: 'arima',
-          description: 'AutoRegressive Integrated Moving Average',
-          bestFor: 'Stationary time series with clear trends',
-          accuracy: 'Medium-High',
-          trainingTime: 'Fast'
-        },
-        {
-          type: 'prophet',
-          description: 'Facebook Prophet for seasonal forecasting',
-          bestFor: 'Data with strong seasonal patterns and holidays',
-          accuracy: 'High',
-          trainingTime: 'Medium'
-        },
-        {
-          type: 'lstm',
-          description: 'Long Short-Term Memory neural networks',
-          bestFor: 'Complex non-linear patterns and long sequences',
-          accuracy: 'High',
-          trainingTime: 'Long'
-        },
-        {
-          type: 'linear_regression',
-          description: 'Simple linear regression on time series',
-          bestFor: 'Simple trends and small datasets',
-          accuracy: 'Medium',
-          trainingTime: 'Very Fast'
-        }
+        { type: 'automl_forecasting', description: 'Vertex AI AutoML', bestFor: 'Large datasets' },
+        { type: 'arima', description: 'ARIMA', bestFor: 'Stationary series' },
+        { type: 'prophet', description: 'Prophet', bestFor: 'Seasonal data' },
+        { type: 'lstm', description: 'Neural networks', bestFor: 'Non-linear patterns' },
+        { type: 'linear_regression', description: 'Linear trend', bestFor: 'Simple trends' }
       ],
-      ensembleMethods: [
-        {
-          type: 'simple_average',
-          description: 'Equal weight average of all models'
-        },
-        {
-          type: 'weighted_average',
-          description: 'Accuracy-weighted average of models'
-        },
-        {
-          type: 'stacking',
-          description: 'Meta-model learns optimal combination'
-        },
-        {
-          type: 'voting',
-          description: 'Use best performing model only'
-        }
-      ],
+      ensembleMethods: ['simple_average', 'weighted_average', 'stacking', 'voting'],
       timeHorizons: ['daily', 'weekly', 'monthly', 'quarterly'],
-      maxPeriodsAhead: 365,
-      supportedFeatures: [
-        'Automatic algorithm selection',
-        'Ensemble methods',
-        'Seasonality detection',
-        'Anomaly detection',
-        'Confidence intervals',
-        'Model explanations',
-        'Automatic retraining'
-      ]
+      maxPeriodsAhead: 365
     }
 
-    return NextResponse.json({
-      success: true,
-      capabilities,
-      clientId: clientId || null
-    })
+    return NextResponse.json({ success: true, capabilities, clientId: clientId || null })
   } catch (error) {
-    console.error('Error getting forecasting capabilities:', error)
-    
-    return NextResponse.json(
-      { error: 'Failed to get forecasting capabilities' },
-      { status: 500 }
-    )
+    console.error('Error getting forecast capabilities:', error)
+    return NextResponse.json({ error: 'Failed to get capabilities' }, { status: 500 })
   }
 }
+
+
