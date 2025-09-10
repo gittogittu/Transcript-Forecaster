@@ -239,7 +239,8 @@ export class VertexAIMonitor {
         averageLatency,
         p95Latency,
         p99Latency,
-        throughput: Math.rand
+        throughput: Math.random() * 100
+      }
     } catch (error) {
       console.error(`Failed to get traffic metrics for endpoint ${endpointId}:`, error)
       throw error

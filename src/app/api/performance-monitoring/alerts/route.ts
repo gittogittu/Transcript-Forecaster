@@ -1,20 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { performanceMonitoringService } from '@/lib/services/performance-monitoring'
-
-export async function GET(request: NextRequest) {
-  try {
-    const alerts = await performanceMonitoringService.getActiveAlerts()
-    return NextResponse.json({ success: true, data: alerts })
-  } catch (error) {
-    console.error('Failed to get alerts:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to retrieve alerts' },
-      { status: 500 }
-    )
-  }
-}
-
-import { NextRequest, NextResponse } from 'next/server'
 import { performanceMonitoringService, createAlertManager } from '@/lib/services/performance-monitoring'
 
 export async function GET(request: NextRequest) {

@@ -1,221 +1,149 @@
-import { Metadata } from 'next'
-import { InteractiveDashboard } from '@/components/analytics/dashboard/InteractiveDashboard'
-import { DashboardLayout } from '@/components/analytics/dashboard/types'
-
-export const metadata: Metadata = {
-  title: 'Dashboard Demo',
-  description: 'Interactive analytics dashboard demonstration'
+export const metadata = {
+  title: 'Demo Dashboard',
+  description: 'Interactive demo of the predictive analytics dashboard with sample data'
 }
 
-// Demo dashboard layout with various widget types
-const demoLayout: DashboardLayout = {
-  id: 'demo-dashboard',
-  name: 'Demo Analytics Dashboard',
-  widgets: [
-    {
-      id: 'prediction-chart',
-      type: 'chart',
-      title: 'Prediction vs Actual Comparison',
-      position: { x: 20, y: 20 },
-      size: { width: 700, height: 400 },
-      config: {
-        chartType: 'line',
-        dataSource: 'predictions',
-        visualization: {
-          showConfidenceBands: true,
-          showAnomalies: true,
-          showPredictions: true,
-          showActuals: true,
-          animations: true
-        }
-      },
-      refreshInterval: 30000
-    },
-    {
-      id: 'real-time-stream',
-      type: 'chart',
-      title: 'Real-time Data Stream',
-      position: { x: 740, y: 20 },
-      size: { width: 500, height: 300 },
-      config: {
-        chartType: 'line',
-        dataSource: 'real-time',
-        visualization: {
-          animations: true
-        }
-      },
-      refreshInterval: 5000
-    },
-    {
-      id: 'accuracy-metrics',
-      type: 'metric',
-      title: 'Model Accuracy',
-      position: { x: 20, y: 440 },
-      size: { width: 200, height: 180 },
-      config: {
-        dataSource: 'accuracy',
-        aggregation: {
-          metrics: [
-            { field: 'mae', function: 'avg', label: 'MAE' },
-            { field: 'rmse', function: 'avg', label: 'RMSE' }
-          ]
-        }
-      },
-      refreshInterval: 60000
-    },
-    {
-      id: 'volume-metric',
-      type: 'metric',
-      title: 'Total Volume',
-      position: { x: 240, y: 440 },
-      size: { width: 200, height: 180 },
-      config: {
-        dataSource: 'metrics',
-        aggregation: {
-          metrics: [
-            { field: 'volume', function: 'sum', label: 'Total Volume' }
-          ]
-        }
-      },
-      refreshInterval: 30000
-    },
-    {
-      id: 'anomaly-insights',
-      type: 'insight',
-      title: 'AI Insights & Anomalies',
-      position: { x: 460, y: 440 },
-      size: { width: 400, height: 180 },
-      config: {
-        dataSource: 'anomalies'
-      },
-      refreshInterval: 15000
-    },
-    {
-      id: 'trend-analysis',
-      type: 'chart',
-      title: 'Trend Analysis',
-      position: { x: 740, y: 340 },
-      size: { width: 500, height: 280 },
-      config: {
-        chartType: 'area',
-        dataSource: 'trends',
-        aggregation: {
-          timeGrain: 'day',
-          metrics: [{ field: 'count', function: 'sum', label: 'Daily Count' }]
-        },
-        visualization: {
-          animations: true
-        }
-      },
-      refreshInterval: 60000
-    }
-  ],
-  filters: [
-    {
-      id: 'date-range',
-      field: 'date',
-      label: 'Date Range',
-      type: 'date',
-      value: { 
-        start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), 
-        end: new Date() 
-      }
-    },
-    {
-      id: 'client-filter',
-      field: 'client_id',
-      label: 'Client',
-      type: 'select',
-      options: [
-        { value: 'all', label: 'All Clients' },
-        { value: 'client-1', label: 'Acme Corp' },
-        { value: 'client-2', label: 'TechStart Inc' },
-        { value: 'client-3', label: 'Global Solutions' },
-        { value: 'client-4', label: 'Innovation Labs' }
-      ],
-      value: 'all'
-    },
-    {
-      id: 'model-filter',
-      field: 'model_type',
-      label: 'Model Type',
-      type: 'select',
-      options: [
-        { value: 'all', label: 'All Models' },
-        { value: 'arima', label: 'ARIMA' },
-        { value: 'prophet', label: 'Prophet' },
-        { value: 'lstm', label: 'LSTM' },
-        { value: 'ensemble', label: 'Ensemble' }
-      ],
-      value: 'all'
-    }
-  ],
-  refreshInterval: 30000,
-  isDefault: false
-}
-
-export default function DashboardDemoPage() {
-  const handleLayoutChange = (layout: DashboardLayout) => {
-    console.log('Layout changed:', layout)
-    // In a real app, this would save to API or localStorage
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('demo-dashboard-layout', JSON.stringify(layout))
-    }
-  }
-
+export default function DemoDashboardPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Demo Header */}
-      <div className="bg-white border-b border-gray-200 p-4">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between">
+    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', fontFamily: 'system-ui, sans-serif' }}>
+      {/* Header */}
+      <header style={{ backgroundColor: '#dbeafe', borderBottom: '1px solid #93c5fd', padding: '1rem 0' }}>
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                Interactive Analytics Dashboard Demo
+              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#1e3a8a', margin: 0 }}>
+                🎮 Interactive Demo Dashboard
               </h1>
-              <p className="text-gray-600 mt-1">
-                Explore real-time charts, drag-and-drop widgets, and predictive analytics
+              <p style={{ color: '#1d4ed8', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
+                Explore the predictive analytics platform with sample data and interactive features
               </p>
             </div>
-            
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span>Live Demo</span>
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.75rem', color: '#2563eb', backgroundColor: '#dbeafe', padding: '0.25rem 0.75rem', borderRadius: '9999px', border: '1px solid #93c5fd' }}>
+                Demo Mode
+              </span>
+              <a href="/" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.875rem' }}>← Back to Home</a>
+              <a href="/analytics/dashboard" style={{ backgroundColor: '#2563eb', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem' }}>
+                Live Dashboard
+              </a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
+        {/* Demo Features */}
+        <div style={{ backgroundColor: '#fef3c7', border: '1px solid #fbbf24', borderRadius: '0.5rem', padding: '1rem', marginBottom: '2rem' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: '600', color: '#92400e', margin: '0 0 0.5rem 0' }}>🎯 Demo Features</h3>
+          <p style={{ fontSize: '0.875rem', color: '#92400e', margin: 0 }}>
+            This demo showcases real-time charts, interactive widgets, drag-and-drop functionality, and sample prediction data.
+          </p>
+        </div>
+
+        {/* Sample Metrics */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '2px solid #e0e7ff' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', margin: '0 0 0.5rem 0' }}>Sample Predictions</h3>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#4f46e5', margin: '0 0 0.5rem 0' }}>2,847</div>
+            <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>Generated in demo mode</p>
+          </div>
+          
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '2px solid #dcfce7' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', margin: '0 0 0.5rem 0' }}>Demo Accuracy</h3>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#16a34a', margin: '0 0 0.5rem 0' }}>94.2%</div>
+            <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>Sample model performance</p>
+          </div>
+          
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '2px solid #fed7d7' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', margin: '0 0 0.5rem 0' }}>Anomalies Detected</h3>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#dc2626', margin: '0 0 0.5rem 0' }}>3</div>
+            <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>In sample dataset</p>
+          </div>
+          
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', border: '2px solid #fef3c7' }}>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: '500', color: '#6b7280', margin: '0 0 0.5rem 0' }}>Demo Response</h3>
+            <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#d97706', margin: '0 0 0.5rem 0' }}>156ms</div>
+            <p style={{ fontSize: '0.75rem', color: '#6b7280', margin: 0 }}>Simulated API speed</p>
+          </div>
+        </div>
+
+        {/* Interactive Demo Sections */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>📊 Sample Forecast Chart</h3>
+            <div style={{ height: '250px', backgroundColor: '#f8fafc', borderRadius: '0.375rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#64748b', border: '2px dashed #cbd5e1' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📈</div>
+              <div style={{ textAlign: 'center' }}>
+                Interactive Forecast Chart
+                <br />
+                <small>(Drag, zoom, hover for details)</small>
+                <br />
+                <small style={{ color: '#3b82f6' }}>Sample data: 7-day prediction</small>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span>Interactive</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                <span>Real-time</span>
+            </div>
+          </div>
+          
+          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>🎯 Anomaly Detection Demo</h3>
+            <div style={{ height: '250px', backgroundColor: '#fef2f2', borderRadius: '0.375rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#991b1b', border: '2px dashed #fca5a5' }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🚨</div>
+              <div style={{ textAlign: 'center' }}>
+                Real-time Anomaly Detection
+                <br />
+                <small>(Click points for explanations)</small>
+                <br />
+                <small style={{ color: '#dc2626' }}>3 anomalies in sample data</small>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Dashboard */}
-      <div className="h-[calc(100vh-80px)]">
-        <InteractiveDashboard
-          initialLayout={demoLayout}
-          onLayoutChange={handleLayoutChange}
-          className="h-full"
-        />
-      </div>
+        {/* Demo Controls */}
+        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
+          <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>🎮 Demo Controls</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <button style={{ padding: '0.75rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+              🔄 Refresh Sample Data
+            </button>
+            <button style={{ padding: '0.75rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+              📊 Generate New Forecast
+            </button>
+            <button style={{ padding: '0.75rem', backgroundColor: '#f59e0b', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+              🎯 Simulate Anomaly
+            </button>
+            <button style={{ padding: '0.75rem', backgroundColor: '#8b5cf6', color: 'white', border: 'none', borderRadius: '0.375rem', cursor: 'pointer', fontSize: '0.875rem' }}>
+              🔍 Pattern Search Demo
+            </button>
+          </div>
+        </div>
 
-      {/* Demo Instructions */}
-      <div className="fixed bottom-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm">
-        <h3 className="font-semibold text-gray-900 mb-2">Demo Instructions</h3>
-        <ul className="text-sm text-gray-600 space-y-1">
-          <li>• Click "Edit" to enable drag & drop</li>
-          <li>• Use "Add Widget" to add new components</li>
-          <li>• Toggle "Real-time" for live data updates</li>
-          <li>• Click charts to drill down into data</li>
-          <li>• Use filters to customize views</li>
-        </ul>
-      </div>
+        {/* Feature Showcase */}
+        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '1.5rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <h3 style={{ fontSize: '1.125rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>✨ Available Demo Features</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
+            <div style={{ padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.375rem' }}>
+              <div style={{ fontWeight: '500', marginBottom: '0.5rem' }}>🖱️ Drag & Drop Widgets</div>
+              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Rearrange dashboard components</div>
+            </div>
+            
+            <div style={{ padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.375rem' }}>
+              <div style={{ fontWeight: '500', marginBottom: '0.5rem' }}>📈 Interactive Charts</div>
+              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Zoom, pan, and hover for details</div>
+            </div>
+            
+            <div style={{ padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.375rem' }}>
+              <div style={{ fontWeight: '500', marginBottom: '0.5rem' }}>🔄 Real-time Updates</div>
+              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Simulated live data streaming</div>
+            </div>
+            
+            <div style={{ padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '0.375rem' }}>
+              <div style={{ fontWeight: '500', marginBottom: '0.5rem' }}>🎯 Prediction Controls</div>
+              <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>Adjust parameters and see results</div>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   )
 }

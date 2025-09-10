@@ -319,6 +319,5 @@ export async function withErrorHandling<T>(
     throw handler.handleError(error, context)
   }
 }
-// Ex
-port VertexAIError for compatibility
+// Export VertexAIError for compatibility
 export { VertexAIServiceError as VertexAIError }

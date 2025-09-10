@@ -3,22 +3,6 @@ import { performanceMonitoringService } from '@/lib/services/performance-monitor
 
 export async function GET(request: NextRequest) {
   try {
-    const health = await performanceMonitoringService.getSystemHealth()
-    return NextResponse.json({ success: true, data: health })
-  } catch (error) {
-    console.error('Failed to get system health:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to retrieve system health' },
-      { status: 500 }
-    )
-  }
-}
-
-import { NextRequest, NextResponse } from 'next/server'
-import { performanceMonitoringService } from '@/lib/services/performance-monitoring'
-
-export async function GET(request: NextRequest) {
-  try {
     const systemHealth = await performanceMonitoringService.getSystemHealth()
     
     return NextResponse.json({
