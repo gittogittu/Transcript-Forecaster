@@ -251,3 +251,18 @@ describe('StatisticalAnomalyDetector', () => {
     })
   })
 })
+
+describe('StatisticalAnomalyDetector', () => {
+	test('detects simple z-score anomalies', async () => {
+		const detector = new StatisticalAnomalyDetector({ zScoreThreshold: 2 })
+		const data: TimeSeriesData = {
+			timestamps: Array.from({ length: 20 }, (_, i) => new Date(2024, 0, i + 1)),
+			values: [
+				1,1,1,1,1,1,1,1,1,1,
+				1,1,1,1,1,1,1,1,10,1 // 10 should be an outlier
+			]
+		}
+		const anomalies = await detector.detectAnomalies(data)
+		expect(anomalies.some(a => a.actualValue === 10)).toBe(true)
+	})
+})
