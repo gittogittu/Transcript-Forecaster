@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { Navigation } from '@/components/Navigation'
 
 export const metadata: Metadata = {
   title: 'Advanced Predictive Analytics Platform',
@@ -13,8 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        {children}
+      <body className="antialiased bg-gray-50">
+        <Navigation />
+        <main className="min-h-screen">
+          {children}
+        </main>
       </body>
     </html>
   )

@@ -9,6 +9,20 @@ export default function HomePage() {
           </h1>
           <div style={{ display: 'flex', gap: '1rem' }}>
             <a 
+              href="/analytics/simple-dashboard" 
+              style={{ 
+                backgroundColor: '#7c3aed', 
+                color: 'white', 
+                padding: '0.5rem 1rem', 
+                borderRadius: '0.375rem', 
+                textDecoration: 'none',
+                fontSize: '0.875rem',
+                fontWeight: '500'
+              }}
+            >
+              🚀 Simple Dashboard
+            </a>
+            <a 
               href="/analytics/dashboard" 
               style={{ 
                 backgroundColor: '#2563eb', 
@@ -53,7 +67,23 @@ export default function HomePage() {
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', justifyContent: 'center', alignItems: 'center' }}>
             <a
-              href="/analytics/dashboard"
+              href="/analytics/simple-dashboard"
+              style={{
+                backgroundColor: '#7c3aed',
+                color: 'white',
+                padding: '0.75rem 2rem',
+                borderRadius: '0.5rem',
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                textDecoration: 'none',
+                display: 'inline-block',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+              }}
+            >
+              🚀 Simple Dashboard (CSS Fixed)
+            </a>
+            <a
+              href="/analytics/comprehensive-dashboard"
               style={{
                 backgroundColor: '#2563eb',
                 color: 'white',
@@ -65,7 +95,7 @@ export default function HomePage() {
                 display: 'inline-block'
               }}
             >
-              📊 Analytics Dashboard
+              📊 Comprehensive Analytics
             </a>
             <a
               href="/demo/dashboard"
@@ -152,6 +182,22 @@ export default function HomePage() {
         <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '2rem' }}>
           <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', textAlign: 'center', marginBottom: '2rem', color: '#111827' }}>Quick Access</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+            <a 
+              href="/data/import" 
+              style={{ 
+                display: 'block', 
+                padding: '1rem', 
+                border: '2px solid #3b82f6', 
+                borderRadius: '0.5rem', 
+                textAlign: 'center',
+                textDecoration: 'none',
+                color: '#111827',
+                backgroundColor: '#eff6ff'
+              }}
+            >
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📤</div>
+              <div style={{ fontWeight: '500', color: '#1d4ed8' }}>Import Data</div>
+            </a>
             <a 
               href="/api/system/health" 
               style={{ 

@@ -8,7 +8,86 @@ const anomalyService = new AnomalyDetectionService()
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { data, clientId, includeExplanations = false, historicalData } = body
+    const { 
+      data, 
+      clientId, 
+      includeExplanations = false, 
+      historicalData,
+      detection_method = 'isolation_forest',
+      sensitivity = 0.1,
+      include_explanations = false
+    } = body
+
+    // If no specific data provided, fetch recent data from database
+    if (!data) {
+      const { DatabaseConnection } = require('@/lib/database/connection')
+      const db = DatabaseConnection.getInstance()
+      const pool = await db.getPool()
+      
+      const recentDataQuery = `
+        SELECT 
+          c.name as client_name,
+          t.date,
+          t.transcript_count,
+          c.overall_aht
+        FROM clients c
+        JOIN transcripts t ON c.id = t.client_id
+        WHERE t.date >= CURRENT_DATE - INTERVAL '3 months'
+        ORDER BY c.name, t.date
+      `
+      
+      const result = await pool.query(recentDataQuery)
+      
+      // Group by client and detect anomalies
+      const clientData = new Map()
+      result.rows.forEach(row => {
+        if (!clientData.has(row.client_name)) {
+          clientData.set(row.client_name, [])
+        }
+        clientData.get(row.client_name).push({
+          date: row.date,
+          value: row.transcript_count,
+          aht: row.overall_aht
+        })
+      })
+      
+      const anomalies = []
+      
+      for (const [clientName, clientRecords] of clientData.entries()) {
+        if (clientRecords.length < 3) continue // Need minimum data points
+        
+        const values = clientRecords.map(r => r.value)
+        const mean = values.reduce((a, b) => a + b, 0) / values.length
+        const stdDev = Math.sqrt(values.reduce((sq, n) => sq + Math.pow(n - mean, 2), 0) / values.length)
+        
+        // Simple anomaly detection using z-score
+        clientRecords.forEach(record => {
+          const zScore = Math.abs((record.value - mean) / stdDev)
+          if (zScore > 2) { // 2 standard deviations
+            const severity = zScore > 3 ? 'high' : zScore > 2.5 ? 'medium' : 'low'
+            anomalies.push({
+              client_name: clientName,
+              anomaly_score: zScore,
+              expected_range: [Math.max(0, mean - 2 * stdDev), mean + 2 * stdDev],
+              actual_value: record.value,
+              severity,
+              date: record.date
+            })
+          }
+        })
+      }
+      
+      return NextResponse.json({
+        success: true,
+        anomalies: anomalies.slice(0, 20), // Limit to top 20 anomalies
+        detection_summary: {
+          total_clients_analyzed: clientData.size,
+          anomalies_found: anomalies.length,
+          detection_method: 'statistical_zscore',
+          sensitivity_threshold: 2.0
+        }
+      })
+    }
 
     // Validate input data
     if (!data || !Array.isArray(data.timestamps) || !Array.isArray(data.values)) {
