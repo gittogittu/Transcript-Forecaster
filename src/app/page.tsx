@@ -1,59 +1,6 @@
 export default function HomePage() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', fontFamily: 'system-ui, sans-serif' }}>
-      {/* Navigation */}
-      <nav style={{ backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', padding: '1rem 0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>
-            🧠 Predictive Analytics Platform
-          </h1>
-          <div style={{ display: 'flex', gap: '1rem' }}>
-            <a 
-              href="/analytics/simple-dashboard" 
-              style={{ 
-                backgroundColor: '#7c3aed', 
-                color: 'white', 
-                padding: '0.5rem 1rem', 
-                borderRadius: '0.375rem', 
-                textDecoration: 'none',
-                fontSize: '0.875rem',
-                fontWeight: '500'
-              }}
-            >
-              🚀 Simple Dashboard
-            </a>
-            <a 
-              href="/analytics/dashboard" 
-              style={{ 
-                backgroundColor: '#2563eb', 
-                color: 'white', 
-                padding: '0.5rem 1rem', 
-                borderRadius: '0.375rem', 
-                textDecoration: 'none',
-                fontSize: '0.875rem',
-                fontWeight: '500'
-              }}
-            >
-              Dashboard
-            </a>
-            <a 
-              href="/demo/dashboard" 
-              style={{ 
-                backgroundColor: '#16a34a', 
-                color: 'white', 
-                padding: '0.5rem 1rem', 
-                borderRadius: '0.375rem', 
-                textDecoration: 'none',
-                fontSize: '0.875rem',
-                fontWeight: '500'
-              }}
-            >
-              Demo
-            </a>
-          </div>
-        </div>
-      </nav>
-
       {/* Main Content */}
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '3rem 1rem' }}>
         {/* Hero Section */}

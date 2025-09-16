@@ -12,7 +12,7 @@
 import { IntelligentForecastingEngine } from '../forecasting/intelligent-forecasting-engine'
 import { AnomalyDetectionService } from '../anomaly-detection/anomaly-detection-service'
 import { EmbeddingService } from '../embeddings/index'
-import { FeaturePipeline } from '../feature-engineering/feature-pipeline'
+import { FeatureEngineeringPipeline, type FeaturePipelineConfig } from '../feature-engineering/feature-pipeline'
 import { AdaptiveModelingManager } from '../adaptive-modeling/adaptive-modeling-manager'
 import { PerformanceMonitor } from '../performance-monitoring/performance-monitor'
 import { getVertexAIClient } from '../vertex-ai/client'
@@ -98,7 +98,7 @@ export interface SystemHealth {
 export class PredictiveAnalyticsEngine {
   private forecastingEngine: IntelligentForecastingEngine
   private anomalyService: AnomalyDetectionService
-  private featurePipeline: FeaturePipeline
+  private featurePipeline: FeatureEngineeringPipeline
   private adaptiveManager: AdaptiveModelingManager
   private performanceMonitor: PerformanceMonitor
   private cache: PredictionCache
@@ -108,7 +108,12 @@ export class PredictiveAnalyticsEngine {
   constructor() {
     this.forecastingEngine = new IntelligentForecastingEngine()
     this.anomalyService = new AnomalyDetectionService()
-    this.featurePipeline = new FeaturePipeline()
+    this.featurePipeline = new FeatureEngineeringPipeline({
+      timeFeatures: { lagPeriods: [1, 7, 30], rollingWindows: [3, 7, 14], seasonalPeriods: [7, 30] },
+      statisticalFeatures: { maxLags: 30, seasonalPeriods: [7, 30], changePointSensitivity: 0.5 },
+      domainFeatures: { includeHolidays: true, includeBusinessDays: true, includeSeasonalFactors: true },
+      featureStore: { featureStoreId: 'transcript-analytics-feature-store', projectId: 'demo', location: 'us-central1' }
+    })
     this.adaptiveManager = new AdaptiveModelingManager()
     this.performanceMonitor = new PerformanceMonitor({
       accuracy: { maeThreshold: 10, rmseThreshold: 15, mapeThreshold: 20, accuracyMinimum: 0.8 },
