@@ -6,7 +6,10 @@
 
 import { Pool } from 'pg'
 import { getDatabasePool } from '../../database/connection'
-import { textEmbeddingService } from './text-embedding'
+import { TextEmbeddingService } from './text-embedding-demo'
+
+// Create instance for use in this service
+const textEmbeddingService = new TextEmbeddingService()
 import {
   PatternEmbeddingRequest,
   PatternEmbeddingResult,
@@ -66,7 +69,10 @@ export class PatternEmbeddingGenerator {
       const patternDescription = this.generatePatternDescription(characteristics, timeSeriesData)
       
       // Generate embedding using text embedding service
-      const embeddingResponse = await textEmbeddingService.generateQueryEmbedding(patternDescription)
+      const embeddingResponse = await textEmbeddingService.generateEmbedding({
+        text: patternDescription,
+        taskType: 'RETRIEVAL_QUERY'
+      })
       
       // Store pattern in database
       const patternId = await this.storePattern({

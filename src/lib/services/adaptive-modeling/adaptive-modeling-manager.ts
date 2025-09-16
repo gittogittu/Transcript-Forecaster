@@ -51,15 +51,119 @@ export class AdaptiveModelingManager {
   private isInitialized = false
   private monitoringIntervals: NodeJS.Timeout[] = []
 
-  constructor(config: AdaptiveModelingConfig) {
-    this.config = config
+  constructor(config?: AdaptiveModelingConfig) {
+    // Use default config if none provided
+    this.config = config || this.getDefaultConfig()
     
     // Initialize components
-    this.driftDetector = new ConceptDriftDetector(config.driftDetection.vertexAIConfig)
-    this.retrainingService = new AutoRetrainingService(config.autoRetraining)
-    this.preprocessingPipeline = new AdaptivePreprocessingPipeline(config.adaptivePreprocessing)
+    this.driftDetector = new ConceptDriftDetector(this.config.driftDetection.vertexAIConfig)
+    this.retrainingService = new AutoRetrainingService(this.config.autoRetraining)
+    this.preprocessingPipeline = new AdaptivePreprocessingPipeline(this.config.adaptivePreprocessing)
     this.performanceTracker = new PerformanceTracker()
-    this.hyperparameterOptimizer = new HyperparameterOptimizer(config.hyperparameterOptimization)
+    this.hyperparameterOptimizer = new HyperparameterOptimizer(this.config.hyperparameterOptimization)
+  }
+
+  /**
+   * Get default configuration for adaptive modeling
+   */
+  private getDefaultConfig(): AdaptiveModelingConfig {
+    return {
+      driftDetection: {
+        enabled: false, // Disabled by default to avoid setup issues
+        vertexAIConfig: {
+          projectId: 'demo-project',
+          location: 'us-central1',
+          endpointId: '',
+          alertConfig: {
+            notificationChannels: [],
+            alertThresholds: []
+          },
+          driftDetectionConfig: {
+            driftThresholds: {},
+            samplingStrategy: {
+              randomSampleConfig: {
+                sampleRate: 0.1
+              }
+            }
+          }
+        },
+        checkInterval: 60
+      },
+      autoRetraining: {
+        enabled: false,
+        triggers: [],
+        schedule: {
+          frequency: 'daily',
+          time: '02:00',
+          timezone: 'UTC',
+          maxConcurrentJobs: 1
+        },
+        dataQualityThresholds: {
+          missingValuePercentage: 0.1,
+          outlierPercentage: 0.05,
+          duplicatePercentage: 0.01,
+          schemaViolationPercentage: 0.01,
+          dataFreshnessHours: 24
+        },
+        performanceThresholds: {
+          accuracyDropPercentage: 0.1,
+          latencyIncreasePercentage: 0.2,
+          errorRatePercentage: 0.05,
+          memoryUsagePercentage: 0.8,
+          throughputDropPercentage: 0.1
+        },
+        resourceLimits: {
+          maxTrainingTimeMinutes: 60,
+          maxMemoryGB: 8,
+          maxCpuCores: 4,
+          maxGpuCount: 0,
+          maxCostUSD: 100
+        }
+      },
+      adaptivePreprocessing: {
+        enabled: false,
+        adaptationTriggers: [],
+        preprocessingSteps: [],
+        qualityMonitoring: {
+          enabled: true,
+          checkFrequency: 'daily',
+          qualityMetrics: [],
+          alertThresholds: {}
+        }
+      },
+      hyperparameterOptimization: {
+        enabled: false,
+        algorithm: 'bayesian',
+        searchSpace: {
+          parameters: [],
+          searchStrategy: 'adaptive',
+          maxIterations: 10,
+          parallelTrials: 1
+        },
+        optimizationObjective: {
+          metric: 'accuracy',
+          direction: 'maximize',
+          weight: 1.0
+        },
+        constraints: {
+          maxTrainingTime: 60,
+          maxMemoryUsage: 4000,
+          maxCost: 50
+        },
+        earlyStoppingConfig: {
+          enabled: true,
+          patience: 5,
+          minDelta: 0.001,
+          metric: 'accuracy',
+          mode: 'max'
+        }
+      },
+      performanceTracking: {
+        enabled: true,
+        metricsRetentionDays: 30,
+        healthCheckInterval: 15
+      }
+    }
   }
 
   /**

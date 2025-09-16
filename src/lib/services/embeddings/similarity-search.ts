@@ -11,7 +11,10 @@
 import { Pool } from 'pg'
 import { getDatabasePool } from '../../database/connection'
 import { vectorUtils, VectorSearchResult } from '../../database/vector-utils'
-import { textEmbeddingService } from './text-embedding'
+import { TextEmbeddingService } from './text-embedding-demo'
+
+// Create instance for use in this service
+const textEmbeddingService = new TextEmbeddingService()
 import { transcriptVectorizationService } from './transcript-vectorization'
 
 export interface SimilaritySearchRequest {
@@ -141,7 +144,10 @@ export class SimilaritySearchService {
         }
         searchEmbedding = transcriptEmbedding
       } else if (query) {
-        const queryEmbedding = await textEmbeddingService.generateQueryEmbedding(query)
+        const queryEmbedding = await textEmbeddingService.generateEmbedding({
+          text: query,
+          taskType: 'RETRIEVAL_QUERY'
+        })
         searchEmbedding = queryEmbedding.embedding
       } else {
         throw new Error('Must provide query, transcriptId, or embedding')
@@ -741,9 +747,10 @@ export class SimilaritySearchService {
       `Day ${p.dayOfWeek}: ${p.count} transcripts${p.hasNotes ? ' with notes' : ''}`
     ).join(', ')
 
-    const embeddingResponse = await textEmbeddingService.generateQueryEmbedding(
-      `Temporal pattern: ${patternText}`
-    )
+    const embeddingResponse = await textEmbeddingService.generateEmbedding({
+      text: `Temporal pattern: ${patternText}`,
+      taskType: 'RETRIEVAL_QUERY'
+    })
 
     return embeddingResponse.embedding
   }

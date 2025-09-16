@@ -7,6 +7,7 @@
 
 // import { VertexAI } from '@google-cloud/vertexai'
 // For demo purposes, we'll mock the Vertex AI functionality
+// This file is not used in demo mode - see text-embedding-demo.ts instead
 import { vertexAIConfig } from '../vertex-ai/config'
 import { withErrorHandling } from '../vertex-ai/errors'
 
@@ -39,132 +40,29 @@ export interface BatchEmbeddingResponse {
 }
 
 export class TextEmbeddingService {
-  private vertexAI: VertexAI
+  // Note: This is the production version that requires actual VertexAI
+  // For demo purposes, use text-embedding-demo.ts instead
+  private vertexAI: any // VertexAI
   private defaultModel: string = 'text-embedding-004'
   private maxBatchSize: number = 100
   private maxTextLength: number = 20000 // Characters
 
   constructor() {
-    const config = vertexAIConfig.getClientOptions()
-    this.vertexAI = new VertexAI({
-      project: config.projectId,
-      location: config.location,
-    })
+    throw new Error('Production VertexAI service not available in demo mode. Use TextEmbeddingService from text-embedding-demo.ts instead.')
   }
 
   /**
    * Generate embedding for a single text
    */
   async generateEmbedding(request: EmbeddingRequest): Promise<EmbeddingResponse> {
-    return withErrorHandling(async () => {
-      const {
-        text,
-        model = this.defaultModel,
-        taskType = 'RETRIEVAL_DOCUMENT',
-        title,
-        outputDimensionality
-      } = request
-
-      // Validate text length
-      if (text.length > this.maxTextLength) {
-        throw new Error(`Text length (${text.length}) exceeds maximum allowed length (${this.maxTextLength})`)
-      }
-
-      // Get the generative model
-      const textEmbeddingModel = this.vertexAI.getGenerativeModel({
-        model: model,
-      })
-
-      // Prepare the request
-      const embeddingRequest: any = {
-        instances: [{
-          content: text,
-          task_type: taskType,
-        }]
-      }
-
-      if (title) {
-        embeddingRequest.instances[0].title = title
-      }
-
-      if (outputDimensionality && model === 'text-embedding-004') {
-        embeddingRequest.parameters = {
-          outputDimensionality: outputDimensionality
-        }
-      }
-
-      // Generate embedding
-      const result = await textEmbeddingModel.generateContent({
-        contents: [{
-          role: 'user',
-          parts: [{
-            text: JSON.stringify(embeddingRequest)
-          }]
-        }]
-      })
-
-      // Parse response (this is a simplified version - actual Vertex AI embedding API differs)
-      // In practice, you'd use the actual Vertex AI embedding endpoint
-      const embedding = await this.callEmbeddingAPI(text, model, taskType, outputDimensionality)
-
-      return {
-        embedding: embedding.values,
-        model: model,
-        dimensions: embedding.values.length,
-        tokenCount: embedding.tokenCount
-      }
-    }, 'generateEmbedding')
+    throw new Error('Production VertexAI service not available in demo mode. Use TextEmbeddingService from text-embedding-demo.ts instead.')
   }
 
   /**
    * Generate embeddings for multiple texts in batches
    */
   async generateBatchEmbeddings(request: BatchEmbeddingRequest): Promise<BatchEmbeddingResponse> {
-    return withErrorHandling(async () => {
-      const {
-        texts,
-        model = this.defaultModel,
-        taskType = 'RETRIEVAL_DOCUMENT',
-        batchSize = this.maxBatchSize
-      } = request
-
-      const startTime = Date.now()
-      const embeddings: EmbeddingResponse[] = []
-      let totalTokens = 0
-
-      // Process texts in batches
-      for (let i = 0; i < texts.length; i += batchSize) {
-        const batch = texts.slice(i, i + batchSize)
-        
-        // Process batch concurrently
-        const batchPromises = batch.map(text => 
-          this.generateEmbedding({
-            text,
-            model,
-            taskType
-          })
-        )
-
-        const batchResults = await Promise.all(batchPromises)
-        embeddings.push(...batchResults)
-        
-        // Sum up token counts
-        totalTokens += batchResults.reduce((sum, result) => sum + (result.tokenCount || 0), 0)
-
-        // Add small delay between batches to respect rate limits
-        if (i + batchSize < texts.length) {
-          await new Promise(resolve => setTimeout(resolve, 100))
-        }
-      }
-
-      const processingTime = Date.now() - startTime
-
-      return {
-        embeddings,
-        totalTokens,
-        processingTime
-      }
-    }, 'generateBatchEmbeddings')
+    throw new Error('Production VertexAI service not available in demo mode. Use TextEmbeddingService from text-embedding-demo.ts instead.')
   }
 
   /**
@@ -178,14 +76,7 @@ export class TextEmbeddingService {
       notes?: string
     }
   ): Promise<EmbeddingResponse> {
-    // Create a structured text representation of the transcript data
-    const transcriptText = this.formatTranscriptForEmbedding(transcriptData)
-    
-    return this.generateEmbedding({
-      text: transcriptText,
-      taskType: 'RETRIEVAL_DOCUMENT',
-      title: `Transcript data for ${transcriptData.clientName} on ${transcriptData.date}`
-    })
+    throw new Error('Production VertexAI service not available in demo mode. Use TextEmbeddingService from text-embedding-demo.ts instead.')
   }
 
   /**

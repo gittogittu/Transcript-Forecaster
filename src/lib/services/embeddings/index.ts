@@ -12,7 +12,7 @@ export { TextEmbeddingService } from './text-embedding-demo'
 export { transcriptVectorizationService, TranscriptVectorizationService } from './transcript-vectorization'
 export { similaritySearchService, SimilaritySearchService } from './similarity-search'
 export { PatternMatchingService } from './pattern-matching'
-export const patternMatchingService = new PatternMatchingService()
+// export const patternMatchingService = new PatternMatchingService()
 
 // Types for text embedding
 export type {

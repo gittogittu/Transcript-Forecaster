@@ -10,7 +10,10 @@
 
 import { Pool } from 'pg'
 import { getDatabasePool } from '../../database/connection'
-import { textEmbeddingService, EmbeddingResponse } from './text-embedding'
+import { TextEmbeddingService, EmbeddingResponse } from './text-embedding-demo'
+
+// Create instance for use in this service
+const textEmbeddingService = new TextEmbeddingService()
 import { vectorUtils, VectorDatabaseUtils } from '../../database/vector-utils'
 
 export interface TranscriptData {
@@ -110,11 +113,10 @@ export class TranscriptVectorizationService {
       }
 
       // Generate embedding
-      const embeddingResponse = await textEmbeddingService.generateTranscriptEmbedding({
-        clientName: transcriptData.clientName,
-        date: transcriptData.date,
-        count: transcriptData.transcriptCount,
-        notes: transcriptData.notes
+      const transcriptText = `Client: ${transcriptData.clientName}, Date: ${transcriptData.date}, Count: ${transcriptData.transcriptCount}${transcriptData.notes ? `, Notes: ${transcriptData.notes}` : ''}`
+      const embeddingResponse = await textEmbeddingService.generateEmbedding({
+        text: transcriptText,
+        taskType: 'RETRIEVAL_DOCUMENT'
       })
 
       // Store embedding in database
@@ -290,7 +292,10 @@ export class TranscriptVectorizationService {
   ): Promise<SimilarTranscript[]> {
     try {
       // Generate embedding for the query
-      const queryEmbedding = await textEmbeddingService.generateQueryEmbedding(query)
+      const queryEmbedding = await textEmbeddingService.generateEmbedding({
+        text: query,
+        taskType: 'RETRIEVAL_QUERY'
+      })
 
       // Build filters
       const filters: Record<string, any> = {
