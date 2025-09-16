@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react'
 
 // Ultra-simple prediction dashboard with no hydration issues
 export default function WorkingPredictions() {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
+  const [expanded, setExpanded] = useState<Set<number>>(new Set())
+  const fmt = useMemo(() => new Intl.NumberFormat('en-US'), [])
   const predictions = [
     { month: 'Jul 2025', predicted: 21450, growth: 2.1, confidence: [19800, 23100] as [number, number] },
     { month: 'Aug 2025', predicted: 22180, growth: 3.4, confidence: [20500, 23860] as [number, number] },
@@ -174,10 +175,10 @@ export default function WorkingPredictions() {
           {predictions.map((pred, index) => (
             <div
               key={index}
-              onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
+              onClick={() => setExpanded(prev => { const next = new Set(prev); next.has(index) ? next.delete(index) : next.add(index); return next })}
               role="button"
               tabIndex={0}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpandedIndex(expandedIndex === index ? null : index) } }}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(prev => { const next = new Set(prev); next.has(index) ? next.delete(index) : next.add(index); return next }) } }}
               style={{ 
                 backgroundColor: '#f8fafc', 
                 borderRadius: '0.75rem', 
@@ -219,8 +220,11 @@ export default function WorkingPredictions() {
               </div>
               
               <button
-                onClick={() => setExpandedIndex(expandedIndex === index ? null : index)}
-                aria-expanded={expandedIndex === index}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setExpanded(prev => { const next = new Set(prev); next.has(index) ? next.delete(index) : next.add(index); return next })
+                }}
+                aria-expanded={expanded.has(index)}
                 aria-controls={`client-breakdown-${index}`}
                 style={{
                   backgroundColor: '#e0e7ff',
@@ -232,7 +236,7 @@ export default function WorkingPredictions() {
                   border: 'none',
                   cursor: 'pointer'
                 }}
-                title={expandedIndex === index ? 'Hide client breakdown' : 'Show client breakdown'}
+                title={expanded.has(index) ? 'Hide client breakdown' : 'Show client breakdown'}
               >
                 <div 
                   style={{ 
@@ -248,7 +252,7 @@ export default function WorkingPredictions() {
                     fontWeight: '600'
                   }}
                 >
-                  {pred.predicted.toLocaleString()}
+                  {fmt.format(pred.predicted)}
                 </div>
               </button>
               
@@ -265,7 +269,7 @@ export default function WorkingPredictions() {
               </div>
 
               {/* Client-wise breakdown (click the bar to toggle) */}
-              {expandedIndex === index && (
+              {expanded.has(index) && (
                 <div id={`client-breakdown-${index}`} style={{ marginTop: '1rem', backgroundColor: 'white', borderRadius: '0.5rem', border: '1px solid #e5e7eb' }}>
                   <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontWeight: 600, color: '#1f2937' }}>
