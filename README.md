@@ -1,889 +1,414 @@
 # Transcript Analytics Platform
 
-A Next.js 15 web application that provides predictive analytics for client transcript data with Google Sheets integration and machine learning capabilities.
+A comprehensive Next.js-based platform for advanced predictive analytics, machine learning, and data management for transcript processing workflows.
 
-## Tech Stack
+## 🚀 Features
 
-- **Framework**: Next.js 15 with App Router and Turbopack
-- **Language**: TypeScript (strict mode enabled)
-- **Runtime**: React 19.1.0
-- **Styling**: Tailwind CSS 4 + Shadcn UI components
-- **Database**: PostgreSQL with custom migration system
-- **Authentication**: NextAuth.js with multiple providers (Auth0, Google, GitHub)
-- **State Management**: TanStack Query for server state
-- **Forms**: React Hook Form + Zod validation
-- **Animation**: Framer Motion
-- **Charts**: Recharts
-- **Machine Learning**: TensorFlow.js
-- **Testing**: Jest + Playwright + Testing Library
-- **Error Handling**: Comprehensive error tracking with structured error types
+### Core Capabilities
+- **Client Management**: Full CRUD operations with search, filtering, and state management
+- **Predictive Analytics**: Advanced forecasting with multiple ML algorithms
+- **Anomaly Detection**: Real-time monitoring and statistical anomaly detection
+- **Data Import**: Support for CSV, JSON, and Excel file processing
+- **Vector Search**: Semantic search and pattern matching using pgvector
+- **Vertex AI Integration**: Google Cloud ML platform integration
 
-## Project Structure
+### Analytics & Insights
+- **Real-time Dashboards**: Interactive analytics with drill-down capabilities
+- **Business Insights**: AI-powered recommendations and trend analysis
+- **Multi-dimensional Forecasting**: Cross-client pattern analysis
+- **Correlation Analysis**: Feature importance and attribution analysis
+
+## 📋 Table of Contents
+
+- [Quick Start](#quick-start)
+- [Architecture](#architecture)
+- [Documentation](#documentation)
+- [Development](#development)
+- [Deployment](#deployment)
+- [API Reference](#api-reference)
+- [Contributing](#contributing)
+
+## 🏗️ Architecture
+
+### Technology Stack
+
+- **Frontend**: Next.js 15.4.6, React 19, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes, Node.js
+- **Database**: PostgreSQL with pgvector extension
+- **ML/AI**: Google Cloud Vertex AI, custom ML services
+- **Authentication**: Auth0 (optional)
+
+### System Overview
 
 ```
-src/
-├── app/                    # Next.js App Router pages and API routes
-│   ├── api/               # API routes
-│   │   ├── analytics/     # Analytics endpoints
-│   │   ├── auth/          # Authentication endpoints
-│   │   ├── monitoring/    # Performance monitoring
-│   │   ├── sheets/        # Google Sheets integration
-│   │   └── transcripts/   # Transcript data endpoints
-│   ├── admin/             # Admin-only pages
-│   ├── analytics/         # Analytics dashboard pages
-│   ├── auth/              # Authentication pages
-│   ├── dashboard/         # Main dashboard
-│   ├── unauthorized/      # Access denied page
-│   ├── globals.css        # Global styles
-│   ├── layout.tsx         # Root layout
-│   └── page.tsx           # Home page
-├── components/            # React components
-│   ├── analytics/         # Analytics and charts components
-│   ├── animations/        # Animation components
-│   ├── auth/              # Authentication components
-│   ├── dashboard/         # Dashboard components
-│   ├── data/              # Data table and form components
-│   ├── error-boundaries/  # Error handling components
-│   ├── monitoring/        # Performance monitoring UI
-│   └── ui/                # Shadcn UI components (Button, Card, Progress, etc.)
-├── lib/                   # Utilities and configurations
-│   ├── auth.ts            # NextAuth configuration
-│   ├── config/            # Configuration files
-│   ├── database/          # Database connection and migrations
-│   ├── errors/            # Error handling utilities
-│   ├── hooks/             # Custom React hooks
-│   ├── middleware/        # API middleware (rate limiting, security, performance)
-│   ├── migration/         # Database migration utilities
-│   ├── monitoring/        # Performance monitoring
-│   ├── services/          # External service integrations
-│   ├── testing/           # Testing utilities and mocks
-│   ├── utils/             # General utility functions
-│   ├── validations/       # Zod validation schemas
-│   └── utils.ts           # Core utility functions
-├── types/                 # TypeScript type definitions
-│   ├── transcript.ts      # Transcript data models and interfaces
-│   ├── aht.ts            # Average Handle Time (AHT) data types
-│   ├── auth.d.ts         # Authentication types
-│   └── next-auth.d.ts    # NextAuth type extensions
-├── middleware.ts          # Next.js middleware for auth/routing
-└── global.d.ts            # Global type declarations
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │   Backend API   │    │   Database      │
+│   (Next.js)     │◄──►│   (API Routes)  │◄──►│   (PostgreSQL)  │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   UI Components │    │   ML Services   │    │   Vector Store  │
+│   - Analytics   │    │   - Vertex AI   │    │   (pgvector)    │
+│   - Dashboards  │    │   - Embeddings  │    └─────────────────┘
+│   - Client Mgmt │    │   - Forecasting │
+└─────────────────┘    └─────────────────┘
 ```
 
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 18+ and npm
-- A Neon PostgreSQL database (get one free at [neon.tech](https://neon.tech))
+- Node.js 18+
+- PostgreSQL 14+ with pgvector extension
+- Google Cloud Account (for Vertex AI features)
 
-### Quick Setup
+### Installation
 
-1. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-
-2. **Configure your database:**
-   ```bash
-   # Copy environment template
-   cp .env.example .env.local
-   
-   # Edit .env.local with your Neon DB connection string
-   # Get your connection string from: https://console.neon.tech/
-   # Example: DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
-   ```
-
-3. **Set up the database:**
-   ```bash
-   npm run setup
-   ```
-   
-   This automated setup script will:
-   - Test your database connection
-   - Create the users table if it doesn't exist
-   - Set up necessary indexes
-   - Create a default admin user for initial access
-
-4. **Start the development server:**
-   ```bash
-   npm run dev
-   ```
-
-5. **Open [http://localhost:3000](http://localhost:3000) in your browser.**
-
-### Manual Database Setup
-
-If you prefer to set up the database manually:
-
-1. **Configure environment variables** in `.env.local`:
-   ```env
-   # Preferred method: Use Neon connection string
-   DATABASE_URL=postgresql://username:password@ep-xxx.region.aws.neon.tech/dbname?sslmode=require
-   DATABASE_SSL=true
-   DATA_SOURCE_TYPE=database
-   
-   # Optional: Configure connection pool settings
-   DATABASE_MAX_CONNECTIONS=20
-   DATABASE_POOL_TIMEOUT=20000
-   DATABASE_IDLE_TIMEOUT=10000
-   ```
-
-2. **Run database migrations:**
-   ```bash
-   npm run db:migrate
-   ```
-
-3. **Check database status:**
-   ```bash
-   npm run db:status
-   ```
-
-4. **Test database connection:**
-   Visit `http://localhost:3000/api/health/database` after starting the dev server.
-
-## Available Scripts
-
-### Development
-- `npm run dev` - Start development server with Turbopack
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run analyze` - Bundle analysis (set ANALYZE=true)
-
-### Code Quality
-- `npm run lint` - Run ESLint
-- `npm run lint:fix` - Fix ESLint issues automatically
-- `npm run format` - Format code with Prettier
-- `npm run format:check` - Check code formatting
-- `npm run type-check` - TypeScript type checking
-
-### Testing
-- `npm run test` - Run Jest unit tests
-- `npm run test:watch` - Jest in watch mode
-- `npm run test:coverage` - Generate coverage report
-- `npm run test:integration` - Integration tests only
-- `npm run test:accessibility` - Accessibility tests
-- `npm run test:performance` - Performance tests
-- `npm run test:e2e` - Playwright E2E tests
-- `npm run test:e2e:ui` - E2E tests with UI
-- `npm run test:all` - Run all test suites
-
-### Database
-- `npm run setup` - Automated database setup (recommended for first-time setup)
-- `npm run migrate` - Run database migrations
-- `npm run db:migrate` - Alias for migrate
-- `npm run db:status` - Check migration status
-
-### User Management
-- `node update-user-role.js` - Update user roles (create admin users, modify permissions)
-
-### Utility Scripts
-For comprehensive script documentation, see [SCRIPTS.md](./SCRIPTS.md)
-
-### Performance & Monitoring
-- `npm run benchmark` - Performance benchmarks
-- `npm run perf:monitor` - Performance monitoring tests
-- `npm run perf:bundle` - Bundle optimization tests
-- `npm run lighthouse` - Lighthouse CI
-
-### Deployment
-- `npm run deploy` - Deploy to default environment
-- `npm run deploy:staging` - Deploy to staging
-- `npm run deploy:production` - Deploy to production
-- `npm run deploy:dry-run` - Dry run deployment
-- `npm run validate:deployment` - Post-deployment validation
-- `npm run workflow:complete` - Full integration workflow
-
-## Development Guidelines
-
-- TypeScript strict mode is enabled
-- ESLint and Prettier are configured for code quality
-- Use Shadcn UI components for consistent design
-- Follow the established folder structure
-- Write type-safe code with proper validation
-- Performance monitoring is optional and can be enabled manually when needed
-
-### Dynamic Import Pattern for SSR Compatibility
-
-When using libraries that are not compatible with server-side rendering (like TensorFlow.js), use the dynamic import pattern:
-
-```typescript
-// State for dynamically imported service
-const [predictionService, setPredictionService] = useState<any>(null)
-
-// Dynamic import in async function
-const handleGeneratePredictions = async () => {
-  let serviceToUse = predictionService
-  if (!serviceToUse) {
-    const { PredictionService } = await import('@/lib/services/prediction-service')
-    serviceToUse = new PredictionService()
-    setPredictionService(serviceToUse)
-  }
-  // Use serviceToUse for operations
-}
-```
-
-This pattern ensures:
-- No SSR conflicts with browser-only libraries
-- Lazy loading for better initial page performance
-- Proper error handling for import failures
-- State management for service instances
-
-
-
-## Key Features
-
-### Data Management
-- Import and manage client transcript data from Google Sheets
-- File upload with progress tracking for CSV and Excel files
-- Real-time data synchronization with conflict resolution
-- Comprehensive data validation with business rule enforcement
-- Batch operations and data consistency checks
-- **Average Handle Time (AHT) Analytics**: Track and analyze client performance metrics including overall AHT, review AHT, and validation AHT with monthly trend analysis
-
-### Predictive Analytics
-- Machine learning-powered predictions using TensorFlow.js (dynamically loaded for SSR compatibility)
-- Multiple prediction models (linear, polynomial, ARIMA)
-- Confidence intervals and accuracy metrics
-- Model performance monitoring and optimization
-- Client-side ML processing with WebGL acceleration and CPU fallback
-- Dynamic import pattern ensures compatibility with Next.js App Router and server-side rendering
-
-### Interactive Dashboards
-- **Current Status**: Simplified analytics dashboard with basic metrics display
-- **In Development**: Full-featured analytics with interactive charts and visualizations
-- **AHT Analytics**: Comprehensive Average Handling Time dashboard with client performance insights
-- **Planned Features**: Customizable filters, date range selection, and export capabilities
-- Summary statistics and trend analysis (basic implementation available)
-- Multi-dimensional data analysis with risk assessment and predictive modeling
-
-### Authentication & Security
-- Multi-provider authentication (Auth0, Google, GitHub)
-- **Enhanced Role-Based Access Control**: Hierarchical role system (admin > analyst > viewer) with comprehensive utilities:
-  - Role hierarchy validation (`hasRole`, `hasAnyRole`)
-  - Permission checking (`canPerformAction` for read/write/delete/admin actions)
-  - Role comparison utilities (`getRolesAtOrBelow`, `getRolesAbove`)
-  - User-friendly role display (`getRoleDisplayName`, `getRoleDescription`)
-- Session management and secure routing
-- Rate limiting and API protection
-- Compact dropdown-based user profile interface
-- Integrated user settings and sign-out functionality
-
-### Performance & Monitoring
-- Built-in performance tracking and optimization
-- Real-time error monitoring with structured error types
-- Comprehensive logging and debugging tools
-- Performance benchmarks and health checks
-- Production monitoring dashboard for admin users
-- Core Web Vitals tracking (LCP, FID, CLS)
-- Resource performance monitoring
-- User analytics and interaction tracking
-- Automated error alerting and critical issue detection
-
-## Error Handling
-
-The application implements a comprehensive error handling system with structured error types:
-
-- **AppError**: Base error interface with name, message, code, timestamp, and optional context
-- **ValidationErrorData**: Enhanced validation errors with field-specific information
-- **ValidationResult**: Structured validation results with errors and warnings
-- **Specialized Error Types**: AuthenticationError, APIError, PredictionError for specific domains
-
-### Error Types
-
-```typescript
-// Base error structure
-interface AppError {
-  name: string
-  message: string
-  code: string
-  timestamp: Date
-  context?: Record<string, unknown>
-}
-
-// Validation-specific errors
-interface ValidationErrorData extends AppError {
-  field: string
-  value: any
-}
-
-// API response structure
-interface DataFetchResult<T> {
-  data: T | null
-  error: string | null
-  loading: boolean
-}
-```
-
-### Error Classes
-
-The application provides concrete error classes for different error types:
-
-```typescript
-// Validation errors with field context
-class ValidationErrorClass extends Error implements AppError {
-  name = 'ValidationError'
-  code = 'VALIDATION_ERROR'
-  timestamp = new Date()
-  
-  constructor(message: string, public field: string, public value: any) {
-    super(message)
-  }
-}
-
-// API errors with status and endpoint context
-class APIErrorClass extends Error implements AppError {
-  name = 'APIError'
-  code = 'API_ERROR'
-  timestamp = new Date()
-  
-  constructor(message: string, public status: number, public endpoint: string) {
-    super(message)
-  }
-}
-
-// Prediction errors with model context
-class PredictionErrorClass extends Error implements AppError {
-  name = 'PredictionError'
-  code = 'PREDICTION_ERROR'
-  timestamp = new Date()
-  
-  constructor(message: string, public modelType: string, public dataSize: number) {
-    super(message)
-  }
-}
-```
-
-All API endpoints and data operations return consistent error structures for better debugging and user experience.
-
-For detailed information about error handling patterns, monitoring, and best practices, see [ERROR_HANDLING.md](./ERROR_HANDLING.md).
-
-## Average Handle Time (AHT) Analytics
-
-The platform includes comprehensive Average Handle Time analytics capabilities for tracking client performance metrics and operational efficiency.
-
-### AHT Data Types
-
-The application defines several TypeScript interfaces for AHT data management:
-
-```typescript
-// Core AHT data structure
-interface AHTData {
-  client: string
-  overallAHT: number
-  reviewAHT: number
-  validationAHT: number
-  monthlyData: {
-    [key: string]: number // e.g., "2024_Jun": 0, "2024_Jul": 252
-  }
-  grandTotal: number
-}
-
-// Summary statistics for AHT analysis
-interface AHTSummary {
-  totalClients: number
-  averageAHT: number
-  medianAHT: number
-  highestAHT: { client: string; value: number }
-  lowestAHT: { client: string; value: number }
-  totalVolume: number
-}
-
-// Monthly trend analysis
-interface MonthlyTrend {
-  month: string
-  totalVolume: number
-  averageAHT: number
-  clientCount: number
-}
-
-// Client performance metrics
-interface ClientPerformance {
-  client: string
-  overallAHT: number
-  trend: 'increasing' | 'decreasing' | 'stable'
-  trendPercentage: number
-  riskLevel: 'low' | 'medium' | 'high'
-  monthlyVolumes: Array<{ month: string; volume: number }>
-}
-```
-
-### AHT Features
-
-- **Multi-dimensional AHT Tracking**: Track overall AHT, review AHT, and validation AHT separately for comprehensive performance analysis
-- **Monthly Trend Analysis**: Monitor AHT performance over time with monthly data points and trend calculations
-- **Client Performance Scoring**: Automatic risk level assessment based on AHT trends and performance metrics
-- **Summary Statistics**: Calculate averages, medians, and identify top/bottom performing clients
-- **Volume Correlation**: Track the relationship between transaction volume and AHT performance
-
-### Integration with Existing Analytics
-
-AHT data integrates seamlessly with the existing transcript analytics platform:
-
-- **Unified Dashboard**: AHT metrics can be displayed alongside transcript volume data
-- **Predictive Analytics**: AHT trends can be used to predict future performance and identify potential issues
-- **Client Insights**: Combined transcript and AHT data provides comprehensive client performance profiles
-- **Performance Monitoring**: AHT metrics contribute to overall system health and performance tracking
-
-## Production Monitoring
-
-The application includes a comprehensive production monitoring system that tracks application health, performance metrics, and user interactions.
-
-### Monitoring Features
-
-#### Error Tracking
-- **Global Error Handling**: Automatic capture of JavaScript errors and unhandled promise rejections
-- **React Error Boundaries**: Integration with React error boundaries for component-level error tracking
-- **Critical Error Alerts**: Immediate notifications for critical errors (authentication, payment, security issues)
-- **Error Context**: Detailed error information including stack traces, user context, and session data
-
-#### Performance Monitoring
-- **Core Web Vitals**: Automatic tracking of LCP (Largest Contentful Paint), FID (First Input Delay), and CLS (Cumulative Layout Shift)
-- **Navigation Timing**: Comprehensive timing metrics for DNS lookup, TCP connection, request/response cycles
-- **Resource Performance**: Monitoring of slow-loading resources and assets
-- **Custom Performance Marks**: Track custom application performance metrics
-
-#### User Analytics
-- **Page Views**: Automatic tracking of page navigation and user journeys
-- **Interaction Tracking**: Click events, form submissions, and feature usage
-- **Session Management**: User session tracking with unique session identifiers
-- **Feature Usage**: Custom event tracking for specific application features
-
-### Admin Monitoring Dashboard
-
-Admin users have access to a dedicated monitoring dashboard at `/admin/monitoring` that provides:
-
-- Real-time application health status
-- Error logs and performance metrics
-- User activity analytics
-- System performance indicators
-- Critical issue alerts
-
-### API Endpoints
-
-#### POST /api/monitoring/events
-Receives monitoring data from the client including errors, performance metrics, and user events.
-
-**Rate Limited**: 100 requests per minute per client
-
-**Payload Structure**:
-```typescript
-{
-  errors: ErrorEvent[],
-  performance: PerformanceMetric[],
-  userEvents: UserEvent[],
-  metadata: {
-    sessionId: string,
-    userId?: string,
-    timestamp: string,
-    environment: string,
-    userAgent: string,
-    url: string
-  }
-}
-```
-
-#### GET /api/monitoring/events
-Health check endpoint that returns monitoring system status and recent log counts.
-
-### Configuration
-
-The monitoring system can be configured through environment variables:
-
-```env
-# External logging service integration
-LOGGING_ENDPOINT=https://your-logging-service.com/api/logs
-LOGGING_API_KEY=your-api-key
-
-# Alert notifications
-ALERT_WEBHOOK_URL=https://hooks.slack.com/your-webhook-url
-
-# Sentry integration (optional)
-SENTRY_DSN=https://your-sentry-dsn
-```
-
-### Integration
-
-The monitoring system automatically initializes in production environments. For custom tracking:
-
-```typescript
-// Track custom errors
-window.__PRODUCTION_MONITOR__.trackError(error, errorInfo)
-
-// Track performance metrics
-window.__PERFORMANCE_TRACKER__.markStart('custom-operation')
-window.__PERFORMANCE_TRACKER__.markEnd('custom-operation')
-
-// Track feature usage
-window.__ANALYTICS_TRACKER__.trackFeature('feature-name', { property: 'value' })
-```
-
-### Privacy & Data Handling
-
-- All monitoring data is anonymized and aggregated
-- Personal information is never logged in error contexts
-- User consent is respected for analytics tracking
-- Data retention policies are enforced automatically
-
-## Testing
-
-The application includes comprehensive test coverage across multiple testing strategies:
-
-### Unit Tests
-- **Component Tests**: React component behavior and rendering
-- **Utility Tests**: Helper functions and data transformations
-- **Service Tests**: API integrations and business logic
-- **Hook Tests**: Custom React hooks functionality
-
-### Integration Tests
-- **API Integration**: End-to-end API workflow testing
-- **Data Flow**: Complete data processing pipelines
-- **Authentication**: OAuth flow and session management
-- **Database**: Migration and data consistency
-
-### End-to-End Tests
-- **User Workflows**: Complete user journeys from login to analytics
-- **Cross-browser**: Testing across different browsers and devices
-- **Performance**: Page load times and interaction responsiveness
-- **Accessibility**: WCAG compliance and screen reader compatibility
-
-### Performance Tests
-- **Bundle Analysis**: Code splitting and optimization validation
-- **Prediction Performance**: Machine learning model efficiency
-- **Memory Usage**: Resource consumption monitoring
-- **Load Testing**: Concurrent user simulation
-
-### Test Utilities
-- **Mock Services**: Comprehensive mocking for external APIs
-- **Test Helpers**: Reusable testing utilities and fixtures
-- **Performance Helpers**: Benchmarking and profiling tools
-- **Accessibility Helpers**: Automated accessibility testing
-
-Run the complete test suite with:
 ```bash
-npm run test:all
+# Clone the repository
+git clone <repository-url>
+cd transcript-analytics-platform
+
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.example .env.local
+# Edit .env.local with your configuration
+
+# Set up the database
+npm run db:migrate
+
+# Start development server
+npm run dev
 ```
 
-## Documentation
+### Environment Configuration
 
-- [Authentication Setup](./AUTH_SETUP.md) - OAuth configuration and user management
-- [Google Sheets Setup](./GOOGLE_SHEETS_SETUP.md) - API integration and data synchronization
-- [Database Setup](./DATABASE_SETUP.md) - PostgreSQL configuration and migrations
-- [Deployment Guide](./DEPLOYMENT_GUIDE.md) - Production deployment and CI/CD
-- [Error Handling](./ERROR_HANDLING.md) - Comprehensive error management system
-- [AHT Analytics](./AHT_ANALYTICS.md) - Average Handle Time analytics and data types
-- [Utility Scripts](./SCRIPTS.md) - Database management, user administration, and deployment scripts
+```bash
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/transcript_analytics
 
-## Analytics Page Status
+# Google Cloud (optional)
+GOOGLE_CLOUD_PROJECT=your-project-id
+GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
 
-The analytics dashboard is currently using a simplified fallback implementation while the full-featured version is being developed.
-
-### Current Implementation
-- **Active Page**: `src/app/analytics/page-simple.tsx` - Basic analytics dashboard with static metrics
-- **Disabled Page**: `src/app/analytics/page.tsx` - Full-featured analytics (temporarily disabled)
-
-### Missing Dependencies for Full Analytics
-1. **API Endpoints**:
-   - `/api/transcripts/summary` - Summary statistics endpoint
-   - Enhanced `/api/transcripts` response format
-   
-2. **TanStack Query Setup**:
-   - Query client provider configuration
-   - Error boundary integration
-   
-3. **Chart Components**:
-   - All chart components exist but may need data format adjustments
-   - Interactive chart features require API data structure alignment
-
-### Restoring Full Analytics
-To enable the full analytics page:
-
-1. **Implement Missing API Endpoints**:
-   ```bash
-   # Create the summary endpoint
-   touch src/app/api/transcripts/summary/route.ts
-   ```
-
-2. **Add TanStack Query Provider**:
-   ```typescript
-   // In src/app/layout.tsx
-   import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-   ```
-
-3. **Enable the Full Page**:
-   ```typescript
-   // In src/app/analytics/page.tsx
-   // Uncomment: export default AnalyticsPage
-   ```
-
-## Role-Based Access Control
-
-The platform implements a comprehensive role-based access control system with three hierarchical user roles:
-
-### Role Hierarchy
-- **Admin** (Level 3): Full system access including user management and system configuration
-- **Analyst** (Level 2): Can create, edit, and analyze transcript data
-- **Viewer** (Level 1): Read-only access to transcript data and analytics
-
-### Role Utilities
-
-The `src/lib/utils/role-utils.ts` module provides comprehensive utilities for role management:
-
-#### Role Validation
-```typescript
-import { hasRole, hasAnyRole } from '@/lib/utils/role-utils'
-
-// Check if user has required role or higher
-hasRole('analyst', 'viewer') // true - analyst has viewer permissions
-hasRole('viewer', 'admin')   // false - viewer doesn't have admin permissions
-
-// Check if user has any of the allowed roles
-hasAnyRole('analyst', ['viewer', 'admin']) // false
-hasAnyRole('admin', ['viewer', 'admin'])   // true
+# Auth0 (optional)
+AUTH0_SECRET=your-auth0-secret
+AUTH0_BASE_URL=http://localhost:3000
+AUTH0_ISSUER_BASE_URL=https://your-tenant.auth0.com
+AUTH0_CLIENT_ID=your-client-id
+AUTH0_CLIENT_SECRET=your-client-secret
 ```
 
-#### Permission Checking
-```typescript
-import { canPerformAction } from '@/lib/utils/role-utils'
+### Database Setup
 
-// Check specific permissions
-canPerformAction('viewer', 'read')   // true
-canPerformAction('viewer', 'write')  // false
-canPerformAction('analyst', 'write') // true
-canPerformAction('analyst', 'admin') // false
-canPerformAction('admin', 'admin')   // true
+```sql
+-- Enable required extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Run migrations
+npm run db:migrate
 ```
 
-#### Role Comparison
-```typescript
-import { getRolesAtOrBelow, getRolesAbove } from '@/lib/utils/role-utils'
+## 📖 Documentation
 
-// Get roles at or below a certain level
-getRolesAtOrBelow('analyst') // ['viewer', 'analyst']
-getRolesAtOrBelow('admin')   // ['viewer', 'analyst', 'admin']
+### Comprehensive Guides
 
-// Get roles above a certain level
-getRolesAbove('viewer')   // ['analyst', 'admin']
-getRolesAbove('analyst')  // ['admin']
+- **[Architecture Documentation](./docs/ARCHITECTURE.md)** - System design and technical architecture
+- **[Technical Implementation Guide](./docs/TECHNICAL_GUIDE.md)** - Development setup and implementation details
+- **[API Documentation](./docs/API_DOCUMENTATION.md)** - Complete API reference
+- **[Client Management Feature](./docs/CLIENT_MANAGEMENT_FEATURE.md)** - Detailed feature documentation
+- **[Deployment Guide](./docs/DEPLOYMENT_GUIDE.md)** - Production deployment instructions
+
+### Quick Reference
+
+- **Client Management**: `/data/import` - Manage client information
+- **Analytics Dashboard**: `/analytics/dashboard` - View analytics and insights
+- **Interactive Dashboard**: `/analytics/interactive-dashboard` - Advanced analytics
+- **API Health**: `/api/health` - System health check
+
+## 💻 Development
+
+### Project Structure
+
+```
+src/
+├── app/                 # Next.js app router pages
+│   ├── analytics/       # Analytics dashboards
+│   ├── data/           # Data management pages
+│   └── api/            # API routes
+├── components/          # Reusable UI components
+│   ├── ui/             # Base UI components
+│   └── analytics/      # Analytics-specific components
+├── lib/                # Core business logic
+│   ├── services/       # Business services
+│   ├── database/       # Data access layer
+│   └── hooks/          # Custom React hooks
+└── types/              # TypeScript type definitions
 ```
 
-#### Display Utilities
-```typescript
-import { getRoleDisplayName, getRoleDescription } from '@/lib/utils/role-utils'
+### Available Scripts
 
-// Get user-friendly role names
-getRoleDisplayName('admin')    // "Administrator"
-getRoleDisplayName('analyst')  // "Analyst"
-getRoleDisplayName('viewer')   // "Viewer"
+```bash
+# Development
+npm run dev              # Start development server
+npm run build           # Build for production
+npm run start           # Start production server
 
-// Get role descriptions
-getRoleDescription('admin')    // "Full system access including user management..."
-getRoleDescription('analyst')  // "Can create, edit, and analyze transcript data"
-getRoleDescription('viewer')   // "Read-only access to transcript data and analytics"
+# Database
+npm run db:migrate      # Run database migrations
+npm run db:status       # Check migration status
+
+# Testing
+npm run test           # Run unit tests
+npm run test:e2e       # Run end-to-end tests
+npm run test:coverage  # Generate coverage report
+
+# Code Quality
+npm run lint           # Run ESLint
+npm run lint:fix       # Fix ESLint issues
+npm run format         # Format code with Prettier
+npm run type-check     # Run TypeScript compiler
 ```
 
-### Usage in Components
+### Key Features Implementation
 
-The role utilities are used throughout the application for:
-- **Navigation**: Showing/hiding menu items based on user permissions
-- **Component Rendering**: Conditionally rendering UI elements
-- **API Access**: Validating permissions before API calls
-- **Route Protection**: Middleware-level access control
+#### Client Management
+- **Location**: `src/app/data/import/page.tsx`
+- **API**: `src/app/api/clients/`
+- **Features**: CRUD operations, search, filtering, state management
 
-Example usage in a React component:
-```typescript
-import { useSession } from 'next-auth/react'
-import { hasRole, canPerformAction } from '@/lib/utils/role-utils'
+#### Analytics Engine
+- **Location**: `src/lib/services/`
+- **Features**: Forecasting, anomaly detection, correlation analysis
 
-function DataManagementPanel() {
-  const { data: session } = useSession()
-  const userRole = session?.user?.role || 'viewer'
+#### Vector Search
+- **Location**: `src/lib/services/embeddings/`
+- **Features**: Text embeddings, similarity search, pattern matching
 
-  return (
-    <div>
-      {hasRole(userRole, 'viewer') && (
-        <ViewDataButton />
-      )}
-      {canPerformAction(userRole, 'write') && (
-        <EditDataButton />
-      )}
-      {canPerformAction(userRole, 'admin') && (
-        <AdminPanel />
-      )}
-    </div>
-  )
-}
+## 🔧 API Reference
+
+### Core Endpoints
+
+#### Client Management
+```bash
+GET    /api/clients              # List clients
+POST   /api/clients              # Create client
+PATCH  /api/clients/[id]         # Update client
+DELETE /api/clients/[id]         # Remove client
 ```
 
-## Recent Updates
+#### Analytics
+```bash
+GET    /api/analytics/insights           # Get business insights
+GET    /api/analytics/comprehensive-data # Get dashboard data
+POST   /api/predictions/forecast        # Generate forecasts
+POST   /api/anomaly-detection/detect    # Detect anomalies
+```
 
-### Database Service Architecture Refactoring
-- **Class-Based Service Pattern**: Refactored `TranscriptService` from singleton instance to class-based architecture for better testability and dependency injection
-- **API Route Updates**: Updated `/api/transcripts` and `/api/transcripts/[id]` routes to instantiate `TranscriptService` class instead of importing singleton instance
-- **Improved Encapsulation**: Service classes now provide better encapsulation of database operations and connection management
-- **Enhanced Testing**: Class-based services enable better unit testing with dependency injection and mocking capabilities
-- **Backward Compatibility**: Maintained backward compatibility with existing standalone functions for gradual migration
+#### Data Management
+```bash
+POST   /api/data/import          # Import data files
+GET    /api/data/import          # Get import status
+```
 
-### User Role Management Utility
-- **New User Role Script**: Added `update-user-role.js` for managing user roles and permissions
-- **Admin User Creation**: Automatically creates admin users if they don't exist in the database
-- **Role Updates**: Updates existing user roles with proper validation and error handling
-- **Database Integration**: Direct PostgreSQL integration with SSL support for cloud databases
-- **Production Ready**: Includes comprehensive error handling and user verification
+### Authentication
 
-### Automated Database Setup
-- **New Setup Script**: Added `setup-database.js` for automated database initialization
-- **One-Command Setup**: Run `npm run setup` to automatically configure your database
-- **Intelligent Setup**: Script tests connection, creates tables, sets up indexes, and creates default admin user
-- **Enhanced Error Handling**: Provides detailed troubleshooting guidance for connection issues
-- **Neon DB Optimized**: Specifically optimized for Neon database connections with proper SSL handling
-- **Production Ready**: Includes proper error handling and graceful failure modes
+Include JWT token in Authorization header:
+```bash
+Authorization: Bearer <jwt_token>
+```
 
-### Role-Based Access Control Enhancement
-- **Enhanced Role Utilities**: Completely refactored `src/lib/utils/role-utils.ts` with improved role hierarchy system
-- **Comprehensive Permission Checking**: New utilities for role validation (`hasRole`, `hasAnyRole`), permission checking (`canPerformAction`), and role comparison (`getRolesAtOrBelow`, `getRolesAbove`)
-- **Improved Role Hierarchy**: Clear numeric hierarchy (admin: 3, analyst: 2, viewer: 1) with better role comparison logic
-- **User-Friendly Display**: Enhanced role display names and descriptions for better user experience
-- **Client-Safe Implementation**: All role utilities are client-safe and don't require database access
-- **Better Code Organization**: Cleaner function signatures, improved error handling, and consistent return types
-- **Action-Based Permissions**: New `canPerformAction` function supports read/write/delete/admin permission checking
+## 🚀 Deployment
 
-### Error Logging System Enhancement
-- **Defensive Error Logging**: Enhanced error logger with recursive error prevention to ensure system stability
-- **Robust Performance Monitoring**: Performance issue logging now includes try-catch protection to prevent logging failures
-- **Graceful Error Handling**: Failed error logging operations gracefully degrade to console warnings instead of causing system failures
-- **Memory Safety**: Error logging system includes input validation and memory management to prevent resource leaks
-- **Code Modernization**: Updated deprecated `substr` method to modern `substring` for better compatibility
+### Docker Deployment
 
-### Security Middleware Architecture Optimization
-- **Edge Runtime Compatibility**: Database security context functions moved from middleware level to individual API route level to ensure compatibility with Next.js Edge Runtime
-- **Cleaner Middleware**: Removed unused `withSecurityContext` import from security middleware, keeping middleware focused on request-level security (CSRF, rate limiting, XSS protection)
-- **API-Level Security Context**: Each API route now handles database security context individually using `withSecurityContext` from `@/lib/database/security-context` when needed
-- **Improved Performance**: Reduced middleware overhead by handling database connections only where necessary
-- **Better Error Handling**: Database context errors are now handled at the appropriate API route level with proper error responses
+```bash
+# Build and run with Docker Compose
+docker-compose up -d
 
-### Database Service Architecture Modernization
-- **Class-Based Services**: Refactored database services to use class-based architecture for better encapsulation and testability
-- **TranscriptService Class**: Updated `TranscriptService` from singleton instance to instantiable class pattern for improved dependency injection and testing
-- **Consistent Function Naming**: All database services now use the standardized `getDatabasePool()` function from `@/lib/database/connection`
-- **Import Consistency**: Fixed inconsistent imports across database services (`users.ts`, `transcripts.ts`, `performance.ts`, `predictions.ts`) and their corresponding test files
-- **API Route Updates**: Updated API routes to instantiate service classes (`new TranscriptService()`) instead of importing singleton instances
-- **Test Mock Alignment**: Updated all test mocks to use the correct `getDatabasePool` function name for consistent testing
-- **Code Quality**: Eliminated naming inconsistencies that could cause runtime errors and improved code maintainability
+# Or build manually
+docker build -t transcript-analytics .
+docker run -p 3000:3000 transcript-analytics
+```
 
-### Database Connection Enhancement
-- **Neon DB Optimization**: Enhanced database connection handling with preferred connection string support for Neon databases
-- **Flexible Configuration**: Support for both connection strings and individual database parameters with automatic fallback
-- **Improved Connection Pooling**: Optimized timeout values (20s connection, 10s idle) and connection pool settings for better performance
-- **SSL Configuration**: Enhanced SSL support with proper certificate handling for cloud databases (`rejectUnauthorized: false` for Neon compatibility)
-- **Environment Flexibility**: All database configuration parameters are now optional with sensible defaults
-- **Connection String Priority**: `DATABASE_URL` takes precedence over individual parameters for simplified Neon DB setup
+### Environment Variables for Production
 
-### AHT Analytics Integration
-- **Comprehensive AHT Dashboard**: New analytics system for Average Handling Time data with client performance insights
-- **Multi-dimensional Analysis**: Summary statistics, monthly trends, client performance rankings, and risk assessment
-- **Predictive Analytics**: Simple linear regression for AHT trend forecasting with confidence intervals
-- **Interactive Visualizations**: Charts for volume trends, client comparisons, and risk distribution analysis
-- **API Endpoints**: RESTful endpoints for AHT summary, trends, client data, and predictions (`/api/aht/*`)
-- **Real-time Data Processing**: Client-side analytics service with statistical calculations and trend analysis
-- **CSV Data Support**: Infrastructure for importing and processing AHT data from CSV files
-- **Navigation Integration**: AHT analytics accessible through main navigation with dedicated page at `/analytics/aht`
+```bash
+NODE_ENV=production
+DATABASE_URL=postgresql://user:password@host:port/database
+DB_POOL_MAX=50
+DB_REQUIRE_VECTOR=true
+```
 
-### User Interface Improvements
-- **UserProfile Component Redesign**: Transformed from a card-based layout to a compact dropdown menu interface
-- **Navigation Integration**: UserProfile now optimized for navigation bars with minimal footprint
-- **Enhanced User Experience**: Dropdown menu provides quick access to user information, settings, and sign-out functionality
-- **Responsive Design**: Avatar-based trigger with fallback to user initials for better mobile experience
-- **Accessibility**: Improved keyboard navigation and screen reader support with proper ARIA labels
+### Health Checks
 
-### Analytics Page Fallback System
-- **Simplified Analytics Page**: A simplified analytics page (`page-simple.tsx`) is currently active as a fallback while the full-featured analytics page has build issues
-- **Missing API Endpoints**: The full analytics page requires additional API endpoints like `/api/transcripts/summary` that need to be implemented
-- **TanStack Query Integration**: The analytics page uses TanStack Query hooks (`useTranscripts`, `useTranscriptSummary`) for data fetching
-- **Gradual Feature Restoration**: Features will be gradually restored as missing dependencies and API endpoints are implemented
+```bash
+# Check application health
+curl http://localhost:3000/api/health
 
-### Performance Provider Optimization
-- **Optional Performance Monitoring**: The PerformanceProvider is now commented out in the root layout to reduce initial bundle size and improve startup performance
-- **Manual Performance Monitoring**: Performance monitoring can still be initialized manually using `initializePerformanceMonitoring()` from `@/lib/monitoring/performance-monitor`
-- **Selective Monitoring**: Applications can now choose when and where to enable performance monitoring based on specific needs
-- **Reduced Bundle Size**: Removing the automatic performance provider reduces the initial JavaScript bundle size by avoiding automatic initialization of monitoring, bundle optimization, and service worker features
-- **On-Demand Monitoring**: Performance monitoring, bundle optimization, and service worker initialization can be triggered on-demand when needed
+# Check database connectivity
+curl http://localhost:3000/api/health/database
+```
 
-### TensorFlow.js Dynamic Loading Enhancement
-- **SSR Compatibility**: TensorFlow.js is now dynamically imported to avoid server-side rendering issues
-- **Performance Optimization**: Lazy loading of ML models reduces initial bundle size and improves page load times
-- **Backend Selection**: Automatic backend selection with WebGL acceleration and CPU fallback for maximum compatibility
-- **Memory Management**: Improved tensor disposal and memory cleanup to prevent memory leaks
-- **Error Handling**: Enhanced error handling for ML model initialization and prediction failures
-- **Analytics Page Update**: PredictionService is now dynamically imported in the analytics page to prevent SSR conflicts
-- **Client-Side ML Processing**: Machine learning operations are now exclusively client-side to ensure compatibility with Next.js App Router
-- **State Management**: Proper state management for dynamically imported services with error handling
+## 🧪 Testing
 
-### Error Handling System Enhancement
-- **Structured Error Classes**: Implemented concrete error classes (`ValidationErrorClass`, `APIErrorClass`, `PredictionErrorClass`, `AuthenticationErrorClass`) that extend the base `Error` class and implement the `AppError` interface
-- **Consistent Error Structure**: All errors now include `name`, `code`, `timestamp`, and optional `context` fields for better debugging and monitoring
-- **Field-Specific Validation**: Validation errors include field names and values for precise error reporting
-- **Comprehensive Test Coverage**: Updated test suites to use the new error classes with proper type checking
-- **Backward Compatibility**: Maintained compatibility with existing error handling patterns through export aliases
+### Running Tests
 
-### Testing Infrastructure
-- **Multi-Level Testing**: Unit, integration, E2E, performance, and accessibility tests
-- **Mock Services**: Comprehensive mocking for external APIs and services
-- **Performance Monitoring**: Built-in performance benchmarks and monitoring tools
-- **Accessibility Compliance**: Automated WCAG compliance testing
+```bash
+# Unit tests
+npm run test
 
-### Performance Monitoring
+# End-to-end tests
+npm run test:e2e
 
-The application includes comprehensive performance monitoring capabilities that can be initialized on-demand:
+# Coverage report
+npm run test:coverage
 
-#### Manual Initialization
+# Specific test suites
+npm run test:ml          # ML model tests
+npm run test:integration # Integration tests
+```
+
+### Test Structure
+
+```
+tests/
+├── unit/               # Unit tests
+├── integration/        # Integration tests
+├── e2e/               # End-to-end tests
+└── performance/       # Performance tests
+```
+
+## 🔒 Security
+
+### Security Features
+
+- **Input Validation**: Comprehensive server-side validation
+- **SQL Injection Prevention**: Parameterized queries
+- **Rate Limiting**: API endpoint protection
+- **Content Security Policy**: XSS prevention
+- **Authentication**: Auth0 integration
+
+### Security Headers
 
 ```typescript
-import { initializePerformanceMonitoring } from '@/lib/monitoring/performance-monitor'
-
-// Initialize performance monitoring when needed
-initializePerformanceMonitoring()
+// Automatic security headers
+X-Frame-Options: DENY
+X-Content-Type-Options: nosniff
+Content-Security-Policy: default-src 'self'
 ```
 
-#### Using the Performance Hook
+## 📊 Monitoring
+
+### Health Monitoring
+
+- **Application Health**: `/api/health`
+- **Database Health**: `/api/health/database`
+- **Custom Metrics**: Performance and business metrics
+
+### Logging
 
 ```typescript
-import { usePerformanceMonitor } from '@/lib/monitoring/performance-monitor'
+// Structured logging with Winston
+import { logger } from '@/lib/logger';
 
-function MyComponent() {
-  const { 
-    startMonitoring, 
-    recordMetric, 
-    measureComponentRender,
-    getAggregatedMetrics 
-  } = usePerformanceMonitor()
-
-  // Start monitoring
-  useEffect(() => {
-    startMonitoring()
-  }, [])
-
-  // Measure component render time
-  const renderExpensiveComponent = () => {
-    return measureComponentRender('ExpensiveComponent', () => {
-      // Component rendering logic
-      return <ExpensiveComponent />
-    })
-  }
-}
+logger.info('Operation completed', { 
+  operation: 'client_creation',
+  client_id: 'uuid',
+  duration: 150 
+});
 ```
 
-#### Performance Features
+## 🤝 Contributing
 
-- **Core Web Vitals**: Automatic tracking of LCP, FID, CLS, FCP, and TTFB
-- **Custom Metrics**: Component render times, API response times, prediction calculation times
-- **Memory Monitoring**: JavaScript heap usage tracking
-- **Resource Performance**: Monitoring of API calls and resource loading
-- **Aggregated Analytics**: Averages, medians, and 95th percentile calculations
+### Development Workflow
 
-### Development Experience
-- **TypeScript Strict Mode**: Enhanced type safety throughout the application
-- **Comprehensive Validation**: Zod schemas with business rule validation
-- **Real-time Error Tracking**: Structured error logging with detailed context
-- **Performance Optimization**: Bundle analysis, code splitting, and caching strategies
-- **Modern UI Components**: Shadcn UI with Radix primitives for consistent, accessible interfaces
-- **Component Architecture**: Modular design with dropdown menus, animations, and responsive layouts
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
+3. **Make changes and add tests**
+4. **Run tests**: `npm run test`
+5. **Commit changes**: `git commit -m 'Add amazing feature'`
+6. **Push to branch**: `git push origin feature/amazing-feature`
+7. **Open a Pull Request**
+
+### Code Standards
+
+- **TypeScript**: Strict type checking enabled
+- **ESLint**: Code quality rules enforced
+- **Prettier**: Consistent code formatting
+- **Jest**: Unit testing required
+- **Playwright**: E2E testing for critical paths
+
+### Pull Request Guidelines
+
+- Include tests for new features
+- Update documentation as needed
+- Follow existing code patterns
+- Add type definitions for new interfaces
+- Include migration scripts for database changes
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🆘 Support
+
+### Getting Help
+
+- **Documentation**: Check the comprehensive docs in this repository
+- **Issues**: Open a GitHub issue for bugs or feature requests
+- **Discussions**: Use GitHub Discussions for questions
+
+### Common Issues
+
+#### Database Connection
+```bash
+# Test database connectivity
+psql $DATABASE_URL -c "SELECT version();"
+
+# Check pgvector extension
+psql $DATABASE_URL -c "SELECT vector_dims('[1,2,3]'::vector);"
+```
+
+#### Migration Issues
+```bash
+# Reset and rerun migrations
+npm run db:reset
+npm run db:migrate
+```
+
+#### Build Issues
+```bash
+# Clear Next.js cache
+rm -rf .next
+npm run build
+```
+
+## 🗺️ Roadmap
+
+### Short Term (Next Release)
+- [ ] Advanced search filters for clients
+- [ ] Bulk client operations
+- [ ] Export/import client data
+- [ ] Enhanced error handling
+
+### Medium Term (6 months)
+- [ ] Real-time dashboard updates
+- [ ] Advanced ML model comparisons
+- [ ] Custom analytics widgets
+- [ ] Mobile-responsive improvements
+
+### Long Term (1 year)
+- [ ] Microservices architecture
+- [ ] Advanced access control
+- [ ] Multi-tenant support
+- [ ] Enhanced ML capabilities
+
+---
+
+**Built with ❤️ using Next.js, TypeScript, and PostgreSQL**
