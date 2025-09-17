@@ -88,17 +88,23 @@ class DatabaseConnection {
   private async initializeVectorSupport(): Promise<void> {
     if (!this.pool) return
 
+    const requireVector = process.env.DB_REQUIRE_VECTOR === 'true'
+
     try {
-      // Enable pgvector extension
+      // Enable pgvector extension (best-effort)
       await this.pool.query('CREATE EXTENSION IF NOT EXISTS vector;')
       
       // Test vector functionality
-      await this.pool.query('SELECT vector_dims(\'[1,2,3]\'::vector);')
+      await this.pool.query("SELECT vector_dims('[1,2,3]'::vector);")
       
       console.log('✅ pgvector extension initialized successfully')
     } catch (error) {
-      console.error('❌ Failed to initialize pgvector extension:', error)
-      throw new Error('pgvector extension is required but not available')
+      const msg = 'pgvector extension not available; proceeding without vector features'
+      if (requireVector) {
+        console.error('❌ Failed to initialize pgvector extension and DB_REQUIRE_VECTOR=true:', error)
+        throw new Error('pgvector extension is required but not available')
+      }
+      console.warn(`⚠️ ${msg}`, error)
     }
   }
 

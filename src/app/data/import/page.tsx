@@ -1,6 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+interface ClientItem {
+  id: string
+  name: string
+  client_code: string
+  environment: 'prod' | 'uat'
+  email?: string | null
+  is_active: boolean
+  created_at?: string
+  updated_at?: string
+}
 
 export default function DataImportPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
@@ -13,6 +23,152 @@ export default function DataImportPage() {
     trainModels: false,
     detectAnomalies: false
   })
+
+  // Clients state
+  const [clients, setClients] = useState<ClientItem[]>([])
+  const [clientsLoading, setClientsLoading] = useState(true)
+  const [clientsError, setClientsError] = useState<string | null>(null)
+
+  const [newClientCode, setNewClientCode] = useState('')
+  const [newClientName, setNewClientName] = useState('')
+  const [newClientEnvironment, setNewClientEnvironment] = useState<'prod' | 'uat'>('prod')
+  const [newClientEmail, setNewClientEmail] = useState('')
+  const [creatingClient, setCreatingClient] = useState(false)
+
+  // Edit client state
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editCode, setEditCode] = useState('')
+  const [editEnvironment, setEditEnvironment] = useState<'prod' | 'uat'>('prod')
+  const [editEmail, setEditEmail] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  const startEdit = (c: ClientItem) => {
+    setEditingId(c.id)
+    setEditName(c.name)
+    setEditCode(c.client_code)
+    setEditEnvironment(c.environment)
+    setEditEmail(c.email || '')
+  }
+
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setClientsError(null)
+  }
+
+  const saveEdit = async () => {
+    if (!editingId) return
+    setSavingEdit(true)
+    setClientsError(null)
+    try {
+      const res = await fetch(`/api/clients/${editingId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editName.trim(),
+          client_code: editCode.trim(),
+          environment: editEnvironment,
+          email: editEmail.trim() || null,
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to update client')
+      setClients(prev => prev.map(c => c.id === editingId ? data.client : c))
+      setEditingId(null)
+    } catch (e: any) {
+      setClientsError(e.message || 'Failed to update client')
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const [includeInactive, setIncludeInactive] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+
+  const fetchClients = async () => {
+    setClientsLoading(true)
+    setClientsError(null)
+    try {
+      const params = new URLSearchParams({
+        includeInactive: includeInactive.toString(),
+        ...(searchQuery.trim() && { q: searchQuery.trim() })
+      })
+      const res = await fetch(`/api/clients?${params}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to load clients')
+      setClients(data.clients || [])
+    } catch (e: any) {
+      setClientsError(e.message || 'Failed to load clients')
+      console.error('Client fetch error:', e)
+    } finally {
+      setClientsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchClients()
+  }, [includeInactive, searchQuery])
+
+  const handleCreateClient = async () => {
+    if (!newClientCode.trim()) {
+      setClientsError('Client code is required')
+      return
+    }
+    setCreatingClient(true)
+    setClientsError(null)
+    try {
+      const res = await fetch('/api/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_code: newClientCode.trim(),
+          name: newClientName.trim() || undefined,
+          environment: newClientEnvironment,
+          email: newClientEmail.trim() || undefined,
+        })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to create client')
+      setClients(prev => [data.client, ...prev])
+      setNewClientCode('')
+      setNewClientName('')
+      setNewClientEmail('')
+      setNewClientEnvironment('prod')
+    } catch (e: any) {
+      setClientsError(e.message || 'Failed to create client')
+    } finally {
+      setCreatingClient(false)
+    }
+  }
+
+  const handleRemoveClient = async (id: string) => {
+    const confirm = window.confirm('Are you sure you want to remove this client? This will deactivate the client but not delete historical data.')
+    if (!confirm) return
+    try {
+      const res = await fetch(`/api/clients/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to remove client')
+      setClients(prev => prev.filter(c => c.id !== id))
+    } catch (e: any) {
+      setClientsError(e.message || 'Failed to remove client')
+    }
+  }
+
+  const handleReactivateClient = async (id: string) => {
+    try {
+      const res = await fetch(`/api/clients/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: true })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to reactivate client')
+      setClients(prev => prev.map(c => c.id === id ? data.client : c))
+    } catch (e: any) {
+      setClientsError(e.message || 'Failed to reactivate client')
+    }
+  }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
@@ -108,6 +264,160 @@ export default function DataImportPage() {
       {/* Main Content */}
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
         
+        {/* Client Management */}
+        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>👥 Client Management</h2>
+
+          {/* Create client form */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', color: '#374151', marginBottom: '0.25rem' }}>Client Code</label>
+              <input
+                type="text"
+                value={newClientCode}
+                onChange={(e) => setNewClientCode(e.target.value)}
+                placeholder="e.g. acme-prod or acme-uat"
+                style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.5rem' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', color: '#374151', marginBottom: '0.25rem' }}>Name (optional)</label>
+              <input
+                type="text"
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                placeholder="Client display name"
+                style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.5rem' }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', color: '#374151', marginBottom: '0.25rem' }}>Environment</label>
+              <select
+                value={newClientEnvironment}
+                onChange={(e) => setNewClientEnvironment(e.target.value as 'prod' | 'uat')}
+                style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.5rem', backgroundColor: 'white' }}
+              >
+                <option value="prod">prod</option>
+                <option value="uat">uat</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', color: '#374151', marginBottom: '0.25rem' }}>Email (optional)</label>
+              <input
+                type="email"
+                value={newClientEmail}
+                onChange={(e) => setNewClientEmail(e.target.value)}
+                placeholder="contact@example.com"
+                style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.5rem' }}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
+            <button
+              onClick={handleCreateClient}
+              disabled={creatingClient}
+              style={{ backgroundColor: creatingClient ? '#9ca3af' : '#2563eb', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none', cursor: creatingClient ? 'not-allowed' : 'pointer' }}
+            >
+              {creatingClient ? 'Creating...' : 'Add Client'}
+            </button>
+            {clientsError && (
+              <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{clientsError}</span>
+            )}
+          </div>
+
+          {/* Clients list */}
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 500, margin: 0, color: '#111827' }}>Existing Clients</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  placeholder="Search clients..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{ border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.4rem 0.75rem', fontSize: '0.875rem', minWidth: '180px' }}
+                />
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#374151', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
+                  <input type="checkbox" checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} />
+                  Include inactive
+                </label>
+                <button
+                  onClick={fetchClients}
+                  disabled={clientsLoading}
+                  style={{ backgroundColor: '#6b7280', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.4rem 0.75rem', cursor: clientsLoading ? 'not-allowed' : 'pointer', fontSize: '0.875rem', opacity: clientsLoading ? 0.6 : 1 }}
+                >
+                  {clientsLoading ? 'Loading...' : '🔄 Refresh'}
+                </button>
+              </div>
+            </div>
+            {clientsError && (
+              <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '0.375rem', padding: '0.75rem', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ color: '#dc2626', fontSize: '1rem' }}>⚠️</span>
+                  <div>
+                    <p style={{ color: '#dc2626', fontSize: '0.875rem', fontWeight: '500', margin: 0 }}>Error loading clients</p>
+                    <p style={{ color: '#7f1d1d', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>{clientsError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {clientsLoading ? (
+              <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Loading clients...</p>
+            ) : clients.length === 0 ? (
+              <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No clients found.</p>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
+                {clients.map((c) => (
+                  <div key={c.id} style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '0.75rem', backgroundColor: '#fafafa' }}>
+                    {editingId === c.id ? (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', alignItems: 'center' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280' }}>Name</label>
+                          <input value={editName} onChange={(e) => setEditName(e.target.value)} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.4rem' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280' }}>Client Code</label>
+                          <input value={editCode} onChange={(e) => setEditCode(e.target.value)} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.4rem' }} />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280' }}>Environment</label>
+                          <select value={editEnvironment} onChange={(e) => setEditEnvironment(e.target.value as 'prod' | 'uat')} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.4rem', background: 'white' }}>
+                            <option value="prod">prod</option>
+                            <option value="uat">uat</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280' }}>Email</label>
+                          <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.4rem' }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+                          <button onClick={saveEdit} disabled={savingEdit} style={{ backgroundColor: savingEdit ? '#9ca3af' : '#10b981', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.4rem 0.6rem', cursor: savingEdit ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}>Save</button>
+                          <button onClick={cancelEdit} style={{ backgroundColor: '#6b7280', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.4rem 0.6rem', cursor: 'pointer', fontSize: '0.8rem' }}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#111827' }}>{c.name}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>{c.client_code} · {c.environment}{!c.is_active ? ' · inactive' : ''}</div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <button onClick={() => startEdit(c)} style={{ backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.8rem' }}>Edit</button>
+                          {c.is_active ? (
+                            <button onClick={() => handleRemoveClient(c.id)} style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.8rem' }}>Remove</button>
+                          ) : (
+                            <button onClick={() => handleReactivateClient(c.id)} style={{ backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.8rem' }}>Reactivate</button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Upload Section */}
         <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
           <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>📤 Upload Historical Data</h2>
@@ -461,3 +771,4 @@ export default function DataImportPage() {
     </div>
   )
 }
+
