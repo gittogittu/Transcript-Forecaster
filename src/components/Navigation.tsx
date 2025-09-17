@@ -10,7 +10,8 @@ import {
   AlertTriangle, 
   Database,
   Home,
-  Settings
+  Settings,
+  Users
 } from 'lucide-react'
 
 const navigationItems = [
@@ -33,6 +34,11 @@ const navigationItems = [
     name: 'Analytics Dashboard',
     href: '/analytics/dashboard',
     icon: AlertTriangle
+  },
+  {
+    name: 'Clients',
+    href: '/clients',
+    icon: Users
   },
   {
     name: 'Data Import',
