@@ -6,11 +6,15 @@ This directory contains comprehensive documentation for the Transcript Analytics
 
 ### Core Documentation
 - **[Architecture](./ARCHITECTURE.md)** - System design and technical architecture
+- **[Architecture Diagrams](./ARCHITECTURE_DIAGRAMS.md)** - Visual system architecture using Mermaid
+- **[User Flows](./USER_FLOWS.md)** - User interaction flows and workflows
 - **[Technical Guide](./TECHNICAL_GUIDE.md)** - Development setup and implementation details
 - **[API Documentation](./API_DOCUMENTATION.md)** - Complete API reference with examples
 - **[Deployment Guide](./DEPLOYMENT_GUIDE.md)** - Production deployment instructions
 
 ### Feature Documentation
+- **[Features Overview](./FEATURES.md)** - Comprehensive features documentation
+- **[ML/AI Technical Specification](./ML_AI_TECHNICAL_SPECIFICATION.md)** - Detailed ML/AI implementation
 - **[Client Management](./CLIENT_MANAGEMENT_FEATURE.md)** - Detailed client management feature documentation
 
 ## 🎯 Quick Navigation
@@ -18,15 +22,25 @@ This directory contains comprehensive documentation for the Transcript Analytics
 ### For Developers
 - Start with [Technical Guide](./TECHNICAL_GUIDE.md) for development setup
 - Review [Architecture](./ARCHITECTURE.md) for system understanding
+- Study [Architecture Diagrams](./ARCHITECTURE_DIAGRAMS.md) for visual system overview
+- Follow [User Flows](./USER_FLOWS.md) to understand user interactions
 - Reference [API Documentation](./API_DOCUMENTATION.md) for endpoint details
 
 ### For DevOps/Operations
 - See [Deployment Guide](./DEPLOYMENT_GUIDE.md) for production setup
-- Check [Architecture](./ARCHITECTURE.md) for infrastructure requirements
+- Check [Architecture Diagrams](./ARCHITECTURE_DIAGRAMS.md) for infrastructure architecture
+- Review [Architecture](./ARCHITECTURE.md) for infrastructure requirements
 
 ### For Product/Business
-- Review [Client Management](./CLIENT_MANAGEMENT_FEATURE.md) for feature capabilities
-- See [Architecture](./ARCHITECTURE.md) for technical capabilities overview
+- Review [Features Overview](./FEATURES.md) for comprehensive feature list
+- Study [User Flows](./USER_FLOWS.md) for user experience understanding
+- Check [Client Management](./CLIENT_MANAGEMENT_FEATURE.md) for feature capabilities
+- See [ML/AI Technical Specification](./ML_AI_TECHNICAL_SPECIFICATION.md) for AI capabilities
+
+### For Data Scientists/ML Engineers
+- Deep dive into [ML/AI Technical Specification](./ML_AI_TECHNICAL_SPECIFICATION.md)
+- Review [Architecture Diagrams](./ARCHITECTURE_DIAGRAMS.md) for ML pipeline architecture
+- Study [User Flows](./USER_FLOWS.md) for ML model management workflows
 
 ## 📖 Documentation Standards
 
