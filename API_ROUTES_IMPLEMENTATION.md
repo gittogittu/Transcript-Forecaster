@@ -146,6 +146,9 @@ Viewer: Read-only access to transcripts and analytics
 | `/api/analytics/trends` | GET | Authenticated | Read | Trend analysis |
 | `/api/analytics/predictions` | GET | Analyst+ | Read | Get predictions |
 | `/api/analytics/predictions` | POST | Analyst+ | Predictions | Generate predictions |
+| `/api/predictions/forecast` | POST | Analyst+ | Predictions | Generate single forecast |
+| `/api/predictions/batch` | POST | Analyst+ | Predictions | Generate batch forecasts |
+| `/api/predictions/realtime` | POST | Analyst+ | Predictions | Low-latency realtime prediction |
 | `/api/upload` | POST | Analyst+ | Data | Upload files |
 | `/api/upload` | PUT | Analyst+ | Data | Validate uploads |
 | `/api/export/csv` | POST | Authenticated | Data | Export CSV |

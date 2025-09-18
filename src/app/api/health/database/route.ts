@@ -1,41 +1,80 @@
-import { NextResponse } from 'next/server';
-import { checkDatabaseHealth, checkDatabaseSchema, getDatabaseInfo } from '@/lib/database/health-check';
+/**
+ * Database Health Check API Endpoint
+ * 
+ * Provides health status for the database and pgvector extension
+ * Used for monitoring and deployment validation
+ */
 
-export async function GET() {
+import { NextRequest, NextResponse } from 'next/server'
+import { healthChecker } from '@/lib/database/health-check'
+
+export async function GET(request: NextRequest) {
   try {
-    const [healthCheck, schemaCheck, dbInfo] = await Promise.all([
-      checkDatabaseHealth(),
-      checkDatabaseSchema(),
-      getDatabaseInfo()
-    ]);
+    const { searchParams } = new URL(request.url)
+    const detailed = searchParams.get('detailed') === 'true'
 
-    const response = {
-      status: healthCheck.isConnected && schemaCheck.isInitialized ? 'healthy' : 'unhealthy',
-      connection: {
-        isConnected: healthCheck.isConnected,
-        latency: healthCheck.latency,
-        error: healthCheck.error
-      },
-      schema: {
-        isInitialized: schemaCheck.isInitialized,
-        missingTables: schemaCheck.missingTables,
-        error: schemaCheck.error
-      },
-      database: dbInfo,
-      timestamp: new Date().toISOString()
-    };
-
-    const statusCode = response.status === 'healthy' ? 200 : 503;
-    
-    return NextResponse.json(response, { status: statusCode });
+    if (detailed) {
+      // Run comprehensive health check
+      const healthResult = await healthChecker.runHealthCheck()
+      
+      return NextResponse.json(healthResult, {
+        status: healthResult.status === 'healthy' ? 200 : 
+                healthResult.status === 'degraded' ? 200 : 503,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Content-Type': 'application/json'
+        }
+      })
+    } else {
+      // Quick health check for load balancers
+      const quickResult = await healthChecker.quickHealthCheck()
+      
+      return NextResponse.json(quickResult, {
+        status: quickResult.status === 'healthy' ? 200 : 503,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Content-Type': 'application/json'
+        }
+      })
+    }
   } catch (error) {
+    console.error('Health check failed:', error)
+    
     return NextResponse.json(
       {
-        status: 'error',
+        status: 'unhealthy',
+        message: 'Health check failed',
         error: error instanceof Error ? error.message : 'Unknown error',
         timestamp: new Date().toISOString()
       },
-      { status: 500 }
-    );
+      { 
+        status: 503,
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Content-Type': 'application/json'
+        }
+      }
+    )
+  }
+}
+
+// Support HEAD requests for simple health checks
+export async function HEAD(request: NextRequest) {
+  try {
+    const quickResult = await healthChecker.quickHealthCheck()
+    
+    return new NextResponse(null, {
+      status: quickResult.status === 'healthy' ? 200 : 503,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    })
+  } catch (error) {
+    return new NextResponse(null, {
+      status: 503,
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      }
+    })
   }
 }
