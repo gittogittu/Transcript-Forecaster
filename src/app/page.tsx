@@ -1,222 +1,139 @@
 export default function HomePage() {
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', fontFamily: 'system-ui, sans-serif' }}>
-      {/* Main Content */}
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '3rem 1rem' }}>
-        {/* Hero Section */}
-        <div style={{ textAlign: 'center', marginBottom: '4rem' }}>
-          <h2 style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#111827', marginBottom: '1.5rem' }}>
-            Advanced Predictive Analytics Platform
-          </h2>
-          <p style={{ fontSize: '1.25rem', color: '#6b7280', marginBottom: '2rem', maxWidth: '800px', margin: '0 auto 2rem' }}>
-            Complete implementation of 20 tasks including intelligent forecasting, 
-            anomaly detection, vector embeddings, and comprehensive system integration.
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', justifyContent: 'center', alignItems: 'center' }}>
-            <a
-              href="/analytics/simple-dashboard"
-              style={{
-                backgroundColor: '#7c3aed',
-                color: 'white',
-                padding: '0.75rem 2rem',
-                borderRadius: '0.5rem',
-                fontSize: '1.125rem',
-                fontWeight: '600',
-                textDecoration: 'none',
-                display: 'inline-block',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-              }}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 py-20 sm:py-32">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
+              Predictive Analytics
+              <span className="text-blue-600"> Platform</span>
+            </h1>
+            <p className="mt-6 text-lg leading-8 text-gray-600 max-w-2xl mx-auto">
+              Enterprise-grade analytics with AI-powered insights, real-time forecasting, 
+              and advanced data visualization capabilities.
+            </p>
+            <div className="mt-10 flex items-center justify-center gap-4 flex-wrap">
+              <a
+                href="/analytics/dashboard"
+                className="rounded-md bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 transition-colors"
+              >
+                View Dashboard
+              </a>
+              <a
+                href="/demo/dashboard"
+                className="rounded-md bg-white px-6 py-3 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 transition-colors"
+              >
+                Live Demo
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Grid */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-bold text-gray-900">Powerful Features</h2>
+            <p className="mt-4 text-lg text-gray-600">Everything you need for advanced analytics</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
+              <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center mb-4">
+                <span className="text-white text-xl">📊</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Real-time Analytics</h3>
+              <p className="text-gray-600">Interactive dashboards with live data updates and customizable visualizations.</p>
+            </div>
+            
+            <div className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl">
+              <div className="w-12 h-12 bg-green-600 rounded-lg flex items-center justify-center mb-4">
+                <span className="text-white text-xl">🧠</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">AI Predictions</h3>
+              <p className="text-gray-600">Advanced machine learning models for accurate forecasting and trend analysis.</p>
+            </div>
+            
+            <div className="p-6 bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl">
+              <div className="w-12 h-12 bg-purple-600 rounded-lg flex items-center justify-center mb-4">
+                <span className="text-white text-xl">🔍</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Vector Search</h3>
+              <p className="text-gray-600">Semantic similarity search and pattern matching using vector embeddings.</p>
+            </div>
+            
+            <div className="p-6 bg-gradient-to-br from-orange-50 to-red-50 rounded-xl">
+              <div className="w-12 h-12 bg-orange-600 rounded-lg flex items-center justify-center mb-4">
+                <span className="text-white text-xl">⚡</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">High Performance</h3>
+              <p className="text-gray-600">Optimized for speed with intelligent caching and sub-500ms response times.</p>
+            </div>
+            
+            <div className="p-6 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl">
+              <div className="w-12 h-12 bg-cyan-600 rounded-lg flex items-center justify-center mb-4">
+                <span className="text-white text-xl">🛡️</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Enterprise Ready</h3>
+              <p className="text-gray-600">Robust error handling, monitoring, and automated recovery systems.</p>
+            </div>
+            
+            <div className="p-6 bg-gradient-to-br from-pink-50 to-rose-50 rounded-xl">
+              <div className="w-12 h-12 bg-pink-600 rounded-lg flex items-center justify-center mb-4">
+                <span className="text-white text-xl">📈</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Anomaly Detection</h3>
+              <p className="text-gray-600">Intelligent anomaly detection with real-time monitoring and alerts.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Quick Actions */}
+      <section className="py-16 bg-gray-50">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900">Quick Actions</h2>
+            <p className="mt-4 text-lg text-gray-600">Get started with key features</p>
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <a 
+              href="/data/import"
+              className="flex flex-col items-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200 hover:border-blue-300"
             >
-              🚀 Simple Dashboard (CSS Fixed)
+              <div className="text-3xl mb-3">📤</div>
+              <span className="font-medium text-gray-900">Import Data</span>
             </a>
-            <a
+            
+            <a 
               href="/analytics/comprehensive-dashboard"
-              style={{
-                backgroundColor: '#2563eb',
-                color: 'white',
-                padding: '0.75rem 2rem',
-                borderRadius: '0.5rem',
-                fontSize: '1.125rem',
-                fontWeight: '600',
-                textDecoration: 'none',
-                display: 'inline-block'
-              }}
+              className="flex flex-col items-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200 hover:border-blue-300"
             >
-              📊 Comprehensive Analytics
+              <div className="text-3xl mb-3">📊</div>
+              <span className="font-medium text-gray-900">Analytics</span>
             </a>
-            <a
-              href="/demo/dashboard"
-              style={{
-                backgroundColor: '#16a34a',
-                color: 'white',
-                padding: '0.75rem 2rem',
-                borderRadius: '0.5rem',
-                fontSize: '1.125rem',
-                fontWeight: '600',
-                textDecoration: 'none',
-                display: 'inline-block'
-              }}
+            
+            <a 
+              href="/api/system/health"
+              className="flex flex-col items-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200 hover:border-blue-300"
             >
-              🎮 Interactive Demo
+              <div className="text-3xl mb-3">🏥</div>
+              <span className="font-medium text-gray-900">Health Check</span>
+            </a>
+            
+            <a 
+              href="/clients"
+              className="flex flex-col items-center p-6 bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow border border-gray-200 hover:border-blue-300"
+            >
+              <div className="text-3xl mb-3">👥</div>
+              <span className="font-medium text-gray-900">Clients</span>
             </a>
           </div>
         </div>
-
-        {/* Stats */}
-        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '2rem', marginBottom: '3rem' }}>
-          <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', textAlign: 'center', marginBottom: '2rem', color: '#111827' }}>Implementation Complete</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1.5rem', textAlign: 'center' }}>
-            <div>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#2563eb', marginBottom: '0.5rem' }}>20</div>
-              <div style={{ color: '#6b7280' }}>Tasks Completed</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#16a34a', marginBottom: '0.5rem' }}>50+</div>
-              <div style={{ color: '#6b7280' }}>API Endpoints</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#7c3aed', marginBottom: '0.5rem' }}>12</div>
-              <div style={{ color: '#6b7280' }}>ML Services</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '2rem', fontWeight: 'bold', color: '#ea580c', marginBottom: '0.5rem' }}>35+</div>
-              <div style={{ color: '#6b7280' }}>Test Suites</div>
-            </div>
-          </div>
-        </div>
-
-        {/* Features */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem', marginBottom: '3rem' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '1.5rem' }}>
-            <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.75rem', color: '#111827' }}>🗄️ Data Infrastructure</h4>
-            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-              Enhanced Neon DB with pgvector extension for vector similarity search and optimized indexing.
-            </p>
-          </div>
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '1.5rem' }}>
-            <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.75rem', color: '#111827' }}>🧠 AI & ML Integration</h4>
-            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-              Vertex AI integration with AutoML forecasting, anomaly detection, and adaptive modeling.
-            </p>
-          </div>
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '1.5rem' }}>
-            <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.75rem', color: '#111827' }}>⚡ Performance Optimized</h4>
-            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-              Sub-500ms response times, intelligent caching, and comprehensive monitoring.
-            </p>
-          </div>
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '1.5rem' }}>
-            <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.75rem', color: '#111827' }}>📈 Interactive Analytics</h4>
-            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-              Real-time charts, drag-and-drop widgets, and customizable dashboard layouts.
-            </p>
-          </div>
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '1.5rem' }}>
-            <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.75rem', color: '#111827' }}>🔍 Vector Search</h4>
-            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-              Advanced similarity search and pattern matching using vector embeddings.
-            </p>
-          </div>
-          <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)', padding: '1.5rem' }}>
-            <h4 style={{ fontSize: '1.125rem', fontWeight: '600', marginBottom: '0.75rem', color: '#111827' }}>🛡️ System Reliability</h4>
-            <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>
-              Circuit breaker protection, automated recovery, and comprehensive error handling.
-            </p>
-          </div>
-        </div>
-
-        {/* Quick Links */}
-        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', padding: '2rem' }}>
-          <h3 style={{ fontSize: '1.5rem', fontWeight: 'bold', textAlign: 'center', marginBottom: '2rem', color: '#111827' }}>Quick Access</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-            <a 
-              href="/data/import" 
-              style={{ 
-                display: 'block', 
-                padding: '1rem', 
-                border: '2px solid #3b82f6', 
-                borderRadius: '0.5rem', 
-                textAlign: 'center',
-                textDecoration: 'none',
-                color: '#111827',
-                backgroundColor: '#eff6ff'
-              }}
-            >
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📤</div>
-              <div style={{ fontWeight: '500', color: '#1d4ed8' }}>Import Data</div>
-            </a>
-            <a 
-              href="/api/system/health" 
-              style={{ 
-                display: 'block', 
-                padding: '1rem', 
-                border: '1px solid #e5e7eb', 
-                borderRadius: '0.5rem', 
-                textAlign: 'center',
-                textDecoration: 'none',
-                color: '#111827'
-              }}
-            >
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🏥</div>
-              <div style={{ fontWeight: '500' }}>System Health</div>
-            </a>
-            <a 
-              href="/api/system/monitoring" 
-              style={{ 
-                display: 'block', 
-                padding: '1rem', 
-                border: '1px solid #e5e7eb', 
-                borderRadius: '0.5rem', 
-                textAlign: 'center',
-                textDecoration: 'none',
-                color: '#111827'
-              }}
-            >
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>📊</div>
-              <div style={{ fontWeight: '500' }}>Monitoring</div>
-            </a>
-            <a 
-              href="/api/predictions/forecast" 
-              style={{ 
-                display: 'block', 
-                padding: '1rem', 
-                border: '1px solid #e5e7eb', 
-                borderRadius: '0.5rem', 
-                textAlign: 'center',
-                textDecoration: 'none',
-                color: '#111827'
-              }}
-            >
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔮</div>
-              <div style={{ fontWeight: '500' }}>Forecasting API</div>
-            </a>
-            <a 
-              href="/api/embeddings/search" 
-              style={{ 
-                display: 'block', 
-                padding: '1rem', 
-                border: '1px solid #e5e7eb', 
-                borderRadius: '0.5rem', 
-                textAlign: 'center',
-                textDecoration: 'none',
-                color: '#111827'
-              }}
-            >
-              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🔍</div>
-              <div style={{ fontWeight: '500' }}>Vector Search</div>
-            </a>
-          </div>
-        </div>
-      </main>
-
-      {/* Footer */}
-      <footer style={{ backgroundColor: '#1f2937', color: 'white', padding: '2rem 0', marginTop: '3rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem', textAlign: 'center' }}>
-          <p style={{ color: '#d1d5db', margin: 0 }}>
-            © 2025 Advanced Predictive Analytics Platform - All 20 Tasks Completed
-          </p>
-        </div>
-      </footer>
+      </section>
     </div>
   )
 }

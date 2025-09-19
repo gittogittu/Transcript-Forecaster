@@ -3,8 +3,8 @@ import './globals.css'
 import { Navigation } from '@/components/Navigation'
 
 export const metadata: Metadata = {
-  title: 'Advanced Predictive Analytics Platform',
-  description: 'Interactive visual analytics dashboard with real-time data updates and intelligent forecasting',
+  title: 'Predictive Analytics Platform',
+  description: 'Enterprise-grade analytics with AI-powered insights, real-time forecasting, and advanced data visualization',
 }
 
 export default function RootLayout({
