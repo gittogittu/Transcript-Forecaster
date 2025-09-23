@@ -1,0 +1,87 @@
+[
+  {
+    "timestamp": "2025-09-23T10:34:36.667Z",
+    "analysis": {
+      "timestamp": "2025-09-23T10:34:36.667Z",
+      "successRate": 70,
+      "criticalFailures": 0,
+      "slowEndpoints": 2,
+      "totalTests": 10,
+      "passed": 7,
+      "failed": 3,
+      "averageResponseTime": 2145,
+      "status": "fair"
+    },
+    "report": {
+      "summary": {
+        "total": 10,
+        "passed": 7,
+        "failed": 3,
+        "success_rate": "70.0%"
+      },
+      "critical_failures": [],
+      "results": [
+        {
+          "name": "Server Health Check",
+          "status": "passed",
+          "duration": 87,
+          "error": null
+        },
+        {
+          "name": "Database Health",
+          "status": "passed",
+          "duration": 454,
+          "error": null
+        },
+        {
+          "name": "System Health",
+          "status": "failed",
+          "duration": 10012,
+          "error": "Timeout (10s)"
+        },
+        {
+          "name": "ML Prediction Engine",
+          "status": "passed",
+          "duration": 88,
+          "error": null
+        },
+        {
+          "name": "Client Management",
+          "status": "passed",
+          "duration": 136,
+          "error": null
+        },
+        {
+          "name": "Analytics Dashboard Stats",
+          "status": "passed",
+          "duration": 158,
+          "error": null
+        },
+        {
+          "name": "Vertex AI Health",
+          "status": "failed",
+          "duration": 10004,
+          "error": "Timeout (10s)"
+        },
+        {
+          "name": "Anomaly Detection Config",
+          "status": "passed",
+          "duration": 74,
+          "error": null
+        },
+        {
+          "name": "Performance Monitoring",
+          "status": "passed",
+          "duration": 271,
+          "error": null
+        },
+        {
+          "name": "Embeddings Stats",
+          "status": "failed",
+          "duration": 170,
+          "error": "HTTP 500 Internal Server Error"
+        }
+      ]
+    }
+  }
+]

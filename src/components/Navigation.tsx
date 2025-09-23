@@ -11,7 +11,9 @@ import {
   Database,
   Home,
   Settings,
-  Users
+  Users,
+  Brain,
+  Zap
 } from 'lucide-react'
 
 const navigationItems = [
@@ -19,6 +21,12 @@ const navigationItems = [
     name: 'Home',
     href: '/',
     icon: Home
+  },
+  {
+    name: 'Enhanced Dashboard',
+    href: '/analytics/enhanced-dashboard',
+    icon: Brain,
+    badge: 'NEW'
   },
   {
     name: 'Interactive Dashboard',
@@ -68,10 +76,15 @@ export function Navigation() {
                   <Button
                     variant={isActive ? "default" : "ghost"}
                     size="sm"
-                    className="flex items-center space-x-2"
+                    className="flex items-center space-x-2 relative"
                   >
                     <Icon className="h-4 w-4" />
                     <span>{item.name}</span>
+                    {item.badge && (
+                      <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                        {item.badge}
+                      </span>
+                    )}
                   </Button>
                 </Link>
               )

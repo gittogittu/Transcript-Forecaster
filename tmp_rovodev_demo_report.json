@@ -1,0 +1,149 @@
+{
+  "timestamp": "2025-09-23T10:09:57.711Z",
+  "demo_mode": true,
+  "summary": {
+    "total": 16,
+    "passed": 12,
+    "failed": 3,
+    "skipped": 1
+  },
+  "success_rate": "75.0%",
+  "features_tested": [
+    "AI-Powered Transcript Load Prediction (Primary Feature)",
+    "Advanced AI & Machine Learning Infrastructure",
+    "Real-time Predictive Analytics Dashboard",
+    "Automated Daily Training & Model Management",
+    "Client Management System",
+    "Data Import & Management",
+    "Advanced Predictive Analytics & Forecasting",
+    "Anomaly Detection System",
+    "Vector Search & Embeddings",
+    "Business Intelligence & Insights",
+    "Interactive Dashboards",
+    "Advanced Machine Learning & AI Infrastructure",
+    "Data Analytics & Correlation",
+    "Performance Monitoring",
+    "Security & Access Control",
+    "Integration & API"
+  ],
+  "results": [
+    {
+      "feature": "AI-Powered Transcript Load Prediction (Primary Feature)",
+      "priority": "critical",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:52.129Z"
+    },
+    {
+      "feature": "Advanced AI & Machine Learning Infrastructure",
+      "priority": "medium",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:52.620Z"
+    },
+    {
+      "feature": "Real-time Predictive Analytics Dashboard",
+      "priority": "high",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:52.928Z"
+    },
+    {
+      "feature": "Automated Daily Training & Model Management",
+      "priority": "critical",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:53.193Z"
+    },
+    {
+      "feature": "Client Management System",
+      "priority": "high",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:53.317Z"
+    },
+    {
+      "feature": "Data Import & Management",
+      "priority": "medium",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:53.786Z"
+    },
+    {
+      "feature": "Advanced Predictive Analytics & Forecasting",
+      "priority": "critical",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:54.330Z"
+    },
+    {
+      "feature": "Anomaly Detection System",
+      "priority": "medium",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:54.907Z"
+    },
+    {
+      "feature": "Vector Search & Embeddings",
+      "priority": "medium",
+      "endpoints": [],
+      "status": "failed",
+      "timestamp": "2025-09-23T10:09:55.421Z"
+    },
+    {
+      "feature": "Business Intelligence & Insights",
+      "priority": "medium",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:55.622Z"
+    },
+    {
+      "feature": "Interactive Dashboards",
+      "priority": "high",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:55.824Z"
+    },
+    {
+      "feature": "Advanced Machine Learning & AI Infrastructure",
+      "priority": "medium",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:56.121Z"
+    },
+    {
+      "feature": "Data Analytics & Correlation",
+      "priority": "high",
+      "endpoints": [],
+      "status": "failed",
+      "timestamp": "2025-09-23T10:09:56.698Z"
+    },
+    {
+      "feature": "Performance Monitoring",
+      "priority": "medium",
+      "endpoints": [],
+      "status": "failed",
+      "timestamp": "2025-09-23T10:09:56.948Z"
+    },
+    {
+      "feature": "Security & Access Control",
+      "priority": "medium",
+      "endpoints": [],
+      "status": "passed",
+      "timestamp": "2025-09-23T10:09:57.151Z"
+    },
+    {
+      "feature": "Integration & API",
+      "priority": "medium",
+      "endpoints": [],
+      "status": "skipped",
+      "timestamp": "2025-09-23T10:09:57.571Z"
+    }
+  ],
+  "next_steps": [
+    "Run actual verification with: npx ts-node scripts/tmp_rovodev_run_verification.ts",
+    "Ensure development server is running on localhost:3000",
+    "Check database connectivity",
+    "Review any failed tests and implement missing features"
+  ]
+}

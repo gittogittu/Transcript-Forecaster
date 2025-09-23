@@ -1,0 +1,119 @@
+{
+  "timestamp": "2025-09-23T10:46:17.923Z",
+  "server_url": "http://localhost:3000",
+  "total_duration_ms": 9613,
+  "summary": {
+    "total": 10,
+    "passed": 10,
+    "failed": 0,
+    "success_rate": "100.0%"
+  },
+  "critical_failures": [],
+  "results": [
+    {
+      "name": "Server Health Check",
+      "endpoint": "/api/health",
+      "method": "GET",
+      "priority": "critical",
+      "status": "passed",
+      "statusCode": 200,
+      "duration": 83,
+      "error": null
+    },
+    {
+      "name": "Database Health",
+      "endpoint": "/api/health/database",
+      "method": "GET",
+      "priority": "critical",
+      "status": "passed",
+      "statusCode": 200,
+      "duration": 900,
+      "error": null
+    },
+    {
+      "name": "System Health",
+      "endpoint": "/api/system/health",
+      "method": "GET",
+      "priority": "high",
+      "status": "passed",
+      "statusCode": 200,
+      "duration": 4422,
+      "error": null
+    },
+    {
+      "name": "ML Prediction Engine",
+      "endpoint": "/api/predictions/simple",
+      "method": "POST",
+      "priority": "critical",
+      "status": "passed",
+      "statusCode": 200,
+      "duration": 71,
+      "error": null
+    },
+    {
+      "name": "Client Management",
+      "endpoint": "/api/clients",
+      "method": "GET",
+      "priority": "high",
+      "status": "passed",
+      "statusCode": 200,
+      "duration": 191,
+      "error": null
+    },
+    {
+      "name": "Analytics Dashboard Stats",
+      "endpoint": "/api/analytics/dashboard/stats",
+      "method": "GET",
+      "priority": "high",
+      "status": "passed",
+      "statusCode": 200,
+      "duration": 243,
+      "error": null
+    },
+    {
+      "name": "Vertex AI Health",
+      "endpoint": "/api/vertex-ai/health",
+      "method": "GET",
+      "priority": "medium",
+      "status": "passed",
+      "statusCode": 200,
+      "duration": 2886,
+      "error": null
+    },
+    {
+      "name": "Anomaly Detection Config",
+      "endpoint": "/api/anomaly-detection/config",
+      "method": "GET",
+      "priority": "medium",
+      "status": "passed",
+      "statusCode": 200,
+      "duration": 61,
+      "error": null
+    },
+    {
+      "name": "Performance Monitoring",
+      "endpoint": "/api/performance-monitoring/health",
+      "method": "GET",
+      "priority": "medium",
+      "status": "passed",
+      "statusCode": 200,
+      "duration": 261,
+      "error": null
+    },
+    {
+      "name": "Embeddings Stats",
+      "endpoint": "/api/embeddings/stats",
+      "method": "GET",
+      "priority": "medium",
+      "status": "passed",
+      "statusCode": 200,
+      "duration": 193,
+      "error": null
+    }
+  ],
+  "recommendations": [
+    "All features are working correctly!",
+    "Consider running daily verification to maintain quality",
+    "Set up automated monitoring for production"
+  ]
+}
