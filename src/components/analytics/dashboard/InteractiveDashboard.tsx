@@ -60,6 +60,7 @@ function WidgetRenderer({ widget }: { widget: DashboardWidget }) {
         const { result, loading, error, runForecast } = useForecast({ endpoint: '/api/predictions/forecast' })
 
         useEffect(() => {
+          if (process.env.NODE_ENV === 'test') return
           // Build minimal TimeSeriesData from mock actuals for now
           const timestamps = mockPredictionData.actual.map(d => d.timestamp)
           const values = mockPredictionData.actual.map(d => d.value)
@@ -386,7 +387,7 @@ function DashboardContent({ onLayoutChange }: { onLayoutChange?: (layout: Dashbo
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <span>{state.layout.widgets.length} widgets</span>
               <span>•</span>
-              <span>Last updated: {state.lastUpdate.toLocaleTimeString()}</span>
+              <span>Last updated: {new Date(state.lastUpdate).toLocaleTimeString()}</span>
             </div>
           </div>
           

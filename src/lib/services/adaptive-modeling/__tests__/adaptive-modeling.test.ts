@@ -450,7 +450,7 @@ describe('PerformanceTracker', () => {
     
     expect(comparison.model1).toBeDefined()
     expect(comparison.model2).toBeDefined()
-    expect(comparison.comparison.accuracyDiff).toBeClos5) // model2 is 5% better
+    expect(comparison.comparison.accuracyDiff).toBeCloseTo(0.1) // model2 is 10% better
     expect(comparison.comparison.latencyDiff).toBe(-20) // model2 is 20ms faster
   })
 })

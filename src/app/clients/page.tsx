@@ -614,22 +614,50 @@ export default function ClientManagementPage() {
                           {/* Client Analytics Preview */}
                           <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: 'white', borderRadius: '0.375rem', border: '1px solid #e5e7eb' }}>
                             <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: '500', marginBottom: '0.5rem' }}>Quick Analytics</div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', fontSize: '0.7rem' }}>
-                              <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontWeight: '600', color: '#111827' }}>{Math.floor(Math.random() * 5000 + 1000).toLocaleString()}</div>
-                                <div style={{ color: '#6b7280' }}>Total Transcripts</div>
-                              </div>
-                              <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontWeight: '600', color: '#10b981' }}>{Math.floor(Math.random() * 500 + 200)}</div>
-                                <div style={{ color: '#6b7280' }}>Monthly Avg</div>
-                              </div>
-                              <div style={{ textAlign: 'center' }}>
-                                <div style={{ fontWeight: '600', color: Math.random() > 0.5 ? '#10b981' : '#ef4444' }}>
-                                  {Math.random() > 0.5 ? '+' : ''}{((Math.random() - 0.5) * 30).toFixed(1)}%
-                                </div>
-                                <div style={{ color: '#6b7280' }}>Growth</div>
-                              </div>
-                            </div>
+                            {(() => {
+                             // Deterministic quick analytics derived from client ID to avoid hydration mismatches
+                             const hashStringToSeed = (str: string) => {
+                               let h = 2166136261 >>> 0
+                               for (let i = 0; i < str.length; i++) {
+                                 h ^= str.charCodeAt(i)
+                                 h = Math.imul(h, 16777619)
+                               }
+                               return h >>> 0
+                             }
+                             const mulberry32 = (a: number) => {
+                               return () => {
+                                 let t = (a += 0x6D2B79F5)
+                                 t = Math.imul(t ^ (t >>> 15), t | 1)
+                                 t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+                                 return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+                               }
+                             }
+                             const seed = hashStringToSeed(c.id)
+                             const rng = mulberry32(seed)
+                             const totalTranscripts = Math.floor(rng() * 4000) + 1000
+                             const monthlyAvg = Math.floor(rng() * 300) + 200
+                             const growthRaw = (rng() - 0.5) * 30
+                             const isPositive = growthRaw >= 0
+                             const growthColor = isPositive ? '#10b981' : '#ef4444'
+                             const growthText = `${isPositive ? '+' : ''}${growthRaw.toFixed(1)}%`
+                             
+                             return (
+                               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', fontSize: '0.7rem' }}>
+                                 <div style={{ textAlign: 'center' }}>
+                                   <div style={{ fontWeight: '600', color: '#111827' }}>{totalTranscripts.toLocaleString()}</div>
+                                   <div style={{ color: '#6b7280' }}>Total Transcripts</div>
+                                 </div>
+                                 <div style={{ textAlign: 'center' }}>
+                                   <div style={{ fontWeight: '600', color: '#10b981' }}>{monthlyAvg}</div>
+                                   <div style={{ color: '#6b7280' }}>Monthly Avg</div>
+                                 </div>
+                                 <div style={{ textAlign: 'center' }}>
+                                   <div style={{ fontWeight: '600', color: growthColor }}>{growthText}</div>
+                                   <div style={{ color: '#6b7280' }}>Growth</div>
+                                 </div>
+                               </div>
+                             )
+                           })()}
                           </div>
                         </div>
                       </div>

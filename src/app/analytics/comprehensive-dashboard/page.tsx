@@ -30,7 +30,7 @@ export default function ComprehensiveDashboard() {
           The comprehensive dashboard is being updated. Please use our fully functional prediction dashboard instead:
         </p>
         <a 
-          href="/working-predictions" 
+          href="/analytics/dashboard" 
           style={{ 
             backgroundColor: '#3b82f6', 
             color: 'white', 

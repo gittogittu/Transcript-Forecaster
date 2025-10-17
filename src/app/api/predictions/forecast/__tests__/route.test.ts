@@ -1,10 +1,8 @@
 import { POST } from '../route'
 
+const mockCache = { getSimilar: jest.fn(), set: jest.fn() }
 jest.mock('@/lib/cache/prediction-cache', () => ({
-	getPredictionCache: () => ({
-		getSimilar: jest.fn(),
-		set: jest.fn(),
-	}),
+	getPredictionCache: () => mockCache,
 }))
 
 jest.mock('@/lib/services/forecasting/intelligent-forecasting-engine', () => ({
@@ -38,8 +36,7 @@ describe('Forecast API route - integration skeleton', () => {
 
 	test('returns cache hit response with X-Cache header', async () => {
 		const req: any = { json: async () => baseBody }
-		const { getPredictionCache } = require('@/lib/cache/prediction-cache')
-		getPredictionCache().getSimilar.mockReturnValue({ hit: true, value: { values: [1,2,3] }, similarity: 0.99 })
+		mockCache.getSimilar.mockReturnValue({ hit: true, value: { values: [1,2,3] }, similarity: 0.99 })
 
 		const res: any = await POST(req)
 		const json = await res.json()
@@ -50,8 +47,7 @@ describe('Forecast API route - integration skeleton', () => {
 
 	test('on cache miss, calls forecasting engine and returns MISS', async () => {
 		const req: any = { json: async () => baseBody }
-		const { getPredictionCache } = require('@/lib/cache/prediction-cache')
-		getPredictionCache().getSimilar.mockReturnValue({ hit: false })
+		mockCache.getSimilar.mockReturnValue({ hit: false })
 
 		const res: any = await POST(req)
 		const json = await res.json()

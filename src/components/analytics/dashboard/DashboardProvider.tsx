@@ -151,6 +151,7 @@ export function DashboardProvider({ children, initialLayout }: DashboardProvider
   useEffect(() => {
     if (!state.realTimeEnabled) return
 
+    const intervalMs = process.env.NODE_ENV === 'test' ? 100 : state.layout.refreshInterval
     const interval = setInterval(() => {
       // Trigger data refresh for all widgets
       state.layout.widgets.forEach(widget => {
@@ -160,7 +161,7 @@ export function DashboardProvider({ children, initialLayout }: DashboardProvider
           dispatch({ type: 'SET_LAST_UPDATE', payload: new Date() })
         }
       })
-    }, state.layout.refreshInterval)
+    }, intervalMs)
 
     return () => clearInterval(interval)
   }, [state.realTimeEnabled, state.layout.refreshInterval, state.layout.widgets])
