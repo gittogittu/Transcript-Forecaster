@@ -1,774 +1,332 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+
+interface Project {
+  id: string
+  name: string
+  icon: string
+  color: string
+}
+
 interface ClientItem {
   id: string
   name: string
   client_code: string
-  environment: 'prod' | 'uat'
-  email?: string | null
-  is_active: boolean
-  created_at?: string
-  updated_at?: string
+  project_id?: string
 }
 
 export default function DataImportPage() {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [uploadStatus, setUploadStatus] = useState<string>('')
-  const [processingOptions, setProcessingOptions] = useState({
-    cleanData: true,
-    generateEmbeddings: true,
-    trainModels: false,
-    detectAnomalies: false
-  })
+  const router = useRouter()
 
-  // Clients state
+  // State
+  const [projects, setProjects] = useState<Project[]>([])
   const [clients, setClients] = useState<ClientItem[]>([])
-  const [clientsLoading, setClientsLoading] = useState(true)
-  const [clientsError, setClientsError] = useState<string | null>(null)
+  const [loadingProjects, setLoadingProjects] = useState(true)
 
+  // Selection State
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('')
+  const [selectedClientId, setSelectedClientId] = useState<string>('')
+
+  // New Client State
+  const [isCreatingClient, setIsCreatingClient] = useState(false)
   const [newClientCode, setNewClientCode] = useState('')
   const [newClientName, setNewClientName] = useState('')
-  const [newClientEnvironment, setNewClientEnvironment] = useState<'prod' | 'uat'>('prod')
-  const [newClientEmail, setNewClientEmail] = useState('')
-  const [creatingClient, setCreatingClient] = useState(false)
 
-  // Edit client state
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName] = useState('')
-  const [editCode, setEditCode] = useState('')
-  const [editEnvironment, setEditEnvironment] = useState<'prod' | 'uat'>('prod')
-  const [editEmail, setEditEmail] = useState('')
-  const [savingEdit, setSavingEdit] = useState(false)
+  // Upload State
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadStatus, setUploadStatus] = useState('')
+  const [uploadProgress, setUploadProgress] = useState(0)
 
-  const startEdit = (c: ClientItem) => {
-    setEditingId(c.id)
-    setEditName(c.name)
-    setEditCode(c.client_code)
-    setEditEnvironment(c.environment)
-    setEditEmail(c.email || '')
-  }
-
-
-  const cancelEdit = () => {
-    setEditingId(null)
-    setClientsError(null)
-  }
-
-  const saveEdit = async () => {
-    if (!editingId) return
-    setSavingEdit(true)
-    setClientsError(null)
-    try {
-      const res = await fetch(`/api/clients/${editingId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editName.trim(),
-          client_code: editCode.trim(),
-          environment: editEnvironment,
-          email: editEmail.trim() || null,
-        })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to update client')
-      setClients(prev => prev.map(c => c.id === editingId ? data.client : c))
-      setEditingId(null)
-    } catch (e: any) {
-      setClientsError(e.message || 'Failed to update client')
-    } finally {
-      setSavingEdit(false)
-    }
-  }
-
-  const [includeInactive, setIncludeInactive] = useState(true)
-  const [searchQuery, setSearchQuery] = useState('')
-
-  const fetchClients = async () => {
-    setClientsLoading(true)
-    setClientsError(null)
-    try {
-      const params = new URLSearchParams({
-        includeInactive: includeInactive.toString(),
-        ...(searchQuery.trim() && { q: searchQuery.trim() })
-      })
-      const res = await fetch(`/api/clients?${params}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to load clients')
-      setClients(data.clients || [])
-    } catch (e: any) {
-      setClientsError(e.message || 'Failed to load clients')
-      console.error('Client fetch error:', e)
-    } finally {
-      setClientsLoading(false)
-    }
-  }
-
+  // Fetch Projects on Load
   useEffect(() => {
-    fetchClients()
-  }, [includeInactive, searchQuery])
+    const fetchProjects = async () => {
+      try {
+        const res = await fetch('/api/projects')
+        const data = await res.json()
+        if (data.success) {
+          setProjects(data.projects)
+          // Auto-select first project if available
+          if (data.projects.length > 0) {
+            setSelectedProjectId(data.projects[0].id)
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching projects:', e)
+      } finally {
+        setLoadingProjects(false)
+      }
+    }
+    fetchProjects()
+  }, [])
 
-  const handleCreateClient = async () => {
-    if (!newClientCode.trim()) {
-      setClientsError('Client code is required')
+  // Fetch Clients when Project Changes
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setClients([])
       return
     }
-    setCreatingClient(true)
-    setClientsError(null)
+
+    const fetchClients = async () => {
+      try {
+        const res = await fetch(`/api/clients?project_id=${selectedProjectId}`)
+        const data = await res.json()
+        if (data.success) {
+          setClients(data.clients || [])
+          setSelectedClientId('') // Reset client selection
+        }
+      } catch (e) {
+        console.error('Error fetching clients:', e)
+      }
+    }
+    fetchClients()
+  }, [selectedProjectId])
+
+  // Handle File Selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setSelectedFiles(Array.from(e.target.files))
+    }
+  }
+
+  // Handle Create Client
+  const handleCreateClient = async () => {
+    if (!newClientCode.trim()) return
+
     try {
       const res = await fetch('/api/clients', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          client_code: newClientCode.trim(),
-          name: newClientName.trim() || undefined,
-          environment: newClientEnvironment,
-          email: newClientEmail.trim() || undefined,
+          client_code: newClientCode,
+          name: newClientName || undefined,
+          project_id: selectedProjectId,
+          environment: 'prod'
         })
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to create client')
-      setClients(prev => [data.client, ...prev])
-      setNewClientCode('')
-      setNewClientName('')
-      setNewClientEmail('')
-      setNewClientEnvironment('prod')
-    } catch (e: any) {
-      setClientsError(e.message || 'Failed to create client')
-    } finally {
-      setCreatingClient(false)
+      if (data.success) {
+        setClients([...clients, data.client])
+        setSelectedClientId(data.client.id)
+        setIsCreatingClient(false)
+        setNewClientCode('')
+        setNewClientName('')
+      }
+    } catch (e) {
+      console.error('Error creating client:', e)
+      alert('Failed to create data source')
     }
   }
 
-  const handleRemoveClient = async (id: string) => {
-    const confirm = window.confirm('Are you sure you want to remove this client? This will deactivate the client but not delete historical data.')
-    if (!confirm) return
-    try {
-      const res = await fetch(`/api/clients/${id}`, { method: 'DELETE' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to remove client')
-      setClients(prev => prev.filter(c => c.id !== id))
-    } catch (e: any) {
-      setClientsError(e.message || 'Failed to remove client')
-    }
-  }
-
-  const handleReactivateClient = async (id: string) => {
-    try {
-      const res = await fetch(`/api/clients/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: true })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Failed to reactivate client')
-      setClients(prev => prev.map(c => c.id === id ? data.client : c))
-    } catch (e: any) {
-      setClientsError(e.message || 'Failed to reactivate client')
-    }
-  }
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || [])
-    setSelectedFiles(files)
-    setUploadStatus('')
-  }
-
-  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    const files = Array.from(event.dataTransfer.files)
-    setSelectedFiles(files)
-    setUploadStatus('')
-  }
-
-  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-  }
-
+  // Handle Upload
   const handleUpload = async () => {
-    if (selectedFiles.length === 0) {
-      setUploadStatus('Please select files to upload')
-      return
-    }
+    if (!selectedFiles.length || !selectedClientId) return
 
     setIsUploading(true)
-    setUploadProgress(0)
     setUploadStatus('Uploading...')
+    setUploadProgress(0)
 
     try {
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i]
         const formData = new FormData()
         formData.append('file', file)
-        formData.append('cleanData', processingOptions.cleanData.toString())
-        formData.append('generateEmbeddings', processingOptions.generateEmbeddings.toString())
-        formData.append('trainModels', processingOptions.trainModels.toString())
-        formData.append('detectAnomalies', processingOptions.detectAnomalies.toString())
+        formData.append('clientId', selectedClientId) // Important: Associate with Client
+        formData.append('project_id', selectedProjectId) // Redundant but good for tracking
 
-        const response = await fetch('/api/data/import', {
+        const res = await fetch('/api/data/import', {
           method: 'POST',
           body: formData
         })
 
-        const result = await response.json()
-        
-        if (!response.ok) {
-          throw new Error(result.error || 'Upload failed')
-        }
+        if (!res.ok) throw new Error('Upload failed')
 
         setUploadProgress(((i + 1) / selectedFiles.length) * 100)
       }
-
-      setUploadStatus('Upload completed successfully!')
-      setSelectedFiles([])
-    } catch (error) {
-      setUploadStatus(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      setUploadStatus('✅ Upload Complete!')
+      setTimeout(() => {
+        setUploadStatus('')
+        setSelectedFiles([])
+        // Redirect to dashboard after success
+        router.push(`/projects/${selectedProjectId}/dashboard`)
+      }, 1500)
+    } catch (e) {
+      setUploadStatus('❌ Upload Failed')
+      console.error(e)
     } finally {
       setIsUploading(false)
     }
   }
 
-  const handleOptionChange = (option: keyof typeof processingOptions) => {
-    setProcessingOptions(prev => ({
-      ...prev,
-      [option]: !prev[option]
-    }))
-  }
-
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', fontFamily: 'system-ui, sans-serif' }}>
+    <div className="min-h-screen bg-gray-50 font-sans">
       {/* Header */}
-      <header style={{ backgroundColor: 'white', borderBottom: '1px solid #e5e7eb', padding: '1rem 0' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#111827', margin: 0 }}>
-                📊 Data Import Center
-              </h1>
-              <p style={{ color: '#6b7280', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
-                Upload and manage historical data for training and analysis
-              </p>
-            </div>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <a href="/" style={{ color: '#6b7280', textDecoration: 'none', fontSize: '0.875rem' }}>← Back to Home</a>
-              <a href="/analytics/dashboard" style={{ backgroundColor: '#2563eb', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', textDecoration: 'none', fontSize: '0.875rem' }}>
-                View Analytics
-              </a>
-            </div>
+      <header className="bg-white border-b border-gray-200 py-4">
+        <div className="max-w-4xl mx-auto px-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-xl font-bold text-gray-900">📥 Import Data</h1>
+            <p className="text-sm text-gray-500">Add data to your projects</p>
           </div>
+          <Link href="/projects" className="text-sm text-gray-600 hover:text-gray-900">
+            Cancel
+          </Link>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 1rem' }}>
-        
-        {/* Client Management */}
-        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>👥 Client Management</h2>
+      <main className="max-w-4xl mx-auto px-4 py-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
 
-          {/* Create client form */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', color: '#374151', marginBottom: '0.25rem' }}>Client Code</label>
-              <input
-                type="text"
-                value={newClientCode}
-                onChange={(e) => setNewClientCode(e.target.value)}
-                placeholder="e.g. acme-prod or acme-uat"
-                style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.5rem' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', color: '#374151', marginBottom: '0.25rem' }}>Name (optional)</label>
-              <input
-                type="text"
-                value={newClientName}
-                onChange={(e) => setNewClientName(e.target.value)}
-                placeholder="Client display name"
-                style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.5rem' }}
-              />
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', color: '#374151', marginBottom: '0.25rem' }}>Environment</label>
+          {/* Step 1: Select Project */}
+          <div className="p-6 border-b border-gray-100">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              1. Select Project
+            </label>
+            {loadingProjects ? (
+              <div className="text-gray-500 text-sm">Loading projects...</div>
+            ) : (
               <select
-                value={newClientEnvironment}
-                onChange={(e) => setNewClientEnvironment(e.target.value as 'prod' | 'uat')}
-                style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.5rem', backgroundColor: 'white' }}
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="prod">prod</option>
-                <option value="uat">uat</option>
+                <option value="" disabled>Choose a project...</option>
+                {projects.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.icon} {p.name}
+                  </option>
+                ))}
               </select>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.875rem', color: '#374151', marginBottom: '0.25rem' }}>Email (optional)</label>
-              <input
-                type="email"
-                value={newClientEmail}
-                onChange={(e) => setNewClientEmail(e.target.value)}
-                placeholder="contact@example.com"
-                style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.5rem' }}
-              />
-            </div>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-            <button
-              onClick={handleCreateClient}
-              disabled={creatingClient}
-              style={{ backgroundColor: creatingClient ? '#9ca3af' : '#2563eb', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none', cursor: creatingClient ? 'not-allowed' : 'pointer' }}
-            >
-              {creatingClient ? 'Creating...' : 'Add Client'}
-            </button>
-            {clientsError && (
-              <span style={{ color: '#ef4444', fontSize: '0.875rem' }}>{clientsError}</span>
             )}
           </div>
 
-          {/* Clients list */}
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '1rem', fontWeight: 500, margin: 0, color: '#111827' }}>Existing Clients</h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  placeholder="Search clients..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{ border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.4rem 0.75rem', fontSize: '0.875rem', minWidth: '180px' }}
-                />
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', color: '#374151', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
-                  <input type="checkbox" checked={includeInactive} onChange={(e) => setIncludeInactive(e.target.checked)} />
-                  Include inactive
-                </label>
-                <button
-                  onClick={fetchClients}
-                  disabled={clientsLoading}
-                  style={{ backgroundColor: '#6b7280', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.4rem 0.75rem', cursor: clientsLoading ? 'not-allowed' : 'pointer', fontSize: '0.875rem', opacity: clientsLoading ? 0.6 : 1 }}
+          {/* Step 2: Select Data Source */}
+          <div className={`p-6 border-b border-gray-100 transition-opacity ${!selectedProjectId ? 'opacity-50 pointer-events-none' : ''}`}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              2. Select Data Source
+            </label>
+
+            {!isCreatingClient ? (
+              <div className="flex gap-3">
+                <select
+                  value={selectedClientId}
+                  onChange={(e) => setSelectedClientId(e.target.value)}
+                  className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  {clientsLoading ? 'Loading...' : '🔄 Refresh'}
+                  <option value="">Choose a data source...</option>
+                  {clients.map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.client_code})</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setIsCreatingClient(true)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium"
+                >
+                  + New Source
                 </button>
               </div>
-            </div>
-            {clientsError && (
-              <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', borderRadius: '0.375rem', padding: '0.75rem', marginBottom: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ color: '#dc2626', fontSize: '1rem' }}>⚠️</span>
+            ) : (
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h4 className="text-sm font-medium text-gray-900 mb-3">Create New Data Source</h4>
+                <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <p style={{ color: '#dc2626', fontSize: '0.875rem', fontWeight: '500', margin: 0 }}>Error loading clients</p>
-                    <p style={{ color: '#7f1d1d', fontSize: '0.8rem', margin: '0.25rem 0 0 0' }}>{clientsError}</p>
+                    <label className="block text-xs text-gray-500 mb-1">Source Code (Required)</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. sales-q1-2024"
+                      value={newClientCode}
+                      onChange={(e) => setNewClientCode(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                    />
                   </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Display Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Q1 Sales Data"
+                      value={newClientName}
+                      onChange={(e) => setNewClientName(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCreateClient}
+                    disabled={!newClientCode}
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm font-medium disabled:opacity-50"
+                  >
+                    Create & Select
+                  </button>
+                  <button
+                    onClick={() => setIsCreatingClient(false)}
+                    className="px-3 py-1.5 text-gray-600 hover:text-gray-900 text-sm"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </div>
             )}
-            {clientsLoading ? (
-              <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>Loading clients...</p>
-            ) : clients.length === 0 ? (
-              <p style={{ color: '#6b7280', fontSize: '0.875rem' }}>No clients found.</p>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
-                {clients.map((c) => (
-                  <div key={c.id} style={{ border: '1px solid #e5e7eb', borderRadius: '0.5rem', padding: '0.75rem', backgroundColor: '#fafafa' }}>
-                    {editingId === c.id ? (
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.5rem', alignItems: 'center' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280' }}>Name</label>
-                          <input value={editName} onChange={(e) => setEditName(e.target.value)} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.4rem' }} />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280' }}>Client Code</label>
-                          <input value={editCode} onChange={(e) => setEditCode(e.target.value)} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.4rem' }} />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280' }}>Environment</label>
-                          <select value={editEnvironment} onChange={(e) => setEditEnvironment(e.target.value as 'prod' | 'uat')} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.4rem', background: 'white' }}>
-                            <option value="prod">prod</option>
-                            <option value="uat">uat</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', color: '#6b7280' }}>Email</label>
-                          <input value={editEmail} onChange={(e) => setEditEmail(e.target.value)} style={{ width: '100%', border: '1px solid #d1d5db', borderRadius: '0.375rem', padding: '0.4rem' }} />
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
-                          <button onClick={saveEdit} disabled={savingEdit} style={{ backgroundColor: savingEdit ? '#9ca3af' : '#10b981', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.4rem 0.6rem', cursor: savingEdit ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}>Save</button>
-                          <button onClick={cancelEdit} style={{ backgroundColor: '#6b7280', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.4rem 0.6rem', cursor: 'pointer', fontSize: '0.8rem' }}>Cancel</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#111827' }}>{c.name}</div>
-                          <div style={{ fontSize: '0.8rem', color: '#6b7280' }}>{c.client_code} · {c.environment}{!c.is_active ? ' · inactive' : ''}</div>
-                        </div>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                          <button onClick={() => startEdit(c)} style={{ backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.8rem' }}>Edit</button>
-                          {c.is_active ? (
-                            <button onClick={() => handleRemoveClient(c.id)} style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.8rem' }}>Remove</button>
-                          ) : (
-                            <button onClick={() => handleReactivateClient(c.id)} style={{ backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '0.375rem', padding: '0.35rem 0.6rem', cursor: 'pointer', fontSize: '0.8rem' }}>Reactivate</button>
-                          )}
-                        </div>
-                      </div>
-                    )}
+          </div>
+
+          {/* Step 3: Upload Files */}
+          <div className={`p-6 transition-opacity ${!selectedClientId ? 'opacity-50 pointer-events-none' : ''}`}>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              3. Upload Files
+            </label>
+
+            <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 text-center hover:bg-gray-50 transition-colors relative">
+              <input
+                type="file"
+                multiple
+                onChange={handleFileSelect}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              <div className="text-4xl mb-2">📄</div>
+              <p className="text-sm text-gray-600 font-medium">
+                {selectedFiles.length > 0
+                  ? `${selectedFiles.length} file(s) selected`
+                  : 'Click or drag files here'}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">CSV, Excel, JSON supported</p>
+            </div>
+
+            {/* File List */}
+            {selectedFiles.length > 0 && (
+              <div className="mt-4 space-y-2">
+                {selectedFiles.map((f, i) => (
+                  <div key={i} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
+                    <span className="text-gray-700 truncate">{f.name}</span>
+                    <span className="text-gray-400 text-xs">{(f.size / 1024).toFixed(1)} KB</span>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        </div>
 
-        {/* Upload Section */}
-        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>📤 Upload Historical Data</h2>
-          
-          {/* File Upload Area */}
-          <div 
-            style={{ 
-              border: '2px dashed #d1d5db', 
-              borderRadius: '0.5rem', 
-              padding: '3rem', 
-              textAlign: 'center', 
-              backgroundColor: '#f9fafb',
-              marginBottom: '1.5rem'
-            }}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-          >
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📁</div>
-            <h3 style={{ fontSize: '1.125rem', fontWeight: '500', color: '#111827', marginBottom: '0.5rem' }}>
-              Drop files here or click to browse
-            </h3>
-            <p style={{ color: '#6b7280', fontSize: '0.875rem', marginBottom: '1rem' }}>
-              Supports CSV, JSON, Excel files up to 50MB
-            </p>
-            <input 
-              type="file" 
-              multiple 
-              accept=".csv,.json,.xlsx,.xls"
-              style={{ display: 'none' }}
-              id="file-upload"
-              onChange={handleFileSelect}
-            />
-            <label 
-              htmlFor="file-upload"
-              style={{
-                backgroundColor: '#3b82f6',
-                color: 'white',
-                padding: '0.75rem 1.5rem',
-                borderRadius: '0.375rem',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: '500',
-                border: 'none',
-                display: 'inline-block'
-              }}
-            >
-              Choose Files
-            </label>
-          </div>
-
-          {/* Selected Files Display */}
-          {selectedFiles.length > 0 && (
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h4 style={{ fontSize: '1rem', fontWeight: '500', color: '#111827', marginBottom: '0.5rem' }}>
-                Selected Files ({selectedFiles.length})
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {selectedFiles.map((file, index) => (
-                  <div key={index} style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    padding: '0.5rem',
-                    backgroundColor: '#f3f4f6',
-                    borderRadius: '0.375rem'
-                  }}>
-                    <span style={{ fontSize: '0.875rem' }}>
-                      📄 {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
-                    </span>
-                    <button
-                      onClick={() => setSelectedFiles(files => files.filter((_, i) => i !== index))}
-                      style={{
-                        backgroundColor: '#ef4444',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '0.25rem',
-                        padding: '0.25rem 0.5rem',
-                        fontSize: '0.75rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Upload Button and Status */}
-          {selectedFiles.length > 0 && (
-            <div style={{ marginBottom: '1.5rem' }}>
+            {/* Upload Button */}
+            <div className="mt-6">
               <button
                 onClick={handleUpload}
-                disabled={isUploading}
-                style={{
-                  backgroundColor: isUploading ? '#9ca3af' : '#10b981',
-                  color: 'white',
-                  padding: '0.75rem 1.5rem',
-                  borderRadius: '0.375rem',
-                  border: 'none',
-                  fontSize: '0.875rem',
-                  fontWeight: '500',
-                  cursor: isUploading ? 'not-allowed' : 'pointer',
-                  marginRight: '1rem'
-                }}
+                disabled={isUploading || selectedFiles.length === 0}
+                className={`w-full py-3 rounded-lg font-medium text-white transition-all ${isUploading || selectedFiles.length === 0
+                    ? 'bg-gray-300 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg'
+                  }`}
               >
-                {isUploading ? 'Uploading...' : 'Upload Files'}
+                {isUploading ? `Uploading... ${uploadProgress.toFixed(0)}%` : 'Start Import'}
               </button>
-              
-              {isUploading && (
-                <div style={{ marginTop: '1rem' }}>
-                  <div style={{ 
-                    width: '100%', 
-                    backgroundColor: '#e5e7eb', 
-                    borderRadius: '0.5rem', 
-                    height: '0.5rem',
-                    marginBottom: '0.5rem'
-                  }}>
-                    <div style={{ 
-                      width: `${uploadProgress}%`, 
-                      backgroundColor: '#10b981', 
-                      height: '100%', 
-                      borderRadius: '0.5rem',
-                      transition: 'width 0.3s ease'
-                    }}></div>
-                  </div>
-                  <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                    {uploadProgress.toFixed(0)}% complete
-                  </p>
-                </div>
-              )}
-              
               {uploadStatus && (
-                <p style={{ 
-                  fontSize: '0.875rem', 
-                  color: uploadStatus.includes('failed') ? '#ef4444' : '#10b981',
-                  marginTop: '0.5rem'
-                }}>
+                <p className={`text-center text-sm mt-3 font-medium ${uploadStatus.includes('Failed') ? 'text-red-600' : 'text-green-600'}`}>
                   {uploadStatus}
                 </p>
               )}
             </div>
-          )}
-
-          {/* Data Format Examples */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1rem' }}>
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.375rem', padding: '1rem' }}>
-              <h4 style={{ fontWeight: '500', marginBottom: '0.5rem', color: '#111827' }}>📈 Time Series Data</h4>
-              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>
-                Expected columns: date, value, client_id (optional)
-              </p>
-              <code style={{ fontSize: '0.75rem', backgroundColor: '#f3f4f6', padding: '0.25rem', borderRadius: '0.25rem', display: 'block' }}>
-                date,value,client_id<br/>
-                2024-01-01,45,client-1<br/>
-                2024-01-02,52,client-1
-              </code>
-            </div>
-            
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.375rem', padding: '1rem' }}>
-              <h4 style={{ fontWeight: '500', marginBottom: '0.5rem', color: '#111827' }}>📋 Transcript Data</h4>
-              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginBottom: '0.5rem' }}>
-                Expected columns: date, transcript_count, client_name
-              </p>
-              <code style={{ fontSize: '0.75rem', backgroundColor: '#f3f4f6', padding: '0.25rem', borderRadius: '0.25rem', display: 'block' }}>
-                date,transcript_count,client_name<br/>
-                2024-01-01,25,Acme Corp<br/>
-                2024-01-02,30,Acme Corp
-              </code>
-            </div>
           </div>
-        </div>
 
-        {/* Data Processing Options */}
-        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>⚙️ Processing Options</h2>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem' }}>
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.375rem', padding: '1rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <input 
-                  type="checkbox" 
-                  checked={processingOptions.cleanData}
-                  onChange={() => handleOptionChange('cleanData')}
-                  style={{ marginRight: '0.5rem' }} 
-                />
-                <span style={{ fontWeight: '500' }}>🧹 Clean Data</span>
-              </label>
-              <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                Remove duplicates, handle missing values, and validate data types
-              </p>
-            </div>
-            
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.375rem', padding: '1rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <input 
-                  type="checkbox" 
-                  checked={processingOptions.generateEmbeddings}
-                  onChange={() => handleOptionChange('generateEmbeddings')}
-                  style={{ marginRight: '0.5rem' }} 
-                />
-                <span style={{ fontWeight: '500' }}>🔍 Generate Embeddings</span>
-              </label>
-              <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                Create vector embeddings for similarity search and pattern matching
-              </p>
-            </div>
-            
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.375rem', padding: '1rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <input 
-                  type="checkbox" 
-                  checked={processingOptions.trainModels}
-                  onChange={() => handleOptionChange('trainModels')}
-                  style={{ marginRight: '0.5rem' }} 
-                />
-                <span style={{ fontWeight: '500' }}>🤖 Train Models</span>
-              </label>
-              <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                Automatically train forecasting models with the imported data
-              </p>
-            </div>
-            
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '0.375rem', padding: '1rem' }}>
-              <label style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <input 
-                  type="checkbox" 
-                  checked={processingOptions.detectAnomalies}
-                  onChange={() => handleOptionChange('detectAnomalies')}
-                  style={{ marginRight: '0.5rem' }} 
-                />
-                <span style={{ fontWeight: '500' }}>🚨 Detect Anomalies</span>
-              </label>
-              <p style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                Run anomaly detection on historical data to identify patterns
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Import History */}
-        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginBottom: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>📚 Import History</h2>
-          
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280' }}>File Name</th>
-                  <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280' }}>Import Date</th>
-                  <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280' }}>Records</th>
-                  <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280' }}>Status</th>
-                  <th style={{ textAlign: 'left', padding: '0.75rem', fontSize: '0.875rem', fontWeight: '500', color: '#6b7280' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>sample_data.csv</td>
-                  <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>2024-01-15 14:30</td>
-                  <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>1,247</td>
-                  <td style={{ padding: '0.75rem' }}>
-                    <span style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.75rem' }}>
-                      ✅ Completed
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.75rem' }}>
-                    <button style={{ color: '#3b82f6', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>
-                      View Details
-                    </button>
-                  </td>
-                </tr>
-                <tr style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>historical_transcripts.xlsx</td>
-                  <td style={{ padding: '0.75rem', fontSize: '0.875rem', color: '#6b7280' }}>2024-01-14 09:15</td>
-                  <td style={{ padding: '0.75rem', fontSize: '0.875rem' }}>3,892</td>
-                  <td style={{ padding: '0.75rem' }}>
-                    <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.75rem' }}>
-                      ⏳ Processing
-                    </span>
-                  </td>
-                  <td style={{ padding: '0.75rem' }}>
-                    <button style={{ color: '#3b82f6', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.875rem' }}>
-                      View Progress
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div style={{ backgroundColor: 'white', borderRadius: '0.5rem', padding: '2rem', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: '600', color: '#111827', marginBottom: '1rem' }}>🚀 Quick Actions</h2>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
-            <button style={{
-              padding: '1rem',
-              backgroundColor: '#3b82f6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: '500'
-            }}>
-              📥 Import Sample Data
-            </button>
-            
-            <button style={{
-              padding: '1rem',
-              backgroundColor: '#10b981',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: '500'
-            }}>
-              📊 View Data Summary
-            </button>
-            
-            <button style={{
-              padding: '1rem',
-              backgroundColor: '#f59e0b',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: '500'
-            }}>
-              🔄 Sync External Data
-            </button>
-            
-            <button style={{
-              padding: '1rem',
-              backgroundColor: '#8b5cf6',
-              color: 'white',
-              border: 'none',
-              borderRadius: '0.375rem',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: '500'
-            }}>
-              📋 Download Template
-            </button>
-          </div>
         </div>
       </main>
     </div>
   )
 }
-

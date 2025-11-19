@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const includeInactive = searchParams.get('includeInactive') === 'true'
     const environment = searchParams.get('environment')
+    const projectId = searchParams.get('project_id')
     const q = searchParams.get('q')
 
     const pool = await getDatabasePool()
@@ -23,6 +24,11 @@ export async function GET(request: NextRequest) {
       params.push(environment)
     }
 
+    if (projectId) {
+      conditions.push(`project_id = $${idx++}`)
+      params.push(projectId)
+    }
+
     if (q) {
       conditions.push(`(name ILIKE $${idx} OR client_code ILIKE $${idx})`)
       params.push(`%${q}%`)
@@ -32,7 +38,7 @@ export async function GET(request: NextRequest) {
     const whereClause = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
 
     const result = await pool.query(
-      `SELECT id, name, client_code, environment, email, is_active, created_at, updated_at
+      `SELECT id, name, client_code, environment, email, is_active, project_id, created_at, updated_at
        FROM clients
        ${whereClause}
        ORDER BY name ASC`
@@ -71,20 +77,23 @@ export async function POST(request: NextRequest) {
       environment = /-uat$/i.test(client_code) ? 'uat' : 'prod'
     }
 
+    const projectId: string | null = body.project_id ?? null
+
     const pool = await getDatabasePool()
 
     const result = await pool.query(
-      `INSERT INTO clients (name, client_code, environment, email, is_active)
-       VALUES ($1, $2, $3, $4, true)
+      `INSERT INTO clients (name, client_code, environment, email, is_active, project_id)
+       VALUES ($1, $2, $3, $4, true, $5)
        ON CONFLICT (client_code)
        DO UPDATE SET
          name = EXCLUDED.name,
          environment = EXCLUDED.environment,
          email = COALESCE(EXCLUDED.email, clients.email),
+         project_id = COALESCE(EXCLUDED.project_id, clients.project_id),
          is_active = true,
          updated_at = NOW()
-       RETURNING id, name, client_code, environment, email, is_active, created_at, updated_at`,
-      [finalName, client_code, environment, email]
+       RETURNING id, name, client_code, environment, email, is_active, project_id, created_at, updated_at`,
+      [finalName, client_code, environment, email, projectId]
     )
 
     return NextResponse.json({ success: true, client: result.rows[0] }, { status: 201 })

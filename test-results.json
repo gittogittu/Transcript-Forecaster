@@ -1,0 +1,162 @@
+{
+  "passed": 1,
+  "failed": 12,
+  "skipped": 2,
+  "tests": [
+    {
+      "name": "Application Health Check",
+      "status": "FAIL",
+      "message": "Unhealthy: undefined"
+    },
+    {
+      "name": "Database Health Check",
+      "status": "FAIL",
+      "message": "Database not responding"
+    },
+    {
+      "name": "Create Client: ASU-prod",
+      "status": "FAIL",
+      "message": "Cannot read properties of undefined (reading 'error')"
+    },
+    {
+      "name": "Create Client: MIT-prod",
+      "status": "FAIL",
+      "message": "Cannot read properties of undefined (reading 'error')"
+    },
+    {
+      "name": "Create Client: Stanford-prod",
+      "status": "FAIL",
+      "message": "Cannot read properties of undefined (reading 'error')"
+    },
+    {
+      "name": "Create Client: UCLA-prod",
+      "status": "FAIL",
+      "message": "Cannot read properties of undefined (reading 'error')"
+    },
+    {
+      "name": "Create Client: Berkeley-uat",
+      "status": "FAIL",
+      "message": "Cannot read properties of undefined (reading 'error')"
+    },
+    {
+      "name": "List Clients",
+      "status": "FAIL",
+      "message": "No clients returned"
+    },
+    {
+      "name": "Search Clients (q=ASU)",
+      "status": "FAIL",
+      "message": "Search failed"
+    },
+    {
+      "name": "Filter Clients (environment=prod)",
+      "status": "FAIL",
+      "message": "Filter failed"
+    },
+    {
+      "name": "Test Data File Exists",
+      "status": "PASS",
+      "message": "Path: C:\\Users\\aditya\\Documents\\Transcript-Forecaster\\test-data-comprehensive.csv"
+    },
+    {
+      "name": "Data Import via API",
+      "status": "INFO",
+      "message": "Use the UI at /data/import to upload test-data-comprehensive.csv"
+    },
+    {
+      "name": "Data Import Features to Test",
+      "status": "INFO",
+      "message": "- Clean Data option\n   - Generate Embeddings option\n   - Train Models option\n   - Detect Anomalies option"
+    },
+    {
+      "name": "Generate ML Forecast",
+      "status": "SKIP",
+      "message": "No clients available"
+    },
+    {
+      "name": "Anomaly Detection",
+      "status": "SKIP",
+      "message": "No clients available"
+    },
+    {
+      "name": "Business Insights Generation",
+      "status": "FAIL",
+      "message": "Cannot read properties of undefined (reading 'error')"
+    },
+    {
+      "name": "Comprehensive Analytics Data",
+      "status": "FAIL",
+      "message": "Cannot read properties of undefined (reading 'error')"
+    },
+    {
+      "name": "Dashboard: /analytics/dashboard",
+      "status": "INFO",
+      "message": "Access via browser: http://localhost:3000/analytics/dashboard"
+    },
+    {
+      "name": "Dashboard: /analytics/comprehensive-dashboard",
+      "status": "INFO",
+      "message": "Access via browser: http://localhost:3000/analytics/comprehensive-dashboard"
+    },
+    {
+      "name": "Dashboard: /analytics/interactive-dashboard",
+      "status": "INFO",
+      "message": "Access via browser: http://localhost:3000/analytics/interactive-dashboard"
+    },
+    {
+      "name": "Dashboard: /demo/dashboard",
+      "status": "INFO",
+      "message": "Access via browser: http://localhost:3000/demo/dashboard"
+    },
+    {
+      "name": "AI-Powered Recommendations",
+      "status": "INFO",
+      "message": "Verify in dashboard that recommendations include:"
+    },
+    {
+      "name": "Expected Recommendations",
+      "status": "INFO",
+      "message": "- Staffing optimization suggestions\n   - Capacity planning alerts\n   - Growth trend predictions\n   - Resource allocation advice"
+    },
+    {
+      "name": "Vector Embeddings",
+      "status": "INFO",
+      "message": "Test by importing data with \"Generate Embeddings\" enabled"
+    },
+    {
+      "name": "Similarity Search",
+      "status": "INFO",
+      "message": "Check for similar patterns across clients"
+    },
+    {
+      "name": "Multi-Algorithm Comparison",
+      "status": "INFO",
+      "message": "All 10+ algorithms should be tested:"
+    },
+    {
+      "name": "Statistical Models",
+      "status": "INFO",
+      "message": "- ARIMA/SARIMA\n   - Prophet\n   - Exponential Smoothing\n   - Kalman Filters"
+    },
+    {
+      "name": "ML Models",
+      "status": "INFO",
+      "message": "- Random Forest\n   - XGBoost/LightGBM\n   - SVR"
+    },
+    {
+      "name": "Deep Learning Models",
+      "status": "INFO",
+      "message": "- LSTM\n   - GRU\n   - Transformers\n   - CNN-LSTM Hybrid"
+    },
+    {
+      "name": "Automated Feature Engineering",
+      "status": "INFO",
+      "message": "50+ features should be generated:"
+    },
+    {
+      "name": "Feature Categories",
+      "status": "INFO",
+      "message": "- Temporal (hour, day, month, holidays)\n   - Statistical (rolling averages, std dev)\n   - Domain-specific (AHT, seasonality)\n   - Advanced (Fourier, wavelets, PCA)"
+    }
+  ]
+}

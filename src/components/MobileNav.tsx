@@ -13,7 +13,7 @@ export function MobileNav() {
       <div className="md:hidden flex items-center">
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="text-gray-700 hover:text-indigo-600 p-2"
+          className="text-gray-700 hover:text-blue-600 p-2"
         >
           {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
         </button>
@@ -23,17 +23,33 @@ export function MobileNav() {
       {mobileMenuOpen && (
         <div className="md:hidden bg-white border-t absolute top-16 left-0 right-0 z-40">
           <div className="px-2 pt-2 pb-3 space-y-1">
-            <Link href="/analytics/dashboard" className="block px-3 py-2 text-gray-700 hover:text-indigo-600">
-              Analytics
+            <Link
+              href="/"
+              className="block px-3 py-2 text-gray-700 hover:text-blue-600"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Home
             </Link>
-            <Link href="/demo/dashboard" className="block px-3 py-2 text-gray-700 hover:text-indigo-600">
-              Demo
+            <Link
+              href="/dashboard"
+              className="block px-3 py-2 text-gray-700 hover:text-blue-600"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Dashboard
             </Link>
-            <Link href="/api/system/health" className="block px-3 py-2 text-gray-700 hover:text-indigo-600">
-              System Health
+            <Link
+              href="/clients"
+              className="block px-3 py-2 text-gray-700 hover:text-blue-600"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Clients
             </Link>
-            <Link href="/api/system/monitoring" className="block px-3 py-2 text-gray-700 hover:text-indigo-600">
-              Monitoring
+            <Link
+              href="/data/import"
+              className="block px-3 py-2 text-gray-700 hover:text-blue-600"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Import Data
             </Link>
           </div>
         </div>
